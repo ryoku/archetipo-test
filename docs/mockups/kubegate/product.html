@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — Platform API</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ─── product detail specifics ─── */
+.product-hero {
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.hero-icon {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, #00c3aa, #0077cc);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 14px;
+  color: white; flex-shrink: 0;
+}
+.hero-info { flex: 1; }
+.hero-name { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+.hero-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; flex-wrap: wrap; }
+
+/* tag convention note */
+.conv-note {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 2px 8px; border-radius: 4px;
+  background: var(--env-prod-bg); border: 1px solid var(--env-prod-brd);
+  color: var(--env-prod);
+}
+
+/* matrix section */
+.section-title {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* history mini-log */
+.hist-wrap {
+  display: flex; flex-direction: column;
+}
+.hist-empty {
+  font-size: 12px; color: var(--text-muted);
+  text-align: center; padding: 24px 0;
+}
+
+/* team tab */
+.member-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.member-row:last-child { border-bottom: none; }
+.member-role {
+  margin-left: auto;
+  font-size: 11px; font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+/* modal deploy cell info */
+.dc-from-to {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; gap: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.from-to-col { display: flex; flex-direction: column; gap: 2px; }
+.from-to-key { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.from-to-val { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.from-to-env { font-size: 10px; color: var(--text-secondary); }
+
+/* spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(0,195,170,.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  display: none;
+}
+.btn.loading .spinner { display: inline-block; }
+.btn.loading .btn-text { display: none; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="admin.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/><path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+      <a href="admin.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin Dashboard
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Editor — platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="page-top">
+      <div>
+        <div class="breadcrumb">
+          <a href="index.html" class="bc-link">Products</a>
+          <span class="bc-sep">/</span>
+          <span>platform-api</span>
+        </div>
+        <div class="product-hero">
+          <div class="hero-icon">PL</div>
+          <div class="hero-info">
+            <div class="hero-name">Platform API</div>
+            <div class="hero-meta">
+              <span class="tag-chip">platform-api</span>
+              <span class="badge badge-default">Platform Team</span>
+              <span class="conv-note">
+                <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="4.5" cy="4.5" r="3.5"/><path d="M4.5 3v2.5"/><circle cx="4.5" cy="6.5" r=".4" fill="currentColor"/></svg>
+                prod: v[0-9]+\.[0-9]+\.[0-9]+
+              </span>
+              <div class="flex items-center gap-2 ml-auto" style="margin-left:0">
+                <div class="dot dot-ok"></div>
+                <span class="text-xs text-muted">All synced</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 items-center" style="flex-shrink:0;align-self:flex-start;margin-top:28px;">
+        <button class="btn btn-outline btn-sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"/><path d="M6 3.5V6l2 1.5"/></svg>
+          History
+        </button>
+        <button class="btn btn-primary" id="openDeployBtn">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.5 1L11 5.5H8V11H5V5.5H2L6.5 1Z"/></svg>
+          Deploy
+        </button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Tabs -->
+      <div class="tabs mb-4">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="history">History</button>
+        <button class="tab-btn" data-tab="team">Team</button>
+      </div>
+
+      <!-- ── OVERVIEW TAB ── -->
+      <div id="tab-overview" class="tab-panel active">
+
+        <!-- Deployment Matrix -->
+        <div class="section-title">Deployment Matrix</div>
+        <div class="card" style="padding:16px 14px;margin-bottom:20px;">
+          <div class="matrix-wrap">
+            <table class="matrix">
+              <thead>
+                <tr>
+                  <th class="component-th">Component</th>
+                  <th>
+                    <div class="env-header">
+                      <div class="env-dot dev"></div>
+                      <span>development</span>
+                    </div>
+                  </th>
+                  <th>
+                    <div class="env-header">
+                      <div class="env-dot intg"></div>
+                      <span>integration</span>
+                    </div>
+                  </th>
+                  <th>
+                    <div class="env-header">
+                      <div class="env-dot prod"></div>
+                      <span>production</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- api component -->
+                <tr>
+                  <td class="component-td">
+                    <div class="comp-name">api</div>
+                    <div class="comp-path">europe-west1-docker.pkg.dev/acme/platform/api</div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-dev" onclick="openDeploy('api','development','v2.2.0-rc.3','dev')">
+                      <div class="dc-tag">v2.2.0-rc.3</div>
+                      <div class="dc-time">today 09:14</div>
+                      <div class="dc-actor">sara.b</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-intg" onclick="openDeploy('api','integration','v2.1.4','intg')">
+                      <div class="dc-tag">v2.1.4</div>
+                      <div class="dc-time">yesterday 16:30</div>
+                      <div class="dc-actor">marco.a</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-prod" onclick="openDeploy('api','production','v2.1.3','prod')">
+                      <div class="dc-tag">v2.1.3</div>
+                      <div class="dc-time">3 days ago</div>
+                      <div class="dc-actor">sara.b</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                </tr>
+                <!-- worker component -->
+                <tr>
+                  <td class="component-td">
+                    <div class="comp-name">worker</div>
+                    <div class="comp-path">europe-west1-docker.pkg.dev/acme/platform/worker</div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-dev" onclick="openDeploy('worker','development','v2.2.0-rc.2','dev')">
+                      <div class="dc-tag">v2.2.0-rc.2</div>
+                      <div class="dc-time">today 08:50</div>
+                      <div class="dc-actor">dev.ci</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-intg" onclick="openDeploy('worker','integration','v2.1.4','intg')">
+                      <div class="dc-tag">v2.1.4</div>
+                      <div class="dc-time">yesterday 16:32</div>
+                      <div class="dc-actor">marco.a</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-prod" onclick="openDeploy('worker','production','v2.1.3','prod')">
+                      <div class="dc-tag">v2.1.3</div>
+                      <div class="dc-time">3 days ago</div>
+                      <div class="dc-actor">sara.b</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                </tr>
+                <!-- frontend component -->
+                <tr>
+                  <td class="component-td">
+                    <div class="comp-name">frontend</div>
+                    <div class="comp-path">europe-west1-docker.pkg.dev/acme/platform/frontend</div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-dev" onclick="openDeploy('frontend','development','v2.2.0-rc.1','dev')">
+                      <div class="dc-tag">v2.2.0-rc.1</div>
+                      <div class="dc-time">2 hours ago</div>
+                      <div class="dc-actor">marco.a</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-intg" onclick="openDeploy('frontend','integration','v2.1.4','intg')">
+                      <div class="dc-tag">v2.1.4</div>
+                      <div class="dc-time">yesterday 16:35</div>
+                      <div class="dc-actor">marco.a</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                  <td class="deploy-cell-td">
+                    <div class="deploy-cell env-prod" onclick="openDeploy('frontend','production','v2.1.2','prod')">
+                      <div class="dc-tag">v2.1.2</div>
+                      <div class="dc-time">5 days ago</div>
+                      <div class="dc-actor">sara.b</div>
+                      <span class="dc-arrow">↗ deploy</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent deploys mini-log -->
+        <div class="section-title">Recent Activity</div>
+        <div class="card" style="padding:6px 8px;">
+          <div class="hist-wrap">
+
+            <div class="hist-row">
+              <div class="avatar" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div>
+              <div class="hist-detail">
+                <div class="hist-line"><strong>marco.a</strong> deployed <span class="text-mono" style="color:var(--text-code)">v2.2.0-rc.1</span> → <span>frontend / development</span></div>
+                <div class="hist-meta">commit <span class="text-mono" style="font-size:10px;">a3f12b9</span></div>
+              </div>
+              <div class="hist-time">2 hr ago</div>
+            </div>
+
+            <div class="hist-row">
+              <div class="avatar" style="background:linear-gradient(135deg,#f09030,#e04060);">SB</div>
+              <div class="hist-detail">
+                <div class="hist-line"><strong>sara.b</strong> deployed <span class="text-mono" style="color:var(--text-code)">v2.2.0-rc.3</span> → <span>api / development</span></div>
+                <div class="hist-meta">commit <span class="text-mono" style="font-size:10px;">8d0c44e</span></div>
+              </div>
+              <div class="hist-time">3 hr ago</div>
+            </div>
+
+            <div class="hist-row">
+              <div class="avatar" style="background:linear-gradient(135deg,#40c060,#0080a0);">CI</div>
+              <div class="hist-detail">
+                <div class="hist-line"><strong>dev.ci</strong> deployed <span class="text-mono" style="color:var(--text-code)">v2.2.0-rc.2</span> → <span>worker / development</span></div>
+                <div class="hist-meta">commit <span class="text-mono" style="font-size:10px;">f1a9b32</span></div>
+              </div>
+              <div class="hist-time">4 hr ago</div>
+            </div>
+
+            <div class="hist-row">
+              <div class="avatar" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div>
+              <div class="hist-detail">
+                <div class="hist-line"><strong>marco.a</strong> deployed <span class="text-mono" style="color:var(--text-code)">v2.1.4</span> → <span>api / integration</span></div>
+                <div class="hist-meta">commit <span class="text-mono" style="font-size:10px;">2c8f771</span></div>
+              </div>
+              <div class="hist-time">yesterday</div>
+            </div>
+
+          </div>
+        </div>
+      </div><!-- /overview -->
+
+      <!-- ── HISTORY TAB ── -->
+      <div id="tab-history" class="tab-panel">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Actor</th>
+                <th>Component</th>
+                <th>Environment</th>
+                <th>Tag</th>
+                <th>Deployed</th>
+                <th>Commit</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="flex items-center gap-2"><div class="avatar" style="width:20px;height:20px;font-size:8px;background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div> marco.a</div></td>
+                <td>frontend</td>
+                <td><span class="badge badge-dev">dev</span></td>
+                <td><span class="tag-chip">v2.2.0-rc.1</span></td>
+                <td class="text-xs text-muted">today 09:22</td>
+                <td><span class="text-mono text-xs" style="color:var(--text-secondary);">a3f12b9</span></td>
+                <td><div class="flex items-center gap-2"><div class="dot dot-ok"></div><span class="text-xs">synced</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="flex items-center gap-2"><div class="avatar" style="width:20px;height:20px;font-size:8px;background:linear-gradient(135deg,#f09030,#e04060);">SB</div> sara.b</div></td>
+                <td>api</td>
+                <td><span class="badge badge-dev">dev</span></td>
+                <td><span class="tag-chip">v2.2.0-rc.3</span></td>
+                <td class="text-xs text-muted">today 09:14</td>
+                <td><span class="text-mono text-xs" style="color:var(--text-secondary);">8d0c44e</span></td>
+                <td><div class="flex items-center gap-2"><div class="dot dot-ok"></div><span class="text-xs">synced</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="flex items-center gap-2"><div class="avatar" style="width:20px;height:20px;font-size:8px;background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div> marco.a</div></td>
+                <td>api</td>
+                <td><span class="badge badge-intg">integration</span></td>
+                <td><span class="tag-chip">v2.1.4</span></td>
+                <td class="text-xs text-muted">yesterday 16:30</td>
+                <td><span class="text-mono text-xs" style="color:var(--text-secondary);">2c8f771</span></td>
+                <td><div class="flex items-center gap-2"><div class="dot dot-ok"></div><span class="text-xs">synced</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="flex items-center gap-2"><div class="avatar" style="width:20px;height:20px;font-size:8px;background:linear-gradient(135deg,#f09030,#e04060);">SB</div> sara.b</div></td>
+                <td>api</td>
+                <td><span class="badge badge-prod">production</span></td>
+                <td><span class="tag-chip">v2.1.3</span></td>
+                <td class="text-xs text-muted">3 days ago</td>
+                <td><span class="text-mono text-xs" style="color:var(--text-secondary);">c91e0d3</span></td>
+                <td><div class="flex items-center gap-2"><div class="dot dot-ok"></div><span class="text-xs">synced</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div><!-- /history -->
+
+      <!-- ── TEAM TAB ── -->
+      <div id="tab-team" class="tab-panel">
+        <div class="card" style="max-width:500px;">
+          <div class="card-header">
+            <span class="card-label">Team members</span>
+            <button class="btn btn-outline btn-sm">Add member</button>
+          </div>
+
+          <div class="member-row">
+            <div class="avatar avatar-lg" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div>
+            <div>
+              <div style="font-size:13px;font-weight:500;">Marco Andreoli</div>
+              <div class="text-xs text-muted">marco.andreoli@acme.com</div>
+            </div>
+            <div class="member-role">editor</div>
+          </div>
+
+          <div class="member-row">
+            <div class="avatar avatar-lg" style="background:linear-gradient(135deg,#7b6cf0,#c060f0);">LP</div>
+            <div>
+              <div style="font-size:13px;font-weight:500;">Lucia Parisi</div>
+              <div class="text-xs text-muted">lucia.parisi@acme.com</div>
+            </div>
+            <div class="member-role">viewer</div>
+          </div>
+
+          <div class="member-row">
+            <div class="avatar avatar-lg" style="background:linear-gradient(135deg,#40c060,#0080a0);">FT</div>
+            <div>
+              <div style="font-size:13px;font-weight:500;">Fabio Trentini</div>
+              <div class="text-xs text-muted">fabio.trentini@acme.com</div>
+            </div>
+            <div class="member-role">viewer</div>
+          </div>
+        </div>
+      </div><!-- /team -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- DEPLOY MODAL                                               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="backdrop hidden" id="deployBackdrop" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modalTitle">Deploy to development</div>
+        <div class="text-xs text-muted mt-1">platform-api / <span id="modalComponent">api</span></div>
+      </div>
+      <button class="modal-close" onclick="closeDeployModal()">×</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Production warning (shown only for prod) -->
+      <div class="alert alert-warn hidden" id="prodWarning">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px"><path d="M7 1L13 12H1L7 1Z"/><path d="M7 5.5v3M7 9.5v.5"/></svg>
+        <span>Production deployment. Only tags matching <strong class="text-mono">v[0-9]+\.[0-9]+\.[0-9]+</strong> are allowed. Release candidates and latest tags are rejected.</span>
+      </div>
+
+      <!-- Current → New state -->
+      <div class="dc-from-to">
+        <div class="from-to-col">
+          <div class="from-to-key">Current</div>
+          <div class="from-to-val" id="fromTag">v2.1.3</div>
+          <div class="from-to-env">production</div>
+        </div>
+        <div style="color:var(--text-muted);font-size:18px;text-align:center;">→</div>
+        <div class="from-to-col" style="text-align:right;">
+          <div class="from-to-key">Selected</div>
+          <div class="from-to-val text-accent" id="toTag">—</div>
+          <div class="from-to-env" id="toEnvLabel">not selected</div>
+        </div>
+      </div>
+
+      <!-- Tag filter -->
+      <div class="field">
+        <div class="input-wrap">
+          <svg class="input-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4"/><path d="M10 10l2.5 2.5"/></svg>
+          <input type="text" class="input has-icon" id="tagFilter" placeholder="Filter tags…" oninput="filterTags(this.value)">
+        </div>
+      </div>
+
+      <!-- Tag list -->
+      <div class="tag-list" id="tagList">
+        <div class="tag-row" onclick="selectTag('v2.2.0')">
+          <span class="tag-name">v2.2.0</span>
+          <span class="tag-date">today 07:30 · sha256:9f12…</span>
+          <svg class="tag-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l4 4L12 4"/></svg>
+        </div>
+        <div class="tag-row" onclick="selectTag('v2.1.5')">
+          <span class="tag-name">v2.1.5</span>
+          <span class="tag-date">yesterday 18:10</span>
+          <svg class="tag-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l4 4L12 4"/></svg>
+        </div>
+        <div class="tag-row" onclick="selectTag('v2.1.4')">
+          <span class="tag-name">v2.1.4</span>
+          <span class="tag-date">2 days ago</span>
+          <svg class="tag-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l4 4L12 4"/></svg>
+        </div>
+        <div class="tag-row" onclick="selectTag('v2.1.3')">
+          <span class="tag-name">v2.1.3</span>
+          <span class="tag-date">4 days ago</span>
+          <svg class="tag-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l4 4L12 4"/></svg>
+        </div>
+        <div class="tag-row" onclick="selectTag('v2.1.2')">
+          <span class="tag-name">v2.1.2</span>
+          <span class="tag-date">8 days ago</span>
+          <svg class="tag-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l4 4L12 4"/></svg>
+        </div>
+        <div class="tag-row" onclick="selectTag('v2.1.1')">
+          <span class="tag-name">v2.1.1</span>
+          <span class="tag-date">12 days ago</span>
+          <svg class="tag-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l4 4L12 4"/></svg>
+        </div>
+      </div>
+
+      <!-- Convention error (hidden) -->
+      <div class="alert alert-err hidden mt-2" id="convError">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px"><circle cx="7" cy="7" r="6"/><path d="M7 4.5V7.5M7 9v.5"/></svg>
+        <span>Tag <strong class="text-mono" id="rejectedTag"></strong> does not match production convention <strong class="text-mono">v[0-9]+\.[0-9]+\.[0-9]+</strong>. Deployment rejected.</span>
+      </div>
+
+    </div>
+
+    <div class="modal-foot">
+      <div class="text-xs text-muted">
+        Pushes to <span class="text-mono" style="color:var(--text-secondary)">gitops-repo / overlays/platform-api/<span id="footEnv">production</span></span>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost" onclick="closeDeployModal()">Cancel</button>
+        <button class="btn btn-primary" id="confirmBtn" disabled onclick="confirmDeploy()">
+          <div class="spinner" id="deploySpinner"></div>
+          <span class="btn-text">Confirm deploy</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="app.js"></script>
+<script>
+// ─── Tab switching ───────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ─── Deploy modal ────────────────────────────────────────────
+let _env = 'dev', _selectedTag = null;
+
+const ALL_TAGS = [
+  { tag: 'v2.2.0-rc.3', date: 'today 09:14', rc: true },
+  { tag: 'v2.2.0-rc.2', date: 'today 08:50', rc: true },
+  { tag: 'v2.2.0-rc.1', date: 'today 07:30', rc: true },
+  { tag: 'v2.2.0',      date: 'today 07:30',  rc: false },
+  { tag: 'v2.1.5',      date: 'yesterday 18:10', rc: false },
+  { tag: 'v2.1.4',      date: '2 days ago',  rc: false },
+  { tag: 'v2.1.3',      date: '4 days ago',  rc: false },
+  { tag: 'v2.1.2',      date: '8 days ago',  rc: false },
+  { tag: 'v2.1.1',      date: '12 days ago', rc: false },
+];
+
+function openDeploy(component, env, currentTag, envClass) {
+  _env = envClass;
+  _selectedTag = null;
+  document.getElementById('deployBackdrop').classList.remove('hidden');
+  document.getElementById('modalTitle').textContent = 'Deploy to ' + env;
+  document.getElementById('modalComponent').textContent = component;
+  document.getElementById('fromTag').textContent = currentTag;
+  document.getElementById('toTag').textContent = '—';
+  document.getElementById('toTag').style.color = 'var(--text-muted)';
+  document.getElementById('toEnvLabel').textContent = 'not selected';
+  document.getElementById('footEnv').textContent = env;
+  document.getElementById('confirmBtn').disabled = true;
+  document.getElementById('convError').classList.add('hidden');
+  document.getElementById('tagFilter').value = '';
+  const prodWarn = document.getElementById('prodWarning');
+  if (envClass === 'prod') {
+    prodWarn.classList.remove('hidden');
+  } else {
+    prodWarn.classList.add('hidden');
+  }
+  renderTagList('', envClass);
+}
+
+document.getElementById('openDeployBtn').addEventListener('click', () => {
+  openDeploy('api', 'production', 'v2.1.3', 'prod');
+});
+
+function renderTagList(filter, envClass) {
+  const list = document.getElementById('tagList');
+  const tags = ALL_TAGS.filter(t =>
+    (!filter || t.tag.includes(filter))
+  );
+  list.innerHTML = tags.map(t => `
+    <div class="tag-row" onclick="selectTag('${t.tag}')">
+      <span class="tag-name">${t.tag}</span>
+      <span class="tag-date">${t.date}</span>
+      <svg class="tag-check" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7l4 4L12 4"/></svg>
+    </div>
+  `).join('');
+}
+
+function filterTags(v) {
+  renderTagList(v, _env);
+}
+
+function selectTag(tag) {
+  _selectedTag = tag;
+  document.querySelectorAll('#tagList .tag-row').forEach(r => r.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  document.getElementById('toTag').textContent = tag;
+  document.getElementById('toTag').style.color = 'var(--accent)';
+  document.getElementById('toEnvLabel').textContent = 'ready to deploy';
+  document.getElementById('convError').classList.add('hidden');
+  document.getElementById('confirmBtn').disabled = false;
+
+  // validate production convention
+  if (_env === 'prod') {
+    const valid = /^v[0-9]+\.[0-9]+\.[0-9]+$/.test(tag);
+    if (!valid) {
+      document.getElementById('rejectedTag').textContent = tag;
+      document.getElementById('convError').classList.remove('hidden');
+      document.getElementById('confirmBtn').disabled = true;
+    }
+  }
+}
+
+function confirmDeploy() {
+  if (!_selectedTag) return;
+  const btn = document.getElementById('confirmBtn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+  setTimeout(() => {
+    closeDeployModal();
+    showToast('Deployed ' + _selectedTag + ' — commit ' + Math.random().toString(16).slice(2,9));
+  }, 1400);
+}
+
+function closeDeployModal() {
+  document.getElementById('deployBackdrop').classList.add('hidden');
+  document.getElementById('confirmBtn').classList.remove('loading');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('deployBackdrop')) closeDeployModal();
+}
+
+function showToast(msg) {
+  const stack = document.getElementById('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast toast-ok';
+  t.innerHTML = `<div class="dot dot-ok"></div><div><div class="toast-msg">${msg}</div></div>`;
+  stack.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+</script>
+</body>
+</html>
