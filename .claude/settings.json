@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(archetipo config *)",
+      "Bash(archetipo spec *)"
+    ]
+  }
+}

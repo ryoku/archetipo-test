@@ -1,25 +1,40 @@
 connector: github
-
 # Shared paths — used by every connector.
 paths:
-  prd: docs/PRD.md
-  mockups: docs/mockups/
-  test_results: docs/test-results/
-
+    prd: docs/PRD.md
+    mockups: docs/mockups/
+    test_results: docs/test-results/
 workflow:
-  statuses:
-    todo: TODO
-    planned: PLANNED
-    in_progress: IN PROGRESS
-    review: REVIEW
-    done: DONE        # transition to DONE is manual — no skill moves a spec to this status automatically
-
+    statuses:
+        todo: TODO
+        planned: PLANNED
+        in_progress: IN PROGRESS
+        review: REVIEW
+        done: DONE # transition to DONE is manual — no skill moves a spec to this status automatically
 # Used only when connector == file
 file:
-  backlog: .archetipo/backlog.yaml
-  planning: .archetipo/plans/
-
+    backlog: .archetipo/backlog.yaml
+    planning: .archetipo/plans/
 # Used only when connector == github
 github:
-  # owner: auto-detected from repo
-  # project_number: auto-detected from repo
+    owner: ryoku
+    project_number: 1
+    project_node_id: PVT_kwHOACwmOs4BZRIC
+    project_url: https://github.com/users/ryoku/projects/1
+    fields:
+        status_field_id: PVTSSF_lAHOACwmOs4BZRICzhUQ_nw
+        status_options:
+            DONE: 370cc42b
+            IN PROGRESS: a8d484c0
+            PLANNED: 79a81d1a
+            REVIEW: "46111434"
+            TODO: bbd2e843
+        priority_field_id: PVTSSF_lAHOACwmOs4BZRICzhUQ_pQ
+        priority_options:
+            HIGH: 6182575e
+            LOW: 34762c12
+            MEDIUM: abe02cc7
+        points_field_id: PVTF_lAHOACwmOs4BZRICzhUQ_pU
+
+# owner: auto-detected from repo
+# project_number: auto-detected from repo

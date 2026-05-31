@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — Admin Dashboard</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.activity-feed {
+  display: flex; flex-direction: column;
+}
+
+/* Large stat with accent bar */
+.stat-tile.accent {
+  border-color: var(--border-accent);
+  position: relative; overflow: hidden;
+}
+.stat-tile.accent::after {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+
+.stat-tile.warn-tile {
+  border-color: var(--env-prod-brd);
+  position: relative; overflow: hidden;
+}
+.stat-tile.warn-tile::after {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--env-prod);
+}
+
+/* Grid layout */
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+}
+
+.compact-hist {
+  display: flex; flex-direction: column; gap: 0;
+}
+.cht-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 12px;
+}
+.cht-row:last-child { border-bottom: none; }
+.cht-dot { margin-top: 4px; flex-shrink: 0; }
+.cht-msg { flex: 1; color: var(--text-secondary); }
+.cht-msg strong { color: var(--text-primary); }
+.cht-msg .mono { font-family: var(--font-mono); font-size: 11px; color: var(--text-code); }
+.cht-time { font-size: 10px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+
+/* Product name cell */
+.pname-cell { display: flex; align-items: center; gap: 10px; }
+.p-icon-sm {
+  width: 28px; height: 28px;
+  border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  color: var(--bg-base);
+}
+.p-icon-sm.a { background: linear-gradient(135deg, #00c3aa, #0077cc); }
+.p-icon-sm.b { background: linear-gradient(135deg, #7b6cf0, #c060f0); }
+.p-icon-sm.c { background: linear-gradient(135deg, #f09030, #e04060); }
+.p-icon-sm.d { background: linear-gradient(135deg, #40c060, #0080a0); }
+
+/* Sort indicator */
+.sort-th {
+  display: flex; align-items: center; gap: 4px; cursor: pointer;
+}
+.sort-th:hover { color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="index.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="admin.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/><path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+      <a href="admin.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin Dashboard
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="2"/><path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.5 3.5l.7.7M11.8 11.8l.7.7M3.5 12.5l.7-.7M11.8 4.2l.7-.7"/>
+        </svg>
+        Settings
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#f09030,#e04060);">SB</div>
+        <div>
+          <div class="user-name">Sara Bianchi</div>
+          <div class="user-role flex items-center gap-2" style="display:flex;align-items:center;gap:4px;">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M4 .5L7 2v3C7 6.5 5.5 7.5 4 8 2.5 7.5 1 6.5 1 5V2L4 .5Z" fill="#f0c042"/></svg>
+            DevOps Admin
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="page-top">
+      <div>
+        <div class="page-title">Admin Dashboard</div>
+        <div class="page-desc">Platform-wide overview — all products, environments, and recent activity.</div>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-outline btn-sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="10" height="10" rx="2"/><path d="M1 4.5h10M4.5 1v3.5"/></svg>
+          New product
+        </button>
+        <button class="btn btn-primary btn-sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/><path d="M8.5 8.5l2 2"/></svg>
+          Search users
+        </button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-tile accent">
+          <div class="stat-val">4</div>
+          <div class="stat-key">Total products</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">12</div>
+          <div class="stat-key">Environments</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">9</div>
+          <div class="stat-key">Components</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">18</div>
+          <div class="stat-key">Deployments today</div>
+        </div>
+        <div class="stat-tile warn-tile">
+          <div class="stat-val" style="color:var(--env-prod)">3</div>
+          <div class="stat-key">Production envs</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val" style="color:var(--ok)">100%</div>
+          <div class="stat-key">Flux synced</div>
+        </div>
+      </div>
+
+      <div class="admin-grid">
+
+        <!-- Left: Product table -->
+        <div>
+          <div class="topbar" style="margin-bottom:12px;">
+            <div class="input-wrap" style="max-width:280px;flex:1;">
+              <svg class="input-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4"/><path d="M10 10l2.5 2.5"/></svg>
+              <input type="text" class="input has-icon" placeholder="Search products…">
+            </div>
+            <div class="ml-auto text-xs text-muted">4 products</div>
+          </div>
+
+          <div class="card" style="padding:0;">
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>
+                      <div class="sort-th">Product
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 1v6M1.5 4.5L4 7l2.5-2.5"/></svg>
+                      </div>
+                    </th>
+                    <th>Team</th>
+                    <th style="text-align:center;">Comps</th>
+                    <th style="text-align:center;">Envs</th>
+                    <th>Last deploy</th>
+                    <th>Members</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr onclick="location.href='product.html'">
+                    <td>
+                      <div class="pname-cell">
+                        <div class="p-icon-sm a">PL</div>
+                        <div>
+                          <div style="font-size:13px;font-weight:500;color:var(--text-primary);">Platform API</div>
+                          <div class="text-mono" style="font-size:10px;color:var(--text-muted);">platform-api</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-xs">Platform</td>
+                    <td style="text-align:center;"><span class="tag-chip">3</span></td>
+                    <td style="text-align:center;">
+                      <div class="flex items-center gap-1" style="justify-content:center;">
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-dev);border-radius:50%;"></span>
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-intg);border-radius:50%;"></span>
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-prod);border-radius:50%;"></span>
+                        <span class="text-xs text-muted" style="margin-left:3px;">3</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <div class="dot dot-ok"></div>
+                        <span class="text-xs">2 min ago</span>
+                      </div>
+                    </td>
+                    <td class="text-xs text-secondary">3</td>
+                    <td>
+                      <button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;">Manage</button>
+                    </td>
+                  </tr>
+                  <tr onclick="location.href='product.html'">
+                    <td>
+                      <div class="pname-cell">
+                        <div class="p-icon-sm b">CA</div>
+                        <div>
+                          <div style="font-size:13px;font-weight:500;color:var(--text-primary);">Customer App</div>
+                          <div class="text-mono" style="font-size:10px;color:var(--text-muted);">customer-app</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-xs">Product</td>
+                    <td style="text-align:center;"><span class="tag-chip">2</span></td>
+                    <td style="text-align:center;">
+                      <div class="flex items-center gap-1" style="justify-content:center;">
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-dev);border-radius:50%;"></span>
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-intg);border-radius:50%;"></span>
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-prod);border-radius:50%;"></span>
+                        <span class="text-xs text-muted" style="margin-left:3px;">3</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <div class="dot dot-ok"></div>
+                        <span class="text-xs">1 hr ago</span>
+                      </div>
+                    </td>
+                    <td class="text-xs text-secondary">5</td>
+                    <td>
+                      <button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;">Manage</button>
+                    </td>
+                  </tr>
+                  <tr onclick="location.href='product.html'">
+                    <td>
+                      <div class="pname-cell">
+                        <div class="p-icon-sm c">DS</div>
+                        <div>
+                          <div style="font-size:13px;font-weight:500;color:var(--text-primary);">Data Sync</div>
+                          <div class="text-mono" style="font-size:10px;color:var(--text-muted);">data-sync</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-xs">Data Eng</td>
+                    <td style="text-align:center;"><span class="tag-chip">2</span></td>
+                    <td style="text-align:center;">
+                      <div class="flex items-center gap-1" style="justify-content:center;">
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-dev);border-radius:50%;"></span>
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-intg);border-radius:50%;"></span>
+                        <span class="text-xs text-muted" style="margin-left:3px;">2</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <div class="dot dot-warn"></div>
+                        <span class="text-xs">3 days ago</span>
+                      </div>
+                    </td>
+                    <td class="text-xs text-secondary">2</td>
+                    <td>
+                      <button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;">Manage</button>
+                    </td>
+                  </tr>
+                  <tr onclick="location.href='product.html'">
+                    <td>
+                      <div class="pname-cell">
+                        <div class="p-icon-sm d">NX</div>
+                        <div>
+                          <div style="font-size:13px;font-weight:500;color:var(--text-primary);">Nexus Gateway</div>
+                          <div class="text-mono" style="font-size:10px;color:var(--text-muted);">nexus-gateway</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-xs">Infra</td>
+                    <td style="text-align:center;"><span class="tag-chip">4</span></td>
+                    <td style="text-align:center;">
+                      <div class="flex items-center gap-1" style="justify-content:center;">
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-dev);border-radius:50%;"></span>
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-intg);border-radius:50%;"></span>
+                        <span class="dot" style="width:5px;height:5px;background:var(--env-prod);border-radius:50%;"></span>
+                        <span class="text-xs text-muted" style="margin-left:3px;">3</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <div class="dot dot-ok"></div>
+                        <span class="text-xs">45 min ago</span>
+                      </div>
+                    </td>
+                    <td class="text-xs text-secondary">4</td>
+                    <td>
+                      <button class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;">Manage</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Activity feed -->
+        <div>
+          <div class="section-title" style="margin-bottom:10px;">Live activity</div>
+          <div class="card" style="padding:10px 14px;">
+            <div class="compact-hist">
+
+              <div class="cht-row">
+                <div class="dot dot-ok cht-dot"></div>
+                <div class="cht-msg"><strong>marco.a</strong> deployed <span class="mono">v2.2.0-rc.1</span> → <em>frontend/dev</em></div>
+                <div class="cht-time">2 min</div>
+              </div>
+              <div class="cht-row">
+                <div class="dot dot-ok cht-dot"></div>
+                <div class="cht-msg"><strong>sara.b</strong> deployed <span class="mono">v2.2.0-rc.3</span> → <em>api/dev</em></div>
+                <div class="cht-time">14 min</div>
+              </div>
+              <div class="cht-row">
+                <div class="dot dot-pulse cht-dot"></div>
+                <div class="cht-msg"><strong>dev.ci</strong> deploying <span class="mono">v2.2.0-rc.4</span> → <em>worker/dev</em></div>
+                <div class="cht-time">now</div>
+              </div>
+              <div class="cht-row">
+                <div class="dot dot-ok cht-dot"></div>
+                <div class="cht-msg"><strong>lucia.p</strong> deployed <span class="mono">v1.3.2</span> → <em>customer-app/intg</em></div>
+                <div class="cht-time">45 min</div>
+              </div>
+              <div class="cht-row">
+                <div class="dot dot-err cht-dot"></div>
+                <div class="cht-msg"><strong>fabio.t</strong> failed deploy <span class="mono">rc.4</span> → <em>api/prod</em> — convention</div>
+                <div class="cht-time">1 hr</div>
+              </div>
+              <div class="cht-row">
+                <div class="dot dot-ok cht-dot"></div>
+                <div class="cht-msg"><strong>sara.b</strong> deployed <span class="mono">v1.3.2</span> → <em>nexus-gw/prod</em></div>
+                <div class="cht-time">2 hr</div>
+              </div>
+              <div class="cht-row">
+                <div class="dot dot-ok cht-dot"></div>
+                <div class="cht-msg"><strong>marco.a</strong> deployed <span class="mono">v2.1.4</span> → <em>api/intg</em></div>
+                <div class="cht-time">3 hr</div>
+              </div>
+              <div class="cht-row">
+                <div class="dot dot-warn cht-dot"></div>
+                <div class="cht-msg"><strong>sara.b</strong> added <strong>fabio.t</strong> as viewer to <em>data-sync</em></div>
+                <div class="cht-time">4 hr</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="section-title" style="margin:16px 0 10px;">Convention guard</div>
+          <div class="card" style="padding:14px 16px;">
+            <div class="flex items-center gap-2 mb-4" style="margin-bottom:10px;">
+              <div class="dot dot-ok"></div>
+              <span class="text-xs">Global: <span class="text-mono" style="color:var(--text-code);font-size:11px;">v[0-9]+\.[0-9]+\.[0-9]+</span></span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div class="flex items-center gap-2">
+                <div class="p-icon-sm a" style="width:20px;height:20px;font-size:8px;">PL</div>
+                <span class="text-xs text-secondary">platform-api</span>
+                <span class="text-mono text-xs" style="color:var(--text-muted);margin-left:auto;">global</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="p-icon-sm b" style="width:20px;height:20px;font-size:8px;">CA</div>
+                <span class="text-xs text-secondary">customer-app</span>
+                <span class="text-mono" style="font-size:10px;color:var(--env-prod);margin-left:auto;">release-\d+</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="p-icon-sm c" style="width:20px;height:20px;font-size:8px;">DS</div>
+                <span class="text-xs text-secondary">data-sync</span>
+                <span class="text-mono text-xs" style="color:var(--text-muted);margin-left:auto;">global</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="p-icon-sm d" style="width:20px;height:20px;font-size:8px;">NX</div>
+                <span class="text-xs text-secondary">nexus-gateway</span>
+                <span class="text-mono text-xs" style="color:var(--text-muted);margin-left:auto;">global</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /admin-grid -->
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+<script src="app.js"></script>
+</body>
+</html>
