@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(archetipo config *)",
-      "Bash(archetipo spec *)"
+      "Bash(archetipo spec *)",
+      "Bash(archetipo task *)"
     ]
   }
 }
