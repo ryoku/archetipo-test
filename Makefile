@@ -14,7 +14,7 @@ vet:
 	go vet ./...
 
 clean:
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) web/dist
 
 dev:
 	@[ -f .env ] || { echo "❌ .env not found. Run: cp .env.example .env  (then fill in any overrides)"; false; }
