@@ -1,5 +1,6 @@
 connector: github
 # Shared paths — used by every connector.
+
 paths:
     prd: docs/PRD.md
     mockups: docs/mockups/
@@ -12,10 +13,12 @@ workflow:
         review: REVIEW
         done: DONE # transition to DONE is manual — no skill moves a spec to this status automatically
 # Used only when connector == file
+
 file:
     backlog: .archetipo/backlog.yaml
     planning: .archetipo/plans/
 # Used only when connector == github
+
 github:
     owner: ryoku
     project_number: 1
@@ -37,4 +40,5 @@ github:
         points_field_id: PVTF_lAHOACwmOs4BZRICzhUQ_pU
 
 # owner: auto-detected from repo
+
 # project_number: auto-detected from repo
