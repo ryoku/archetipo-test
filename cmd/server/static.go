@@ -29,7 +29,7 @@ func registerSPAFromFS(r *gin.Engine, distFS fs.FS) {
 		stripped := strings.TrimPrefix(c.Request.URL.Path, "/")
 		if stripped != "" {
 			if f, err := distFS.Open(stripped); err == nil {
-				f.Close()
+				_ = f.Close()
 				fileServer.ServeHTTP(c.Writer, c.Request)
 				return
 			}

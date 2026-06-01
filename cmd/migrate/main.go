@@ -49,7 +49,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialise migration: %v", err)
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	switch *direction {
 	case "up":

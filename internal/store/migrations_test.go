@@ -18,7 +18,7 @@ func newMigrate(t *testing.T, dsn string) *migrate.Migrate {
 	if err != nil {
 		t.Fatalf("migrate.New: %v", err)
 	}
-	t.Cleanup(func() { m.Close() })
+	t.Cleanup(func() { _, _ = m.Close() })
 	return m
 }
 
@@ -40,7 +40,7 @@ func TestMigrations_UpCreatesProductsTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pgx.Connect: %v", err)
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 
 	expectedColumns := []string{"id", "name", "slug", "description", "archived_at", "created_at"}
 	for _, col := range expectedColumns {
@@ -98,7 +98,7 @@ func TestMigrations_DownDropsProductsTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pgx.Connect: %v", err)
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 
 	var exists bool
 	err = conn.QueryRow(context.Background(),
