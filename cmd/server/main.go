@@ -22,10 +22,11 @@ func main() {
 		log.Fatalf("Database migration failed: %v", err)
 	}
 
-	addr := os.Getenv("SERVER_ADDR")
-	if addr == "" {
-		addr = ":8080"
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "8081"
 	}
+	addr := ":" + port
 
 	r := gin.Default()
 	registerSPA(r)
