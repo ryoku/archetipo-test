@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test'
 
-// Demo scenario for US-004: shows the built server binary serving the React app.
+// Demo scenario for US-004: verifies the built React app (dist/) serves routes
+// correctly via `npm run serve` (sirv). The Go binary's embed.FS wiring and
+// SPA-fallback handler are covered by unit tests in cmd/server/static_test.go.
 // Video is recorded for this file only; other e2e tests use the global video:off default.
 test.use({
   video: 'on',
@@ -8,7 +10,7 @@ test.use({
   launchOptions: { slowMo: 350 },
 })
 
-test('demo: make build produces a binary that serves the React app', async ({ page }) => {
+test('demo: built React app serves / and /login from dist/', async ({ page }) => {
   // Start from the root — the entry point described in Demonstrates.
   const response = await page.goto('/')
   expect(response?.status()).toBe(200)
