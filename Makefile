@@ -20,9 +20,9 @@ dev:
 	@[ -f .env ] || { echo "❌ .env not found. Run: cp .env.example .env  (then fill in any overrides)"; false; }
 	docker compose up -d --wait
 	@[ -d tmp/gitops-mock.git ] || (mkdir -p tmp && git init --bare tmp/gitops-mock.git && echo "→ Gitops mock repo initialized at tmp/gitops-mock.git")
-	cd web && npm install --prefer-offline 2>/dev/null; cd ..
-	(cd web && npm run dev) &
-	set -a && . ./.env && set +a && (command -v air >/dev/null 2>&1 && air || go run ./cmd/server)
+	cd web && npm install --prefer-offline
+	@(cd web && npm run dev) & VITE_PID=$$!; trap "kill $$VITE_PID 2>/dev/null" EXIT INT TERM; \
+		set -a && . ./.env && set +a && (command -v air >/dev/null 2>&1 && air || go run ./cmd/server)
 
 dev-stop:
 	docker compose down
