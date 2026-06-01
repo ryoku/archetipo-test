@@ -9,9 +9,7 @@ lerna-debug.log*
 
 node_modules
 .vite/
-dist/*
-!dist/.gitkeep
-!dist/index.html
+dist/
 dist-ssr
 *.local
 
