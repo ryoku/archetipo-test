@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -21,8 +22,18 @@ func main() {
 		log.Fatalf("Database migration failed: %v", err)
 	}
 
-	// TODO: start HTTP server (US-004+)
-	log.Println("Migrations applied. Server starting...")
+	addr := os.Getenv("SERVER_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+
+	r := gin.Default()
+	registerSPA(r)
+
+	log.Printf("Server listening on %s", addr)
+	if err := r.Run(addr); err != nil {
+		log.Fatalf("Server error: %v", err)
+	}
 }
 
 // pgx5DSN converts a standard postgresql:// or postgres:// URL to the pgx5://
