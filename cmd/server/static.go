@@ -29,9 +29,15 @@ func registerSPAFromFS(r *gin.Engine, distFS fs.FS) {
 		stripped := strings.TrimPrefix(c.Request.URL.Path, "/")
 		if stripped != "" {
 			if f, err := distFS.Open(stripped); err == nil {
-				f.Close()
-				fileServer.ServeHTTP(c.Writer, c.Request)
-				return
+				info, statErr := f.Stat()
+				_ = f.Close()
+				// Only serve regular files. Directories would cause http.FileServer to
+				// return a 301 redirect or a listing, both of which leak the internal
+				// asset directory structure.
+				if statErr == nil && !info.IsDir() {
+					fileServer.ServeHTTP(c.Writer, c.Request)
+					return
+				}
 			}
 		}
 
