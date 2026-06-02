@@ -43,6 +43,9 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (*domain.UserIde
 	if err := token.Claims(&claims); err != nil {
 		return nil, fmt.Errorf("extract claims: %w", err)
 	}
+	if claims.Sub == "" {
+		return nil, fmt.Errorf("token missing required sub claim")
+	}
 	return &domain.UserIdentity{
 		Sub:   claims.Sub,
 		Email: claims.Email,

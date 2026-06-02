@@ -135,3 +135,43 @@ func TestVerifier_TamperedSignature(t *testing.T) {
 		t.Fatal("expected error for tampered signature")
 	}
 }
+
+func TestVerifier_WrongIssuer(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := localOIDCServer(t, key)
+
+	v, err := auth.NewVerifier(context.Background(), srv.URL)
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	// Token claims a different issuer than the one the verifier was initialised for.
+	raw := signJWT(t, key, "https://evil.example.com", "user-1", "", "", time.Now().Add(time.Hour))
+	_, err = v.Verify(context.Background(), raw)
+	if err == nil {
+		t.Fatal("expected error for wrong issuer")
+	}
+}
+
+func TestVerifier_EmptySub(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := localOIDCServer(t, key)
+
+	v, err := auth.NewVerifier(context.Background(), srv.URL)
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	// Token with empty sub — must be rejected as the subject is a required claim.
+	raw := signJWT(t, key, srv.URL, "", "user@example.com", "Alice", time.Now().Add(time.Hour))
+	_, err = v.Verify(context.Background(), raw)
+	if err == nil {
+		t.Fatal("expected error for token with empty sub")
+	}
+}
