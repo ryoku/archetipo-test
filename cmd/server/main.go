@@ -23,8 +23,8 @@ func main() {
 
 	issuerURL := os.Getenv("OIDC_ISSUER_URL")
 	if issuerURL == "" {
-		kcURL := os.Getenv("KEYCLOAK_URL")
-		kcRealm := os.Getenv("KEYCLOAK_REALM")
+		kcURL := strings.TrimRight(os.Getenv("KEYCLOAK_URL"), "/")
+		kcRealm := strings.Trim(os.Getenv("KEYCLOAK_REALM"), "/")
 		if kcURL == "" || kcRealm == "" {
 			log.Fatal("set OIDC_ISSUER_URL, or both KEYCLOAK_URL and KEYCLOAK_REALM")
 		}
