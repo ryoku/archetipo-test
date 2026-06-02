@@ -4,11 +4,12 @@
       "Bash(archetipo config *)",
       "Bash(archetipo spec *)",
       "Bash(archetipo task *)",
-      "Bash(git -C /home/ryoku/repos/archetipo-test ls-files web/dist/)",
       "Bash(golangci-lint run *)",
       "Bash(pnpm test)",
       "Bash(pnpm test:coverage)",
-      "Bash(go tool cover *)"
+      "Bash(go tool cover *)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm lint *)"
     ]
   },
   "enabledPlugins": {
