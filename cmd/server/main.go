@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -31,7 +32,9 @@ func main() {
 
 	clientID := os.Getenv("OIDC_CLIENT_ID") // optional; enables aud claim validation when set
 
-	verifier, err := auth.NewVerifier(context.Background(), issuerURL, clientID)
+	oidcCtx, oidcCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer oidcCancel()
+	verifier, err := auth.NewVerifier(oidcCtx, issuerURL, clientID)
 	if err != nil {
 		log.Fatalf("OIDC verifier init: %v", err)
 	}
