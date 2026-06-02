@@ -28,7 +28,7 @@ func main() {
 		if kcURL == "" || kcRealm == "" {
 			log.Fatal("set OIDC_ISSUER_URL, or both KEYCLOAK_URL and KEYCLOAK_REALM")
 		}
-		issuerURL = strings.TrimRight(kcURL, "/") + "/realms/" + strings.Trim(kcRealm, "/")
+		issuerURL = kcURL + "/realms/" + kcRealm
 	}
 
 	if err := runMigrations(dsn); err != nil {
