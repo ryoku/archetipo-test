@@ -6,8 +6,8 @@
       "Bash(archetipo task *)",
       "Bash(git -C /home/ryoku/repos/archetipo-test ls-files web/dist/)",
       "Bash(golangci-lint run *)",
-      "Bash(npm run test)",
-      "Bash(npm run test:coverage)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test:coverage)",
       "Bash(go tool cover *)"
     ]
   },

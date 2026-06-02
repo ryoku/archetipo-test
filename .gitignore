@@ -8,6 +8,7 @@ tmp/
 .idea/
 .vscode/
 web/dist/
+web/package-lock.json
 *.exe
 server
 .scannerwork

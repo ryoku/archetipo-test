@@ -44,6 +44,7 @@ kubegate/
 
 - Go 1.25+
 - Node.js 20+
+- pnpm 10+ (`npm install -g pnpm` or see [pnpm.io](https://pnpm.io/installation))
 - Docker + Docker Compose
 - `air` for Go hot reload (optional — `go run` is the fallback)
 
@@ -58,7 +59,7 @@ make dev                   # starts everything
 
 1. Starts Docker Compose (PostgreSQL on `:5433`, Keycloak on `:8080`) and waits until healthy.
 2. Initialises the bare gitops mock repo at `tmp/gitops-mock.git` if it does not exist.
-3. Runs `npm install` in `web/` (offline-preferred).
+3. Runs `pnpm install` in `web/` (offline-preferred).
 4. Starts the Vite dev server on `:5173` in the background.
 5. Starts the Go server on `:8081` (via `air` if available, else `go run ./cmd/server`).
 
@@ -77,7 +78,7 @@ make dev-stop-clean    # stops containers and removes volumes (resets DB)
 
 | Target | Description |
 |---|---|
-| `make build` | Builds the React SPA (`cd web && npm ci && npm run build`), then compiles `bin/server` and `bin/kubegate` |
+| `make build` | Builds the React SPA (`cd web && pnpm install --frozen-lockfile && pnpm build`), then compiles `bin/server` and `bin/kubegate` |
 | `make test` | Runs `go test -race ./...` |
 | `make vet` | Runs `go vet ./...` |
 | `make clean` | Removes `bin/` and `web/dist/` |
@@ -192,19 +193,19 @@ Require a running PostgreSQL instance. Start it with `docker compose up postgres
 ### Frontend type check
 
 ```bash
-cd web && npx tsc --noEmit
+cd web && pnpm exec tsc --noEmit
 ```
 
 ### Frontend e2e (Playwright)
 
 ```bash
-cd web && npx playwright test
+cd web && pnpm e2e
 ```
 
-Runs against the built `web/dist/` served by `npm run serve` (sirv on `:4173`). Build the frontend first if `web/dist/` is stale:
+Runs against the built `web/dist/` served by `pnpm serve` (sirv on `:4173`). Build the frontend first if `web/dist/` is stale:
 
 ```bash
-cd web && npm run build && npx playwright test
+cd web && pnpm build && pnpm e2e
 ```
 
 E2e test files live in `web/e2e/`. Demo scenario tests are named `demo__*.spec.ts`. Video recording is currently disabled globally (`video: 'off'` in `web/playwright.config.ts`); the demo test file opts in per-test with `test.use({ video: 'on' })`. Test output is written to `docs/test-results/US-004/` (the `outputDir` in `playwright.config.ts` is per-suite — update it when adding a new spec's e2e suite).
