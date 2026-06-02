@@ -9,8 +9,8 @@ export default function OidcCallbackPage() {
     const userManager = createUserManager()
     userManager
       .signinRedirectCallback()
-      .then(() => navigate('/'))
-      .catch(() => navigate('/login'))
+      .then(() => navigate('/', { replace: true }))
+      .catch(() => navigate('/login', { replace: true }))
   }, [navigate])
 
   return <p>Redirecting…</p>
