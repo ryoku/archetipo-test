@@ -1,6 +1,6 @@
 BIN_DIR := bin
 
-.PHONY: build test vet clean dev dev-stop dev-stop-clean dev-smoke migrate migrate-down
+.PHONY: build test vet clean dev dev-stop dev-stop-clean dev-smoke sonar migrate migrate-down
 
 build:
 	cd web && pnpm install --frozen-lockfile && pnpm build
@@ -35,6 +35,9 @@ dev-stop-clean:
 
 dev-smoke:
 	@bash scripts/smoke-dev.sh
+
+sonar:
+	sonar-scanner
 
 migrate:
 	@[ -f .env ] || { echo "❌ .env not found. Run: cp .env.example .env"; false; }
