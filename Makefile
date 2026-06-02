@@ -4,8 +4,8 @@ BIN_DIR := bin
 
 build:
 	cd web && npm ci && npm run build
-	go build -o $(BIN_DIR)/server ./cmd/server
-	go build -o $(BIN_DIR)/kubegate ./cmd/kubegate
+	go build -tags prod -o $(BIN_DIR)/server ./cmd/server
+	go build -tags prod -o $(BIN_DIR)/kubegate ./cmd/kubegate
 
 tidy:
 	go mod tidy

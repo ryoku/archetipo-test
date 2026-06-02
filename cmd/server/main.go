@@ -23,7 +23,12 @@ func main() {
 
 	issuerURL := os.Getenv("OIDC_ISSUER_URL")
 	if issuerURL == "" {
-		log.Fatal("OIDC_ISSUER_URL environment variable is required")
+		kcURL := os.Getenv("KEYCLOAK_URL")
+		kcRealm := os.Getenv("KEYCLOAK_REALM")
+		if kcURL == "" || kcRealm == "" {
+			log.Fatal("set OIDC_ISSUER_URL, or both KEYCLOAK_URL and KEYCLOAK_REALM")
+		}
+		issuerURL = kcURL + "/realms/" + kcRealm
 	}
 
 	if err := runMigrations(dsn); err != nil {
