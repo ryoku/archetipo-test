@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/ryoku/kubegate/internal/auth"
+	"github.com/ryoku/kubegate/internal/api/router"
 )
 
 func main() {
@@ -18,8 +21,22 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
+	issuerURL := os.Getenv("OIDC_ISSUER_URL")
+	if issuerURL == "" {
+		log.Fatal("OIDC_ISSUER_URL environment variable is required")
+	}
+
 	if err := runMigrations(dsn); err != nil {
 		log.Fatalf("Database migration failed: %v", err)
+	}
+
+	clientID := os.Getenv("OIDC_CLIENT_ID") // optional; enables aud claim validation when set
+
+	oidcCtx, oidcCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer oidcCancel()
+	verifier, err := auth.NewVerifier(oidcCtx, issuerURL, clientID)
+	if err != nil {
+		log.Fatalf("OIDC verifier init: %v", err)
 	}
 
 	port := os.Getenv("SERVER_PORT")
@@ -28,7 +45,7 @@ func main() {
 	}
 	addr := ":" + port
 
-	r := gin.Default()
+	r := router.New(verifier)
 	registerSPA(r)
 
 	log.Printf("Server listening on %s", addr)
