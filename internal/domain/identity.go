@@ -19,3 +19,13 @@ type UserIdentity struct {
 
 // IdentityContextKey is the Gin context key under which *UserIdentity is stored by JWTAuth.
 const IdentityContextKey = "kubegate.user_identity"
+
+// RoleAtLeast reports whether have meets or exceeds the need role level.
+// Role ordering: viewer < editor.
+func RoleAtLeast(have, need Role) bool {
+	level := map[Role]int{
+		RoleViewer: 1,
+		RoleEditor: 2,
+	}
+	return level[have] >= level[need]
+}
