@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login: () => userManager.signinRedirect(),
       logout: () => userManager.signoutRedirect(),
-      accessToken: user?.access_token ?? null,
+      accessToken: user && !user.expired ? user.access_token : null,
     }),
     [user, loading, userManager],
   )
