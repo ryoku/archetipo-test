@@ -9,7 +9,7 @@ WEB_DIR := web
 
 all: fmt lint build go\:test
 
-build: go\:build web\:build
+build: web\:build go\:build
 lint:  go\:lint web\:lint
 clean: go\:clean web\:clean
 
