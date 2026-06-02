@@ -12,6 +12,7 @@ export default defineConfig({
       // @ts-expect-error: 'all' is valid at runtime in vitest v4 but missing from types
       all: true,
       include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.{test,spec}.{ts,tsx}'],
     },
   },
 })
