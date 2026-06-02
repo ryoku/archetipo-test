@@ -19,13 +19,18 @@ type Verifier struct {
 }
 
 // NewVerifier fetches the OIDC discovery document at issuerURL and returns a Verifier.
+// If clientID is non-empty, the aud claim is validated against it; otherwise the check is skipped.
 // Fails fast if the provider is unreachable.
-func NewVerifier(ctx context.Context, issuerURL string) (*Verifier, error) {
+func NewVerifier(ctx context.Context, issuerURL, clientID string) (*Verifier, error) {
 	provider, err := gooidc.NewProvider(ctx, issuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("oidc provider discovery: %w", err)
 	}
-	v := provider.Verifier(&gooidc.Config{SkipClientIDCheck: true})
+	cfg := &gooidc.Config{SkipClientIDCheck: clientID == ""}
+	if clientID != "" {
+		cfg.ClientID = clientID
+	}
+	v := provider.Verifier(cfg)
 	return &Verifier{inner: v}, nil
 }
 

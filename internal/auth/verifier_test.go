@@ -50,6 +50,11 @@ func localOIDCServer(t *testing.T, key *rsa.PrivateKey) *httptest.Server {
 
 func signJWT(t *testing.T, key *rsa.PrivateKey, issuer, sub, email, name string, exp time.Time) string {
 	t.Helper()
+	return signJWTWithAud(t, key, issuer, sub, email, name, exp, nil)
+}
+
+func signJWTWithAud(t *testing.T, key *rsa.PrivateKey, issuer, sub, email, name string, exp time.Time, aud []string) string {
+	t.Helper()
 	sig, err := jose.NewSigner(
 		jose.SigningKey{Algorithm: jose.RS256, Key: key},
 		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "test-key"),
@@ -62,6 +67,7 @@ func signJWT(t *testing.T, key *rsa.PrivateKey, issuer, sub, email, name string,
 		Subject:  sub,
 		Expiry:   jwt.NewNumericDate(exp),
 		IssuedAt: jwt.NewNumericDate(time.Now()),
+		Audience: jwt.Audience(aud),
 	}
 	extra := map[string]any{"email": email, "name": name}
 	raw, err := jwt.Signed(sig).Claims(claims).Claims(extra).Serialize()
@@ -78,7 +84,7 @@ func TestVerifier_ValidToken(t *testing.T) {
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL)
+	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
 	}
@@ -100,7 +106,7 @@ func TestVerifier_ExpiredToken(t *testing.T) {
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL)
+	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
 	}
@@ -123,7 +129,7 @@ func TestVerifier_TamperedSignature(t *testing.T) {
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL)
+	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
 	}
@@ -143,7 +149,7 @@ func TestVerifier_WrongIssuer(t *testing.T) {
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL)
+	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
 	}
@@ -163,7 +169,7 @@ func TestVerifier_EmptySub(t *testing.T) {
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL)
+	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
 	if err != nil {
 		t.Fatalf("NewVerifier: %v", err)
 	}
@@ -173,5 +179,50 @@ func TestVerifier_EmptySub(t *testing.T) {
 	_, err = v.Verify(context.Background(), raw)
 	if err == nil {
 		t.Fatal("expected error for token with empty sub")
+	}
+}
+
+func TestVerifier_AudienceValidatedWhenClientIDConfigured(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := localOIDCServer(t, key)
+
+	const clientID = "kubegate"
+	v, err := auth.NewVerifier(context.Background(), srv.URL, clientID)
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	// Token with matching aud — must be accepted.
+	raw := signJWTWithAud(t, key, srv.URL, "user-1", "u@x.com", "Alice", time.Now().Add(time.Hour), []string{clientID})
+	if _, err = v.Verify(context.Background(), raw); err != nil {
+		t.Fatalf("expected success for matching aud, got: %v", err)
+	}
+
+	// Token with wrong aud — must be rejected.
+	rawWrong := signJWTWithAud(t, key, srv.URL, "user-1", "u@x.com", "Alice", time.Now().Add(time.Hour), []string{"other-service"})
+	if _, err = v.Verify(context.Background(), rawWrong); err == nil {
+		t.Fatal("expected error for token with wrong aud")
+	}
+}
+
+func TestVerifier_AudienceSkippedWhenNoClientID(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := localOIDCServer(t, key)
+
+	// No clientID — SkipClientIDCheck stays true, tokens without aud are accepted.
+	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	raw := signJWT(t, key, srv.URL, "user-1", "u@x.com", "Alice", time.Now().Add(time.Hour))
+	if _, err = v.Verify(context.Background(), raw); err != nil {
+		t.Fatalf("expected success without clientID, got: %v", err)
 	}
 }

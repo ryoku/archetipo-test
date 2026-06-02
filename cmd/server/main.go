@@ -29,7 +29,9 @@ func main() {
 		log.Fatalf("Database migration failed: %v", err)
 	}
 
-	verifier, err := auth.NewVerifier(context.Background(), issuerURL)
+	clientID := os.Getenv("OIDC_CLIENT_ID") // optional; enables aud claim validation when set
+
+	verifier, err := auth.NewVerifier(context.Background(), issuerURL, clientID)
 	if err != nil {
 		log.Fatalf("OIDC verifier init: %v", err)
 	}
