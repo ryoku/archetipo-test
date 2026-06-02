@@ -10,10 +10,10 @@ const (
 
 // UserIdentity holds the authenticated user's claims extracted from a validated JWT.
 type UserIdentity struct {
-	Sub          string
-	Email        string
-	Name         string
-	ProductRoles map[string]Role
+	Sub           string
+	Email         string
+	Name          string
+	ProductRoles  map[string]Role
 	IsDevOpsAdmin bool
 }
 

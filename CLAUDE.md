@@ -76,18 +76,50 @@ make dev-stop-clean    # stops containers and removes volumes (resets DB)
 
 ## Makefile Targets
 
+Targets are organised in three groups: **aggregate** (run both sides), **`go:*`** (backend only), and **`web:*`** (frontend only).
+
+### Aggregate
+
 | Target | Description |
 |---|---|
-| `make build` | Builds the React SPA (`cd web && pnpm install --frozen-lockfile && pnpm build`), then compiles `bin/server` and `bin/kubegate` |
-| `make test` | Runs `go test -race ./...` |
-| `make vet` | Runs `go vet ./...` |
-| `make clean` | Removes `bin/` and `web/dist/` |
+| `make all` | Runs `fmt` → `lint` → `build` → `test` (`go:test`) |
+| `make build` | Builds backend (`go:build`) and SPA (`web:build`) |
+| `make lint` | Runs `go:lint` and `web:lint` |
+| `make fmt` | Alias for `go:fmt` |
+| `make clean` | Runs `go:clean` and `web:clean` |
+
+### Go
+
+| Target | Description |
+|---|---|
+| `make go:build` | Compiles `bin/server` and `bin/kubegate` with `-tags prod` |
+| `make go:test` | Runs `go test -race -coverprofile=coverage.out -covermode=atomic ./...` |
+| `make go:lint` | Runs `golangci-lint run ./...` (config in `.golangci.yml`) |
+| `make go:fmt` | Runs `gofmt -w` across the repo (excludes `vendor/`, `web/node_modules/`, `tmp/`) |
+| `make go:tidy` | Runs `go mod tidy` |
+| `make go:clean` | Removes `bin/` and `coverage.out` |
+
+### Web
+
+| Target | Description |
+|---|---|
+| `make web:install` | Runs `pnpm install --frozen-lockfile` in `web/` (dependency of the other web targets) |
+| `make web:build` | Builds the React SPA to `web/dist/` |
+| `make web:lint` | Runs `pnpm lint` (ESLint) |
+| `make web:test` | Runs `pnpm test` (Vitest) |
+| `make web:clean` | Removes `web/dist/` and `web/coverage/` |
+
+### Dev / Ops
+
+| Target | Description |
+|---|---|
 | `make dev` | Starts the full local dev stack (see above) |
 | `make dev-stop` | Stops Docker Compose containers |
 | `make dev-stop-clean` | Stops containers and removes volumes |
 | `make dev-smoke` | Runs `scripts/smoke-dev.sh` against the running dev stack |
 | `make migrate` | Sources `.env` and runs `go run ./cmd/migrate -direction up` to apply pending migrations |
 | `make migrate-down` | Rolls back one migration step |
+| `make sonar` | Runs `sonar-scanner` |
 
 ---
 
@@ -174,7 +206,7 @@ Never edit an already-applied migration. Always create a new one.
 ### Go unit tests
 
 ```bash
-go test -race ./...
+make go:test     # or: go test -race ./...
 ```
 
 All packages. Integration tests guard on `DATABASE_URL` and skip automatically when it is not set:

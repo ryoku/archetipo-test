@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  outputDir: '../docs/test-results/US-004',
+  outputDir: '../docs/test-results/US-010',
   use: {
     baseURL: 'http://localhost:4173',
     video: 'off',
@@ -15,7 +15,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Use the system-available headless shell when Playwright's bundled binary is absent.
+        ...(process.env.PW_CHROMIUM_PATH
+          ? { executablePath: process.env.PW_CHROMIUM_PATH }
+          : {}),
+      },
     },
   ],
 })
