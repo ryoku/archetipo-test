@@ -13,7 +13,9 @@ export default function LoginPage() {
       navigate('/', { replace: true })
       return
     }
-    createUserManager().signinRedirect().catch(() => {})
+    createUserManager().signinRedirect().catch((err) => {
+      console.error('OIDC signinRedirect failed:', err)
+    })
   }, [isAuthenticated, loading, navigate])
 
   return <p>Redirecting to login…</p>
