@@ -14,7 +14,8 @@ import (
 func registerSPA(r *gin.Engine) {
 	distFS, err := fs.Sub(webui.FS, "dist")
 	if err != nil {
-		panic(err)
+		// In dev mode the FS is zero-value (no prod build tag) — Vite serves the frontend.
+		return
 	}
 	registerSPAFromFS(r, distFS)
 }

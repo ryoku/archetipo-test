@@ -9,3 +9,4 @@ tmp/
 .vscode/
 web/dist/
 *.exe
+server
