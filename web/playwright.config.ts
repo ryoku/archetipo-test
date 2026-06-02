@@ -8,7 +8,7 @@ export default defineConfig({
     video: 'off',
   },
   webServer: {
-    command: 'npm run serve',
+    command: 'pnpm serve',
     port: 4173,
     reuseExistingServer: false,
   },
