@@ -88,6 +88,12 @@ func TestExtractRoles(t *testing.T) {
 			wantIsDevOpsAdmin: false,
 		},
 		{
+			name:              "malformed: too many segments ignored",
+			roles:             []string{"kubegate:product-foo:editor:extra"},
+			wantProductRoles:  map[string]domain.Role{},
+			wantIsDevOpsAdmin: false,
+		},
+		{
 			name:              "malformed: product- prefix with empty slug ignored",
 			roles:             []string{"kubegate:product-:editor"},
 			wantProductRoles:  map[string]domain.Role{},
