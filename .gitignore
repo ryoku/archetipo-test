@@ -10,3 +10,7 @@ tmp/
 web/dist/
 *.exe
 server
+.scannerwork
+coverage.out
+coverage.html
+web/coverage/
