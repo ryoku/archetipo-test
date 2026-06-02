@@ -7,6 +7,9 @@ build:
 	go build -o $(BIN_DIR)/server ./cmd/server
 	go build -o $(BIN_DIR)/kubegate ./cmd/kubegate
 
+tidy:
+	go mod tidy
+
 test:
 	go test -race ./...
 
