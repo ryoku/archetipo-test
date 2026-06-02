@@ -4,7 +4,11 @@
       "Bash(archetipo config *)",
       "Bash(archetipo spec *)",
       "Bash(archetipo task *)",
-      "Bash(git -C /home/ryoku/repos/archetipo-test ls-files web/dist/)"
+      "Bash(git -C /home/ryoku/repos/archetipo-test ls-files web/dist/)",
+      "Bash(golangci-lint run *)"
     ]
+  },
+  "enabledPlugins": {
+    "playwright@claude-plugins-official": true
   }
 }
