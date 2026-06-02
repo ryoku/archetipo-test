@@ -21,7 +21,7 @@ func JWTAuth(v auth.TokenVerifier) gin.HandlerFunc {
 		}
 		rawToken := strings.TrimPrefix(header, "Bearer ")
 		identity, err := v.Verify(c.Request.Context(), rawToken)
-		if err != nil {
+		if err != nil || identity == nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -37,7 +38,8 @@ func newTestEngine(v auth.TokenVerifier) *gin.Engine {
 }
 
 func TestJWTAuth_ValidToken(t *testing.T) {
-	v := &mockVerifier{identity: &domain.UserIdentity{Sub: "u1", Email: "u@x.com", Name: "Alice"}}
+	want := &domain.UserIdentity{Sub: "u1", Email: "u@x.com", Name: "Alice"}
+	v := &mockVerifier{identity: want}
 	r := newTestEngine(v)
 
 	w := httptest.NewRecorder()
@@ -48,7 +50,29 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
+
+	// Identity must be propagated into context so downstream handlers can use it.
+	got := w.Body.String()
+	if !strings.Contains(got, "u1") || !strings.Contains(got, "u@x.com") || !strings.Contains(got, "Alice") {
+		t.Errorf("identity not in context: body = %q", got)
+	}
 }
+
+func TestJWTAuth_NilIdentityBypassBlocked(t *testing.T) {
+	// A buggy verifier that returns (nil, nil) must not authenticate the request.
+	v := &mockVerifier{identity: nil, err: nil}
+	r := newTestEngine(v)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer some.token")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("(nil,nil) verifier should return 401, got %d", w.Code)
+	}
+}
+
 
 func TestJWTAuth_ExpiredToken(t *testing.T) {
 	v := &mockVerifier{err: errors.New("token is expired")}
