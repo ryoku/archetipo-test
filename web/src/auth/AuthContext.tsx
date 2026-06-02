@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    userManager.getUser().then(u => { setUser(u); setLoading(false) })
+    userManager.getUser().then(setUser).finally(() => setLoading(false))
 
     const onUserLoaded = (u: User) => setUser(u)
     const onTokenExpired = () => navigate('/login')
