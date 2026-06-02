@@ -21,11 +21,24 @@ type UserIdentity struct {
 const IdentityContextKey = "kubegate.user_identity"
 
 // RoleAtLeast reports whether have meets or exceeds the need role level.
-// Role ordering: viewer < editor.
+// Role ordering: viewer < editor. Returns false if either role is unknown.
 func RoleAtLeast(have, need Role) bool {
-	level := map[Role]int{
-		RoleViewer: 1,
-		RoleEditor: 2,
+	lh := roleOrder(have)
+	ln := roleOrder(need)
+	if lh == 0 || ln == 0 {
+		return false
 	}
-	return level[have] >= level[need]
+	return lh >= ln
+}
+
+// roleOrder returns the numeric rank of r, or 0 for unknown roles.
+func roleOrder(r Role) int {
+	switch r {
+	case RoleViewer:
+		return 1
+	case RoleEditor:
+		return 2
+	default:
+		return 0
+	}
 }

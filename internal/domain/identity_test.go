@@ -12,6 +12,10 @@ func TestRoleAtLeast(t *testing.T) {
 		{RoleEditor, RoleEditor, true},
 		{RoleEditor, RoleViewer, true},
 		{RoleViewer, RoleEditor, false},
+		// unknown roles must always fail closed
+		{"", RoleViewer, false},
+		{RoleViewer, "", false},
+		{"", "", false},
 	}
 	for _, tc := range tests {
 		got := RoleAtLeast(tc.have, tc.need)
