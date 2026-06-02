@@ -13,6 +13,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/ryoku/kubegate/internal/auth"
+	"github.com/ryoku/kubegate/internal/domain"
 )
 
 // localOIDCServer spins up an httptest.Server that mimics OIDC discovery and JWKS endpoints.
@@ -224,5 +225,74 @@ func TestVerifier_AudienceSkippedWhenNoClientID(t *testing.T) {
 	raw := signJWT(t, key, srv.URL, "user-1", "u@x.com", "Alice", time.Now().Add(time.Hour))
 	if _, err = v.Verify(context.Background(), raw); err != nil {
 		t.Fatalf("expected success without clientID, got: %v", err)
+	}
+}
+
+// signJWTWithRealmRoles signs a JWT that includes a realm_access.roles claim.
+func signJWTWithRealmRoles(t *testing.T, key *rsa.PrivateKey, issuer, sub string, exp time.Time, realmRoles []string) string {
+	t.Helper()
+	sig, err := jose.NewSigner(
+		jose.SigningKey{Algorithm: jose.RS256, Key: key},
+		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "test-key"),
+	)
+	if err != nil {
+		t.Fatalf("create signer: %v", err)
+	}
+	claims := jwt.Claims{
+		Issuer:   issuer,
+		Subject:  sub,
+		Expiry:   jwt.NewNumericDate(exp),
+		IssuedAt: jwt.NewNumericDate(time.Now()),
+	}
+	extra := map[string]any{
+		"realm_access": map[string]any{"roles": realmRoles},
+	}
+	raw, err := jwt.Signed(sig).Claims(claims).Claims(extra).Serialize()
+	if err != nil {
+		t.Fatalf("serialize jwt: %v", err)
+	}
+	return raw
+}
+
+func TestVerifier_RoleClaimsExtraction(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := localOIDCServer(t, key)
+	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	// JWT with product editor role, devops-admin, and a non-kubegate role.
+	raw := signJWTWithRealmRoles(t, key, srv.URL, "user-1", time.Now().Add(time.Hour),
+		[]string{"kubegate:product-foo:editor", "kubegate:devops-admin", "other:ignored:role"})
+	id, err := v.Verify(context.Background(), raw)
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if !id.IsDevOpsAdmin {
+		t.Error("expected IsDevOpsAdmin = true")
+	}
+	if id.ProductRoles["foo"] != domain.RoleEditor {
+		t.Errorf("ProductRoles[foo] = %q, want %q", id.ProductRoles["foo"], domain.RoleEditor)
+	}
+	if _, found := id.ProductRoles["other"]; found {
+		t.Error("non-kubegate role should not appear in ProductRoles")
+	}
+
+	// JWT with no kubegate-prefixed roles yields empty ProductRoles and IsDevOpsAdmin false.
+	rawEmpty := signJWTWithRealmRoles(t, key, srv.URL, "user-2", time.Now().Add(time.Hour),
+		[]string{"realm:user", "openid"})
+	id2, err := v.Verify(context.Background(), rawEmpty)
+	if err != nil {
+		t.Fatalf("Verify (no kubegate roles): %v", err)
+	}
+	if id2.IsDevOpsAdmin {
+		t.Error("expected IsDevOpsAdmin = false for JWT with no kubegate roles")
+	}
+	if len(id2.ProductRoles) != 0 {
+		t.Errorf("expected empty ProductRoles, got %v", id2.ProductRoles)
 	}
 }

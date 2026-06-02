@@ -41,9 +41,12 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (*domain.UserIde
 		return nil, err
 	}
 	var claims struct {
-		Sub   string `json:"sub"`
-		Email string `json:"email"`
-		Name  string `json:"name"`
+		Sub         string `json:"sub"`
+		Email       string `json:"email"`
+		Name        string `json:"name"`
+		RealmAccess struct {
+			Roles []string `json:"roles"`
+		} `json:"realm_access"`
 	}
 	if err := token.Claims(&claims); err != nil {
 		return nil, fmt.Errorf("extract claims: %w", err)
@@ -51,9 +54,12 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (*domain.UserIde
 	if claims.Sub == "" {
 		return nil, fmt.Errorf("token missing required sub claim")
 	}
+	productRoles, isDevOpsAdmin := extractRoles(claims.RealmAccess.Roles)
 	return &domain.UserIdentity{
-		Sub:   claims.Sub,
-		Email: claims.Email,
-		Name:  claims.Name,
+		Sub:           claims.Sub,
+		Email:         claims.Email,
+		Name:          claims.Name,
+		ProductRoles:  productRoles,
+		IsDevOpsAdmin: isDevOpsAdmin,
 	}, nil
 }
