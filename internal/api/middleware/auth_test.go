@@ -73,7 +73,6 @@ func TestJWTAuth_NilIdentityBypassBlocked(t *testing.T) {
 	}
 }
 
-
 func TestJWTAuth_ExpiredToken(t *testing.T) {
 	v := &mockVerifier{err: errors.New("token is expired")}
 	r := newTestEngine(v)

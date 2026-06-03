@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — Sign in</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+
+<!-- Variant switcher -->
+<nav class="variant-nav" aria-label="Mockup variant">
+  <button class="variant-btn active" onclick="showVariant('redirect')">Redirecting…</button>
+  <button class="variant-btn" onclick="showVariant('button')">Sign in button</button>
+</nav>
+
+<!-- ─── VARIANT A: Auto-redirect (on mount, signinRedirect() fires immediately) ─── -->
+<div id="panel-redirect" class="panel active">
+  <div class="auth-screen">
+    <div class="auth-card">
+
+      <div class="auth-logo">
+        <div class="auth-logo-mark">
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                  stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M6 8L7.5 9.5L10 7"
+                  stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="auth-logo-name">KubeGate</div>
+        <div class="auth-logo-sub">DEPLOYMENT GOVERNANCE</div>
+      </div>
+
+      <div class="redirect-state">
+        <div class="spinner-wrap">
+          <div class="spinner"></div>
+          <span>Redirecting to login…</span>
+        </div>
+        <div class="redirect-progress">
+          <div class="redirect-progress-bar"></div>
+        </div>
+        <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">
+          sso.company.internal / keycloak
+        </span>
+      </div>
+
+      <div class="auth-note">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="7" width="10" height="7" rx="1.5"/>
+          <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>
+        </svg>
+        Authentication handled by your organization's SSO.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ─── VARIANT B: Manual SSO button (fallback / explicit action state) ─── -->
+<div id="panel-button" class="panel">
+  <div class="auth-screen">
+    <div class="auth-card">
+
+      <div class="auth-logo">
+        <div class="auth-logo-mark">
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                  stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M6 8L7.5 9.5L10 7"
+                  stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="auth-logo-name">KubeGate</div>
+        <div class="auth-logo-sub">DEPLOYMENT GOVERNANCE</div>
+      </div>
+
+      <div class="auth-body">
+        <div class="auth-heading">Welcome back</div>
+        <div class="auth-subtext">
+          Sign in with your organization account to access the platform.
+        </div>
+      </div>
+
+      <div style="width:100%; display:flex; flex-direction:column; gap:12px;">
+        <button class="auth-provider-btn" onclick="simulateRedirect()">
+          <div class="provider-icon">
+            <!-- Keycloak-style shield icon -->
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.5">
+              <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke-linejoin="round"/>
+              <path d="M6 8L7.5 9.5L10 7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="provider-label">
+            <div class="provider-name">Sign in with SSO</div>
+            <div class="provider-hint">sso.company.internal</div>
+          </div>
+          <span class="provider-arrow">→</span>
+        </button>
+      </div>
+
+      <div class="auth-note">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="7" width="10" height="7" rx="1.5"/>
+          <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>
+        </svg>
+        Authentication handled by your organization's SSO provider.
+        KubeGate never stores your password.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function showVariant(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  // Reset redirect animation when switching back
+  if (name === 'redirect') {
+    const bar = document.querySelector('#panel-redirect .redirect-progress-bar');
+    bar.style.animation = 'none';
+    bar.offsetHeight; // reflow
+    bar.style.animation = '';
+  }
+}
+
+function simulateRedirect() {
+  showVariant('redirect');
+  document.querySelectorAll('.variant-btn')[0].classList.add('active');
+  document.querySelectorAll('.variant-btn')[1].classList.remove('active');
+}
+</script>
+
+</body>
+</html>
