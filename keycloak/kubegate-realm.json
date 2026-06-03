@@ -34,6 +34,31 @@
       "attributes": {
         "access.token.lifespan": "3600"
       }
+    },
+    {
+      "clientId": "kubegate-frontend",
+      "name": "KubeGate Frontend",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": true,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:5173/auth/callback",
+        "http://localhost:5174/auth/callback",
+        "http://localhost:4173/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:4173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
     }
   ],
   "users": [
