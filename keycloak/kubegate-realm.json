@@ -57,7 +57,8 @@
         "http://localhost:4173"
       ],
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/login##http://localhost:5174/login##http://localhost:4173/login"
       }
     }
   ],
