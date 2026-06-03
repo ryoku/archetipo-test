@@ -10,9 +10,9 @@ tmp/
 web/dist/
 web/package-lock.json
 *.exe
-server
 .scannerwork
 coverage.out
 coverage.html
 web/coverage/
 docs/test-results/
+/server

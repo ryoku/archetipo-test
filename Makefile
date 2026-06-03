@@ -5,13 +5,15 @@ WEB_DIR := web
 # Aggregate targets (run both go + web)
 # ---------------------------------------------------------------------------
 
-.PHONY: all build lint clean fmt
+.PHONY: all build lint clean fmt coverage
 
-all: fmt lint build go\:test
+all: fmt lint build test coverage
 
 build: web\:build go\:build
 lint:  go\:lint web\:lint
 clean: go\:clean web\:clean
+test:  go\:test web\:test
+coverage: go\:coverage web\:coverage
 
 fmt: go\:fmt
 
@@ -19,7 +21,7 @@ fmt: go\:fmt
 # Go targets
 # ---------------------------------------------------------------------------
 
-.PHONY: go\:build go\:test go\:lint go\:fmt go\:tidy go\:clean
+.PHONY: go\:build go\:test go\:coverage go\:lint go\:fmt go\:tidy go\:clean
 
 go\:build:
 	go build -tags prod -o $(BIN_DIR)/server ./cmd/server
@@ -28,6 +30,10 @@ go\:build:
 go\:test:
 	go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
+go\:coverage: go\:test
+	go tool cover -html=coverage.out -o coverage.html
+	@go tool cover -func=coverage.out | tail -1
+	@echo "→ HTML report: coverage.html"
 go\:lint:
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "❌ golangci-lint not found. Install: https://golangci-lint.run/welcome/install/"; exit 1; }
 	golangci-lint run ./...
@@ -42,13 +48,13 @@ go\:tidy:
 	go mod tidy
 
 go\:clean:
-	rm -rf $(BIN_DIR) coverage.out
+	rm -rf $(BIN_DIR) coverage.out coverage.html
 
 # ---------------------------------------------------------------------------
 # Web targets
 # ---------------------------------------------------------------------------
 
-.PHONY: web\:install web\:build web\:lint web\:test web\:clean
+.PHONY: web\:install web\:build web\:lint web\:test web\:coverage web\:clean
 
 web\:install:
 	cd $(WEB_DIR) && pnpm install --frozen-lockfile
@@ -61,6 +67,9 @@ web\:lint: web\:install
 
 web\:test: web\:install
 	cd $(WEB_DIR) && pnpm test
+
+web\:coverage: web\:install
+	cd $(WEB_DIR) && pnpm test:coverage
 
 web\:clean:
 	rm -rf $(WEB_DIR)/dist $(WEB_DIR)/coverage

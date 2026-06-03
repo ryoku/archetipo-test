@@ -85,6 +85,8 @@ Targets are organised in three groups: **aggregate** (run both sides), **`go:*`*
 | `make all` | Runs `fmt` → `lint` → `build` → `test` (`go:test`) |
 | `make build` | Builds backend (`go:build`) and SPA (`web:build`) |
 | `make lint` | Runs `go:lint` and `web:lint` |
+| `make test` | Runs `go:test` and `web:test` |
+| `make coverage` | Runs `go:coverage` and `web:coverage` |
 | `make fmt` | Alias for `go:fmt` |
 | `make clean` | Runs `go:clean` and `web:clean` |
 
@@ -94,6 +96,7 @@ Targets are organised in three groups: **aggregate** (run both sides), **`go:*`*
 |---|---|
 | `make go:build` | Compiles `bin/server` and `bin/kubegate` with `-tags prod` |
 | `make go:test` | Runs `go test -race -coverprofile=coverage.out -covermode=atomic ./...` |
+| `make go:coverage` | Runs `go:test` then generates `coverage.html` and prints the total coverage |
 | `make go:lint` | Runs `golangci-lint run ./...` (config in `.golangci.yml`) |
 | `make go:fmt` | Runs `gofmt -w` across the repo (excludes `vendor/`, `web/node_modules/`, `tmp/`) |
 | `make go:tidy` | Runs `go mod tidy` |
@@ -107,6 +110,7 @@ Targets are organised in three groups: **aggregate** (run both sides), **`go:*`*
 | `make web:build` | Builds the React SPA to `web/dist/` |
 | `make web:lint` | Runs `pnpm lint` (ESLint) |
 | `make web:test` | Runs `pnpm test` (Vitest) |
+| `make web:coverage` | Runs `pnpm test:coverage` (Vitest with v8 coverage, output in `web/coverage/`) |
 | `make web:clean` | Removes `web/dist/` and `web/coverage/` |
 
 ### Dev / Ops
