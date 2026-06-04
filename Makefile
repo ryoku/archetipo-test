@@ -1,6 +1,6 @@
 BIN_DIR := bin
 WEB_DIR := web
-GO_TEST_PACKAGES := $(shell go list ./... | grep -v '^github.com/ryoku/kubegate/cmd/kubegate$$' | grep -v '^github.com/ryoku/kubegate/web/node_modules/')
+GO_TEST_PACKAGES := $(shell go list ./... | grep -v '^github.com/ryoku/kubegate/web/node_modules/')
 
 # ---------------------------------------------------------------------------
 # Aggregate targets (run both go + web)
