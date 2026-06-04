@@ -6,13 +6,13 @@ export async function apiFetch(
   const headers = new Headers(init?.headers);
 
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(path, { ...init, headers });
 
   if (response.status === 401) {
-    globalThis.dispatchEvent(new Event('auth:unauthorized'));
+    globalThis.dispatchEvent(new Event("auth:unauthorized"));
   }
 
   return response;

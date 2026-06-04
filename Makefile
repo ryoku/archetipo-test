@@ -1,5 +1,6 @@
 BIN_DIR := bin
 WEB_DIR := web
+GO_TEST_PACKAGES := $(shell go list ./... | grep -v '^github.com/ryoku/kubegate/cmd/kubegate$$' | grep -v '^github.com/ryoku/kubegate/web/node_modules/')
 
 # ---------------------------------------------------------------------------
 # Aggregate targets (run both go + web)
@@ -28,7 +29,7 @@ go\:build:
 	go build -tags prod -o $(BIN_DIR)/kubegate ./cmd/kubegate
 
 go\:test:
-	go test -race -coverprofile=coverage.out -covermode=atomic ./...
+	go test -race -coverprofile=coverage.out -covermode=atomic $(GO_TEST_PACKAGES)
 
 go\:coverage: go\:test
 	go tool cover -html=coverage.out -o coverage.html

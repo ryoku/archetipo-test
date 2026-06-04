@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	verifierTestKeyID     = "test-key"
-	newVerifierErrorFmt   = "NewVerifier: %v"
-	defaultUserSub        = "user-1"
-	defaultUserEmail      = "user@example.com"
-	audienceUserEmail     = "u@x.com"
+	verifierTestKeyID   = "test-key"
+	newVerifierErrorFmt = "NewVerifier: %v"
+	defaultUserSub      = "user-1"
+	defaultUserEmail    = "user@example.com"
+	audienceUserEmail   = "u@x.com"
 )
 
 type tokenIdentity struct {

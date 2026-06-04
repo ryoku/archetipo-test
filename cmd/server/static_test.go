@@ -64,7 +64,7 @@ func TestSPADeepPathFallsBackToIndex(t *testing.T) {
 
 func TestSPAStaticAssetServedDirectly(t *testing.T) {
 	fixture := fstest.MapFS{
-		indexFileName:     {Data: []byte(`<!doctype html>`)},
+		indexFileName:    {Data: []byte(`<!doctype html>`)},
 		"assets/main.js": {Data: []byte(`console.log("hello")`)},
 	}
 	r := newTestRouter(fixture)
@@ -84,7 +84,7 @@ func TestSPAStaticAssetServedDirectly(t *testing.T) {
 // The handler must stat the opened entry and treat directories as SPA fallbacks.
 func TestSPADirectoryPathFallsBackToIndex(t *testing.T) {
 	fixture := fstest.MapFS{
-		indexFileName:     {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
+		indexFileName:    {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
 		"assets/main.js": {Data: []byte(`console.log("hello")`)},
 	}
 	r := newTestRouter(fixture)
@@ -114,7 +114,7 @@ func TestSPADirectoryPathFallsBackToIndex(t *testing.T) {
 func TestSPARootFallsBackToIndexNotDirectory(t *testing.T) {
 	fixture := fstest.MapFS{
 		// Explicitly include the root dir entry to expose the Open("") footgun.
-		".":          &fstest.MapFile{Mode: fs.ModeDir},
+		".":           &fstest.MapFile{Mode: fs.ModeDir},
 		indexFileName: {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
 	}
 	r := newTestRouter(fixture)

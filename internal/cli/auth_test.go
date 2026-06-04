@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	notLoggedInMessage  = "Not logged in. Run `kubegate login`."
-	errorMessageFormat  = "error message = %q, want %q"
+	notLoggedInMessage   = "Not logged in. Run `kubegate login`."
+	errorMessageFormat   = "error message = %q, want %q"
 	refreshedAccessToken = "new-access-token"
 )
 

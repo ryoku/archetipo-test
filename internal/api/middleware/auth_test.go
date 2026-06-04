@@ -27,8 +27,8 @@ func (m *mockVerifier) Verify(_ context.Context, _ string) (*domain.UserIdentity
 var _ auth.TokenVerifier = (*mockVerifier)(nil)
 
 const (
-	protectedPath         = "/protected"
-	expectedUnauthorized  = "expected 401, got %d"
+	protectedPath        = "/protected"
+	expectedUnauthorized = "expected 401, got %d"
 )
 
 func newTestEngine(v auth.TokenVerifier) *gin.Engine {
