@@ -12,7 +12,7 @@ export async function apiFetch(
   const response = await fetch(path, { ...init, headers });
 
   if (response.status === 401) {
-    window.dispatchEvent(new Event('auth:unauthorized'));
+    globalThis.dispatchEvent(new Event('auth:unauthorized'));
   }
 
   return response;

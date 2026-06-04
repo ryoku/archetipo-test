@@ -12,9 +12,13 @@ interface AuthContextValue {
   accessToken: string | null
 }
 
+type AuthProviderProps = Readonly<{
+  children: ReactNode
+}>
+
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: AuthProviderProps) {
   const navigate = useNavigate()
   const userManager = useMemo(() => createUserManager(), [])
   const [user, setUser] = useState<User | null>(null)
@@ -30,12 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userManager.events.addAccessTokenExpired(onTokenExpired)
 
     const onUnauthorized = () => navigate('/login')
-    window.addEventListener('auth:unauthorized', onUnauthorized)
+    globalThis.addEventListener('auth:unauthorized', onUnauthorized)
 
     return () => {
       userManager.events.removeUserLoaded(onUserLoaded)
       userManager.events.removeAccessTokenExpired(onTokenExpired)
-      window.removeEventListener('auth:unauthorized', onUnauthorized)
+      globalThis.removeEventListener('auth:unauthorized', onUnauthorized)
     }
   }, [userManager, navigate])
 

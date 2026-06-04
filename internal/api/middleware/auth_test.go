@@ -26,24 +26,29 @@ func (m *mockVerifier) Verify(_ context.Context, _ string) (*domain.UserIdentity
 
 var _ auth.TokenVerifier = (*mockVerifier)(nil)
 
+const (
+	protectedPath         = "/protected"
+	expectedUnauthorized  = "expected 401, got %d"
+)
+
 func newTestEngine(v auth.TokenVerifier) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	protected := r.Group("/", middleware.JWTAuth(v))
-	protected.GET("/protected", func(c *gin.Context) {
+	protected.GET(protectedPath, func(c *gin.Context) {
 		id, _ := c.Get(domain.IdentityContextKey)
 		c.JSON(http.StatusOK, id)
 	})
 	return r
 }
 
-func TestJWTAuth_ValidToken(t *testing.T) {
+func TestJWTAuthValidToken(t *testing.T) {
 	want := &domain.UserIdentity{Sub: "u1", Email: "u@x.com", Name: "Alice"}
 	v := &mockVerifier{identity: want}
 	r := newTestEngine(v)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req := httptest.NewRequest(http.MethodGet, protectedPath, nil)
 	req.Header.Set("Authorization", "Bearer valid.token.here")
 	r.ServeHTTP(w, req)
 
@@ -58,62 +63,62 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 }
 
-func TestJWTAuth_NilIdentityBypassBlocked(t *testing.T) {
+func TestJWTAuthNilIdentityBypassBlocked(t *testing.T) {
 	// A buggy verifier that returns (nil, nil) must not authenticate the request.
 	v := &mockVerifier{identity: nil, err: nil}
 	r := newTestEngine(v)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req := httptest.NewRequest(http.MethodGet, protectedPath, nil)
 	req.Header.Set("Authorization", "Bearer some.token")
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("(nil,nil) verifier should return 401, got %d", w.Code)
+		t.Fatalf(expectedUnauthorized, w.Code)
 	}
 }
 
-func TestJWTAuth_ExpiredToken(t *testing.T) {
+func TestJWTAuthExpiredToken(t *testing.T) {
 	v := &mockVerifier{err: errors.New("token is expired")}
 	r := newTestEngine(v)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req := httptest.NewRequest(http.MethodGet, protectedPath, nil)
 	req.Header.Set("Authorization", "Bearer expired.token")
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", w.Code)
+		t.Fatalf(expectedUnauthorized, w.Code)
 	}
 	if w.Body.String() != `{"error":"unauthorized"}` {
 		t.Errorf("unexpected body: %q", w.Body.String())
 	}
 }
 
-func TestJWTAuth_WrongIssuer(t *testing.T) {
+func TestJWTAuthWrongIssuer(t *testing.T) {
 	v := &mockVerifier{err: errors.New("oidc: id token issued by a different provider")}
 	r := newTestEngine(v)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req := httptest.NewRequest(http.MethodGet, protectedPath, nil)
 	req.Header.Set("Authorization", "Bearer wrong.issuer.token")
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", w.Code)
+		t.Fatalf(expectedUnauthorized, w.Code)
 	}
 }
 
-func TestJWTAuth_MissingAuthorizationHeader(t *testing.T) {
+func TestJWTAuthMissingAuthorizationHeader(t *testing.T) {
 	v := &mockVerifier{}
 	r := newTestEngine(v)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req := httptest.NewRequest(http.MethodGet, protectedPath, nil)
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", w.Code)
+		t.Fatalf(expectedUnauthorized, w.Code)
 	}
 	if w.Body.String() != `{"error":"unauthorized"}` {
 		t.Errorf("unexpected body: %q", w.Body.String())
