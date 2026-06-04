@@ -496,3 +496,166 @@ func TestArchiveProduct_InternalErrorReturns500(t *testing.T) {
 		t.Fatalf("expected 500, got %d", w.Code)
 	}
 }
+
+// --- toProductResponse ---
+
+func TestToProductResponse_IncludesArchivedAt(t *testing.T) {
+	archivedAt := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	p := makeProduct("archived-slug")
+	p.ArchivedAt = &archivedAt
+	s := &mockProductStore{
+		listFn: func(_ context.Context, _ store.ListOptions) ([]domain.Product, error) {
+			return []domain.Product{p}, nil
+		},
+	}
+	r := newRouter(s, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/products?include_archived=true", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var resp []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(resp) != 1 {
+		t.Fatalf("expected 1 product, got %d", len(resp))
+	}
+	if resp[0]["archived_at"] == nil {
+		t.Error("expected archived_at in response for archived product")
+	}
+}
+
+// --- CreateProduct additional coverage ---
+
+func TestCreateProduct_BadJSON_Returns400(t *testing.T) {
+	r := newRouter(&mockProductStore{}, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/products",
+		bytes.NewBufferString("not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for malformed JSON, got %d", w.Code)
+	}
+}
+
+func TestCreateProduct_StoreInternalError_Returns500(t *testing.T) {
+	s := &mockProductStore{
+		createFn: func(_ context.Context, _ *domain.Product) error {
+			return errors.New("db is down")
+		},
+	}
+	r := newRouter(s, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/products",
+		jsonBody(map[string]string{"name": "Prod", "slug": "prod"}))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
+	}
+}
+
+// --- ListProducts additional coverage ---
+
+func TestListProducts_NoIdentity_Returns401(t *testing.T) {
+	r := newRouter(&mockProductStore{}, nil)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 when identity is absent, got %d", w.Code)
+	}
+}
+
+func TestListProducts_StoreError_Returns500(t *testing.T) {
+	s := &mockProductStore{
+		listFn: func(_ context.Context, _ store.ListOptions) ([]domain.Product, error) {
+			return nil, errors.New("db is down")
+		},
+	}
+	r := newRouter(s, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 on store error, got %d", w.Code)
+	}
+}
+
+// --- UpdateProduct additional coverage ---
+
+func TestUpdateProduct_BadJSON_Returns400(t *testing.T) {
+	r := newRouter(&mockProductStore{}, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/my-product",
+		bytes.NewBufferString("not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for malformed JSON, got %d", w.Code)
+	}
+}
+
+func TestUpdateProduct_InvalidURLSlug_Returns400(t *testing.T) {
+	// Slug "CAPS" fails domain.ValidateSlug; admin bypasses RequireRole so the
+	// handler itself runs the slug validation.
+	r := newRouter(&mockProductStore{}, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/CAPS",
+		jsonBody(map[string]string{"name": "X"}))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid URL slug, got %d", w.Code)
+	}
+}
+
+func TestUpdateProduct_StoreInternalError_Returns500(t *testing.T) {
+	s := &mockProductStore{
+		updateFn: func(_ context.Context, _, _, _ string) (*domain.Product, error) {
+			return nil, errors.New("db is down")
+		},
+	}
+	r := newRouter(s, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/my-product",
+		jsonBody(map[string]string{"name": "X"}))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
+	}
+}
+
+// --- ArchiveProduct additional coverage ---
+
+func TestArchiveProduct_InvalidURLSlug_Returns400(t *testing.T) {
+	r := newRouter(&mockProductStore{}, adminIdentity())
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/CAPS", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid URL slug, got %d", w.Code)
+	}
+}
