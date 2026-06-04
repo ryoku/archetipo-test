@@ -21,7 +21,7 @@ func (alwaysDenyVerifier) Verify(_ context.Context, _ string) (*domain.UserIdent
 
 var _ auth.TokenVerifier = alwaysDenyVerifier{}
 
-func TestRouter_ProtectedEndpointReturns401WithoutToken(t *testing.T) {
+func TestRouterProtectedEndpointReturns401WithoutToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(alwaysDenyVerifier{}, func(api *gin.RouterGroup) {
 		api.GET("/ping", func(c *gin.Context) {
@@ -38,7 +38,7 @@ func TestRouter_ProtectedEndpointReturns401WithoutToken(t *testing.T) {
 	}
 }
 
-func TestRouter_HealthzBypassesAuth(t *testing.T) {
+func TestRouterHealthzBypassesAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(alwaysDenyVerifier{})
 

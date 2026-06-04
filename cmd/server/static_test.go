@@ -11,6 +11,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	indexFileName     = "index.html"
+	contentTypeHeader = "Content-Type"
+	htmlContentType   = "text/html"
+)
+
 func newTestRouter(fixture fstest.MapFS) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -18,9 +24,9 @@ func newTestRouter(fixture fstest.MapFS) *gin.Engine {
 	return r
 }
 
-func TestSPA_RootServesHTML(t *testing.T) {
+func TestSPARootServesHTML(t *testing.T) {
 	fixture := fstest.MapFS{
-		"index.html": {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
+		indexFileName: {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
 	}
 	r := newTestRouter(fixture)
 
@@ -31,15 +37,15 @@ func TestSPA_RootServesHTML(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-	ct := w.Header().Get("Content-Type")
-	if !strings.HasPrefix(ct, "text/html") {
+	ct := w.Header().Get(contentTypeHeader)
+	if !strings.HasPrefix(ct, htmlContentType) {
 		t.Fatalf("expected text/html content-type, got %q", ct)
 	}
 }
 
-func TestSPA_DeepPathFallsBackToIndex(t *testing.T) {
+func TestSPADeepPathFallsBackToIndex(t *testing.T) {
 	fixture := fstest.MapFS{
-		"index.html": {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
+		indexFileName: {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
 	}
 	r := newTestRouter(fixture)
 
@@ -50,15 +56,15 @@ func TestSPA_DeepPathFallsBackToIndex(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 via SPA fallback, got %d", w.Code)
 	}
-	ct := w.Header().Get("Content-Type")
-	if !strings.HasPrefix(ct, "text/html") {
+	ct := w.Header().Get(contentTypeHeader)
+	if !strings.HasPrefix(ct, htmlContentType) {
 		t.Fatalf("expected text/html content-type for fallback, got %q", ct)
 	}
 }
 
-func TestSPA_StaticAssetServedDirectly(t *testing.T) {
+func TestSPAStaticAssetServedDirectly(t *testing.T) {
 	fixture := fstest.MapFS{
-		"index.html":     {Data: []byte(`<!doctype html>`)},
+		indexFileName:    {Data: []byte(`<!doctype html>`)},
 		"assets/main.js": {Data: []byte(`console.log("hello")`)},
 	}
 	r := newTestRouter(fixture)
@@ -72,13 +78,13 @@ func TestSPA_StaticAssetServedDirectly(t *testing.T) {
 	}
 }
 
-// TestSPA_DirectoryPathFallsBackToIndex guards against directory enumeration:
+// TestSPADirectoryPathFallsBackToIndex guards against directory enumeration:
 // Open("assets") succeeds on fstest.MapFS (implicit directory) and http.FileServer
 // would issue a 301 to /assets/ revealing the directory exists, or serve a listing.
 // The handler must stat the opened entry and treat directories as SPA fallbacks.
-func TestSPA_DirectoryPathFallsBackToIndex(t *testing.T) {
+func TestSPADirectoryPathFallsBackToIndex(t *testing.T) {
 	fixture := fstest.MapFS{
-		"index.html":     {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
+		indexFileName:    {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
 		"assets/main.js": {Data: []byte(`console.log("hello")`)},
 	}
 	r := newTestRouter(fixture)
@@ -92,8 +98,8 @@ func TestSPA_DirectoryPathFallsBackToIndex(t *testing.T) {
 		if w.Code == http.StatusMovedPermanently {
 			t.Fatalf("path %q: got 301 redirect — directory existence leaked", path)
 		}
-		ct := w.Header().Get("Content-Type")
-		if !strings.HasPrefix(ct, "text/html") {
+		ct := w.Header().Get(contentTypeHeader)
+		if !strings.HasPrefix(ct, htmlContentType) {
 			t.Fatalf("path %q: expected text/html SPA fallback, got %q (status %d)", path, ct, w.Code)
 		}
 		if strings.Contains(w.Body.String(), "main.js") {
@@ -102,14 +108,14 @@ func TestSPA_DirectoryPathFallsBackToIndex(t *testing.T) {
 	}
 }
 
-// TestSPA_RootFallsBackToIndexNotDirectory guards against the Open("") bug:
+// TestSPARootFallsBackToIndexNotDirectory guards against the Open("") bug:
 // stripping "/" from path "/" produces "", and Open("") on a real fs.FS opens
 // the root directory — not index.html. The handler must skip Open for root.
-func TestSPA_RootFallsBackToIndexNotDirectory(t *testing.T) {
+func TestSPARootFallsBackToIndexNotDirectory(t *testing.T) {
 	fixture := fstest.MapFS{
 		// Explicitly include the root dir entry to expose the Open("") footgun.
-		".":          &fstest.MapFile{Mode: fs.ModeDir},
-		"index.html": {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
+		".":           &fstest.MapFile{Mode: fs.ModeDir},
+		indexFileName: {Data: []byte(`<!doctype html><html><body id="root"></body></html>`)},
 	}
 	r := newTestRouter(fixture)
 
@@ -120,8 +126,8 @@ func TestSPA_RootFallsBackToIndexNotDirectory(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-	ct := w.Header().Get("Content-Type")
-	if !strings.HasPrefix(ct, "text/html") {
+	ct := w.Header().Get(contentTypeHeader)
+	if !strings.HasPrefix(ct, htmlContentType) {
 		t.Fatalf("expected text/html for root (not a directory listing), got %q", ct)
 	}
 }

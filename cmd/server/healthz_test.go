@@ -21,7 +21,7 @@ func (noopVerifier) Verify(_ context.Context, _ string) (*domain.UserIdentity, e
 
 var _ auth.TokenVerifier = noopVerifier{}
 
-func TestHealthz_ReturnsOKWithoutToken(t *testing.T) {
+func TestHealthzReturnsOKWithoutToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(noopVerifier{})
 

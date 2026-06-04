@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const skipDatabaseTestMessage = "DATABASE_URL not set — skipping integration test"
+
 func newMigrate(t *testing.T, dsn string) *migrate.Migrate {
 	t.Helper()
 	m, err := migrate.New("file://../../migrations", dsn)
@@ -22,10 +24,10 @@ func newMigrate(t *testing.T, dsn string) *migrate.Migrate {
 	return m
 }
 
-func TestMigrations_UpCreatesProductsTable(t *testing.T) {
+func TestMigrationsUpCreatesProductsTable(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		t.Skip("DATABASE_URL not set — skipping integration test")
+		t.Skip(skipDatabaseTestMessage)
 	}
 
 	m := newMigrate(t, dsn)
@@ -59,10 +61,10 @@ func TestMigrations_UpCreatesProductsTable(t *testing.T) {
 	}
 }
 
-func TestMigrations_UpIsIdempotent(t *testing.T) {
+func TestMigrationsUpIsIdempotent(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		t.Skip("DATABASE_URL not set — skipping integration test")
+		t.Skip(skipDatabaseTestMessage)
 	}
 
 	m := newMigrate(t, dsn)
@@ -77,10 +79,10 @@ func TestMigrations_UpIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestMigrations_DownDropsProductsTable(t *testing.T) {
+func TestMigrationsDownDropsProductsTable(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		t.Skip("DATABASE_URL not set — skipping integration test")
+		t.Skip(skipDatabaseTestMessage)
 	}
 
 	m := newMigrate(t, dsn)
@@ -114,7 +116,7 @@ func TestMigrations_DownDropsProductsTable(t *testing.T) {
 	}
 }
 
-func TestMigrations_InvalidDSNReturnsError(t *testing.T) {
+func TestMigrationsInvalidDSNReturnsError(t *testing.T) {
 	_, err := migrate.New("file://../../migrations", "postgresql://invalid:invalid@localhost:9999/nonexistent")
 	if err == nil {
 		t.Error("expected error for invalid DSN, got nil")

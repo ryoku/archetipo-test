@@ -16,12 +16,35 @@ import (
 	"github.com/ryoku/kubegate/internal/domain"
 )
 
+const (
+	verifierTestKeyID   = "test-key"
+	newVerifierErrorFmt = "NewVerifier: %v"
+	defaultUserSub      = "user-1"
+	defaultUserEmail    = "user@example.com"
+	audienceUserEmail   = "u@x.com"
+)
+
+type tokenIdentity struct {
+	sub   string
+	email string
+	name  string
+}
+
+func mustNewVerifier(t *testing.T, issuerURL, clientID string) *auth.Verifier {
+	t.Helper()
+	v, err := auth.NewVerifier(context.Background(), issuerURL, clientID)
+	if err != nil {
+		t.Fatalf(newVerifierErrorFmt, err)
+	}
+	return v
+}
+
 // localOIDCServer spins up an httptest.Server that mimics OIDC discovery and JWKS endpoints.
 func localOIDCServer(t *testing.T, key *rsa.PrivateKey) *httptest.Server {
 	t.Helper()
 	pub := key.Public().(*rsa.PublicKey)
 	jwks := jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{
-		KeyID:     "test-key",
+		KeyID:     verifierTestKeyID,
 		Key:       pub,
 		Algorithm: string(jose.RS256),
 		Use:       "sig",
@@ -49,28 +72,28 @@ func localOIDCServer(t *testing.T, key *rsa.PrivateKey) *httptest.Server {
 	return srv
 }
 
-func signJWT(t *testing.T, key *rsa.PrivateKey, issuer, sub, email, name string, exp time.Time) string {
+func signJWT(t *testing.T, key *rsa.PrivateKey, issuer string, identity tokenIdentity, exp time.Time) string {
 	t.Helper()
-	return signJWTWithAud(t, key, issuer, sub, email, name, exp, nil)
+	return signJWTWithAud(t, key, issuer, identity, exp, nil)
 }
 
-func signJWTWithAud(t *testing.T, key *rsa.PrivateKey, issuer, sub, email, name string, exp time.Time, aud []string) string {
+func signJWTWithAud(t *testing.T, key *rsa.PrivateKey, issuer string, identity tokenIdentity, exp time.Time, aud []string) string {
 	t.Helper()
 	sig, err := jose.NewSigner(
 		jose.SigningKey{Algorithm: jose.RS256, Key: key},
-		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "test-key"),
+		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", verifierTestKeyID),
 	)
 	if err != nil {
 		t.Fatalf("create signer: %v", err)
 	}
 	claims := jwt.Claims{
 		Issuer:   issuer,
-		Subject:  sub,
+		Subject:  identity.sub,
 		Expiry:   jwt.NewNumericDate(exp),
 		IssuedAt: jwt.NewNumericDate(time.Now()),
 		Audience: jwt.Audience(aud),
 	}
-	extra := map[string]any{"email": email, "name": name}
+	extra := map[string]any{"email": identity.email, "name": identity.name}
 	raw, err := jwt.Signed(sig).Claims(claims).Claims(extra).Serialize()
 	if err != nil {
 		t.Fatalf("serialize jwt: %v", err)
@@ -78,48 +101,42 @@ func signJWTWithAud(t *testing.T, key *rsa.PrivateKey, issuer, sub, email, name 
 	return raw
 }
 
-func TestVerifier_ValidToken(t *testing.T) {
+func TestVerifierValidToken(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, "")
 
-	raw := signJWT(t, key, srv.URL, "user-1", "user@example.com", "Test User", time.Now().Add(time.Hour))
+	raw := signJWT(t, key, srv.URL, tokenIdentity{sub: defaultUserSub, email: defaultUserEmail, name: "Test User"}, time.Now().Add(time.Hour))
 	id, err := v.Verify(context.Background(), raw)
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
-	if id.Sub != "user-1" || id.Email != "user@example.com" || id.Name != "Test User" {
+	if id.Sub != defaultUserSub || id.Email != defaultUserEmail || id.Name != "Test User" {
 		t.Errorf("unexpected identity: %+v", id)
 	}
 }
 
-func TestVerifier_ExpiredToken(t *testing.T) {
+func TestVerifierExpiredToken(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, "")
 
-	raw := signJWT(t, key, srv.URL, "user-1", "", "", time.Now().Add(-time.Hour))
+	raw := signJWT(t, key, srv.URL, tokenIdentity{sub: defaultUserSub}, time.Now().Add(-time.Hour))
 	_, err = v.Verify(context.Background(), raw)
 	if err == nil {
 		t.Fatal("expected error for expired token")
 	}
 }
 
-func TestVerifier_TamperedSignature(t *testing.T) {
+func TestVerifierTamperedSignature(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -130,60 +147,51 @@ func TestVerifier_TamperedSignature(t *testing.T) {
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, "")
 
 	// Signed with otherKey — the JWKS only contains key's public key.
-	raw := signJWT(t, otherKey, srv.URL, "attacker", "", "", time.Now().Add(time.Hour))
+	raw := signJWT(t, otherKey, srv.URL, tokenIdentity{sub: "attacker"}, time.Now().Add(time.Hour))
 	_, err = v.Verify(context.Background(), raw)
 	if err == nil {
 		t.Fatal("expected error for tampered signature")
 	}
 }
 
-func TestVerifier_WrongIssuer(t *testing.T) {
+func TestVerifierWrongIssuer(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, "")
 
 	// Token claims a different issuer than the one the verifier was initialised for.
-	raw := signJWT(t, key, "https://evil.example.com", "user-1", "", "", time.Now().Add(time.Hour))
+	raw := signJWT(t, key, "https://evil.example.com", tokenIdentity{sub: defaultUserSub}, time.Now().Add(time.Hour))
 	_, err = v.Verify(context.Background(), raw)
 	if err == nil {
 		t.Fatal("expected error for wrong issuer")
 	}
 }
 
-func TestVerifier_EmptySub(t *testing.T) {
+func TestVerifierEmptySub(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := localOIDCServer(t, key)
 
-	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, "")
 
 	// Token with empty sub — must be rejected as the subject is a required claim.
-	raw := signJWT(t, key, srv.URL, "", "user@example.com", "Alice", time.Now().Add(time.Hour))
+	raw := signJWT(t, key, srv.URL, tokenIdentity{email: defaultUserEmail, name: "Alice"}, time.Now().Add(time.Hour))
 	_, err = v.Verify(context.Background(), raw)
 	if err == nil {
 		t.Fatal("expected error for token with empty sub")
 	}
 }
 
-func TestVerifier_AudienceValidatedWhenClientIDConfigured(t *testing.T) {
+func TestVerifierAudienceValidatedWhenClientIDConfigured(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -191,25 +199,22 @@ func TestVerifier_AudienceValidatedWhenClientIDConfigured(t *testing.T) {
 	srv := localOIDCServer(t, key)
 
 	const clientID = "kubegate"
-	v, err := auth.NewVerifier(context.Background(), srv.URL, clientID)
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, clientID)
 
 	// Token with matching aud — must be accepted.
-	raw := signJWTWithAud(t, key, srv.URL, "user-1", "u@x.com", "Alice", time.Now().Add(time.Hour), []string{clientID})
+	raw := signJWTWithAud(t, key, srv.URL, tokenIdentity{sub: defaultUserSub, email: audienceUserEmail, name: "Alice"}, time.Now().Add(time.Hour), []string{clientID})
 	if _, err = v.Verify(context.Background(), raw); err != nil {
 		t.Fatalf("expected success for matching aud, got: %v", err)
 	}
 
 	// Token with wrong aud — must be rejected.
-	rawWrong := signJWTWithAud(t, key, srv.URL, "user-1", "u@x.com", "Alice", time.Now().Add(time.Hour), []string{"other-service"})
+	rawWrong := signJWTWithAud(t, key, srv.URL, tokenIdentity{sub: defaultUserSub, email: audienceUserEmail, name: "Alice"}, time.Now().Add(time.Hour), []string{"other-service"})
 	if _, err = v.Verify(context.Background(), rawWrong); err == nil {
 		t.Fatal("expected error for token with wrong aud")
 	}
 }
 
-func TestVerifier_AudienceSkippedWhenNoClientID(t *testing.T) {
+func TestVerifierAudienceSkippedWhenNoClientID(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -217,12 +222,9 @@ func TestVerifier_AudienceSkippedWhenNoClientID(t *testing.T) {
 	srv := localOIDCServer(t, key)
 
 	// No clientID — SkipClientIDCheck stays true, tokens without aud are accepted.
-	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, "")
 
-	raw := signJWT(t, key, srv.URL, "user-1", "u@x.com", "Alice", time.Now().Add(time.Hour))
+	raw := signJWT(t, key, srv.URL, tokenIdentity{sub: defaultUserSub, email: audienceUserEmail, name: "Alice"}, time.Now().Add(time.Hour))
 	if _, err = v.Verify(context.Background(), raw); err != nil {
 		t.Fatalf("expected success without clientID, got: %v", err)
 	}
@@ -233,7 +235,7 @@ func signJWTWithRealmRoles(t *testing.T, key *rsa.PrivateKey, issuer, sub string
 	t.Helper()
 	sig, err := jose.NewSigner(
 		jose.SigningKey{Algorithm: jose.RS256, Key: key},
-		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "test-key"),
+		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", verifierTestKeyID),
 	)
 	if err != nil {
 		t.Fatalf("create signer: %v", err)
@@ -254,19 +256,16 @@ func signJWTWithRealmRoles(t *testing.T, key *rsa.PrivateKey, issuer, sub string
 	return raw
 }
 
-func TestVerifier_RoleClaimsExtraction(t *testing.T) {
+func TestVerifierRoleClaimsExtraction(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := localOIDCServer(t, key)
-	v, err := auth.NewVerifier(context.Background(), srv.URL, "")
-	if err != nil {
-		t.Fatalf("NewVerifier: %v", err)
-	}
+	v := mustNewVerifier(t, srv.URL, "")
 
 	// JWT with product editor role, devops-admin, and a non-kubegate role.
-	raw := signJWTWithRealmRoles(t, key, srv.URL, "user-1", time.Now().Add(time.Hour),
+	raw := signJWTWithRealmRoles(t, key, srv.URL, defaultUserSub, time.Now().Add(time.Hour),
 		[]string{"kubegate:product-foo:editor", "kubegate:devops-admin", "other:ignored:role"})
 	id, err := v.Verify(context.Background(), raw)
 	if err != nil {
