@@ -254,6 +254,10 @@ go test ./cmd/server/ -v
 
 Covers the SPA static file handler with in-memory `fstest.MapFS` fixtures. No Node.js or Playwright required.
 
+### Test coverage
+
+New code must achieve 80% coverage on backend and frontend.
+
 ---
 
 ## Architectural Style
