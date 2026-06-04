@@ -11,6 +11,11 @@ import (
 	"github.com/ryoku/kubegate/internal/store"
 )
 
+const (
+	errMsgInternal = "internal error"
+	errMsgNotFound = "not found"
+)
+
 // ProductHandlers bundles the HTTP handlers for the /products resource.
 type ProductHandlers struct {
 	store store.ProductStore
@@ -86,7 +91,7 @@ func (h *ProductHandlers) CreateProduct(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "slug already exists"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 	c.JSON(http.StatusCreated, toProductResponse(p))
@@ -114,7 +119,7 @@ func (h *ProductHandlers) ListProducts(c *gin.Context) {
 
 	products, err := h.store.List(c.Request.Context(), opts)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 
@@ -138,7 +143,7 @@ func (h *ProductHandlers) UpdateProduct(c *gin.Context) {
 	}
 	if !identity.IsDevOpsAdmin {
 		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
 	}
@@ -161,10 +166,10 @@ func (h *ProductHandlers) UpdateProduct(c *gin.Context) {
 	updated, err := h.store.Update(c.Request.Context(), slug, req.Name, req.Description)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 	c.JSON(http.StatusOK, toProductResponse(updated))
@@ -183,7 +188,7 @@ func (h *ProductHandlers) ArchiveProduct(c *gin.Context) {
 	}
 	if !identity.IsDevOpsAdmin {
 		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
 	}
@@ -195,10 +200,10 @@ func (h *ProductHandlers) ArchiveProduct(c *gin.Context) {
 
 	if err := h.store.Archive(c.Request.Context(), slug); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 	c.Status(http.StatusNoContent)
