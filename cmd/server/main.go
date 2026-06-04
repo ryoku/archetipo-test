@@ -11,8 +11,10 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ryoku/kubegate/internal/api/router"
 	"github.com/ryoku/kubegate/internal/auth"
+	"github.com/ryoku/kubegate/internal/store"
 )
 
 func main() {
@@ -44,13 +46,21 @@ func main() {
 		log.Fatalf("OIDC verifier init: %v", err)
 	}
 
+	pool, err := pgxpool.New(context.Background(), dsn)
+	if err != nil {
+		log.Fatalf("pgxpool.New: %v", err)
+	}
+	defer pool.Close()
+
+	productStore := store.NewProductStore(pool)
+
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8081"
 	}
 	addr := ":" + port
 
-	r := router.New(verifier)
+	r := router.New(verifier, router.RegisterProductRoutes(productStore))
 	registerSPA(r)
 
 	log.Printf("Server listening on %s", addr)

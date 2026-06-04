@@ -59,12 +59,17 @@ func RequireAdmin() gin.HandlerFunc {
 	}
 }
 
-// identityFromContext extracts *domain.UserIdentity from the Gin context.
-func identityFromContext(c *gin.Context) (*domain.UserIdentity, bool) {
+// IdentityFromContext extracts *domain.UserIdentity from the Gin context.
+func IdentityFromContext(c *gin.Context) (*domain.UserIdentity, bool) {
 	v, exists := c.Get(domain.IdentityContextKey)
 	if !exists {
 		return nil, false
 	}
 	identity, ok := v.(*domain.UserIdentity)
 	return identity, ok
+}
+
+// identityFromContext is the unexported alias used within this package.
+func identityFromContext(c *gin.Context) (*domain.UserIdentity, bool) {
+	return IdentityFromContext(c)
 }
