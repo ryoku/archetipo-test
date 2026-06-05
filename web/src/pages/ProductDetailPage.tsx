@@ -43,6 +43,78 @@ function formatDate(iso: string): string {
   }
 }
 
+interface ComponentsContentProps {
+  loading: boolean
+  components: Component[]
+  canWrite: boolean
+  onDelete: (comp: Component) => void
+}
+
+function ComponentsContent({ loading, components, canWrite, onDelete }: ComponentsContentProps) {
+  if (loading) {
+    return (
+      <div className="pd-loading">
+        <div className="pd-spinner" />
+        <span>Loading components…</span>
+      </div>
+    )
+  }
+  if (components.length === 0) {
+    return (
+      <div className="pd-empty-state" data-testid="empty-components">
+        <div className="pd-empty-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="2" y="3" width="14" height="12" rx="2" />
+            <path d="M6 3v12M12 3v12M2 7h14M2 11h14" />
+          </svg>
+        </div>
+        <div className="pd-empty-title">No components registered</div>
+        <div className="pd-empty-sub">Add the first component using the button above.</div>
+      </div>
+    )
+  }
+  return (
+    <div className="pd-tbl-wrap">
+      <table className="pd-comp-table">
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>GCR Image Path</th>
+            <th>Added</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {components.map((comp) => (
+            <tr key={comp.id}>
+              <td className="pd-comp-name-cell">
+                <div className="pd-comp-name-str">{comp.name}</div>
+                <div className="pd-comp-slug-str">{comp.slug}</div>
+              </td>
+              <td><span className="pd-comp-path-str">{comp.gcr_image_path}</span></td>
+              <td><span className="pd-comp-date">{formatDate(comp.created_at)}</span></td>
+              <td>
+                {canWrite && (
+                  <button
+                    className="pd-btn-danger"
+                    onClick={() => onDelete(comp)}
+                    aria-label={`Delete ${comp.name}`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5l.5-7" />
+                    </svg>
+                    Delete
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const location = useLocation()
@@ -96,8 +168,8 @@ export default function ProductDetailPage() {
   function handleNameChange(value: string) {
     const autoSlug = value
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
+      .replaceAll(/[^a-z0-9]+/g, '-')
+      .replaceAll(/^-|-$/g, '')
     setFormState((prev) => ({ ...prev, name: value, slug: autoSlug }))
   }
 
@@ -308,82 +380,12 @@ export default function ProductDetailPage() {
 
         {/* Components table */}
         <div className="pd-card">
-          {loadingComponents ? (
-            <div className="pd-loading">
-              <div className="pd-spinner" />
-              <span>Loading components…</span>
-            </div>
-          ) : components.length === 0 ? (
-            <div className="pd-empty-state" data-testid="empty-components">
-              <div className="pd-empty-icon">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 18 18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
-                  <rect x="2" y="3" width="14" height="12" rx="2" />
-                  <path d="M6 3v12M12 3v12M2 7h14M2 11h14" />
-                </svg>
-              </div>
-              <div className="pd-empty-title">No components registered</div>
-              <div className="pd-empty-sub">
-                Add the first component using the button above.
-              </div>
-            </div>
-          ) : (
-            <div className="pd-tbl-wrap">
-              <table className="pd-comp-table">
-                <thead>
-                  <tr>
-                    <th>Component</th>
-                    <th>GCR Image Path</th>
-                    <th>Added</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {components.map((comp) => (
-                    <tr key={comp.id}>
-                      <td className="pd-comp-name-cell">
-                        <div className="pd-comp-name-str">{comp.name}</div>
-                        <div className="pd-comp-slug-str">{comp.slug}</div>
-                      </td>
-                      <td>
-                        <span className="pd-comp-path-str">{comp.gcr_image_path}</span>
-                      </td>
-                      <td>
-                        <span className="pd-comp-date">{formatDate(comp.created_at)}</span>
-                      </td>
-                      <td>
-                        {canWrite && (
-                          <button
-                            className="pd-btn-danger"
-                            onClick={() => setDeleteTarget(comp)}
-                            aria-label={`Delete ${comp.name}`}
-                          >
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 12 12"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                            >
-                              <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5l.5-7" />
-                            </svg>
-                            Delete
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ComponentsContent
+            loading={loadingComponents}
+            components={components}
+            canWrite={canWrite}
+            onDelete={(comp) => setDeleteTarget(comp)}
+          />
         </div>
       </div>
 
@@ -391,11 +393,19 @@ export default function ProductDetailPage() {
       {deleteTarget && (
         <div
           className="pd-backdrop"
+          role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteTarget(null)
           }}
         >
-          <div className="pd-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="pd-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Remove Component"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape') setDeleteTarget(null) }}
+          >
             <div className="pd-confirm-head">
               <div className="pd-confirm-icon-wrap">
                 <svg

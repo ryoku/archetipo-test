@@ -282,6 +282,26 @@ describe('ProductDetailPage — with product', () => {
 })
 
 describe('ProductDetailPage — delete confirm dialog', () => {
+  it('dialog has role="dialog" for screen-reader accessibility', async () => {
+    const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
+    mockListComponents.mockResolvedValue([comp])
+    renderPage()
+    await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
+    act(() => { screen.getByRole('button', { name: /Delete api-gw/i }).click() })
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('closes confirm dialog when Escape key is pressed', async () => {
+    const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
+    mockListComponents.mockResolvedValue([comp])
+    renderPage()
+    await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
+    act(() => { screen.getByRole('button', { name: /Delete api-gw/i }).click() })
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    act(() => { fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' }) })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('shows delete confirm dialog when Delete button is clicked', async () => {
     const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
     mockListComponents.mockResolvedValue([comp])

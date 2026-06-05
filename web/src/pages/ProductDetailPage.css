@@ -61,7 +61,7 @@
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
   font-size: 14px;
-  color: #fff;
+  color: #04222e;
   flex-shrink: 0;
 }
 
@@ -105,10 +105,10 @@
 
 /* Error inline */
 .pd-error {
-  background: rgba(224, 85, 85, 0.08);
-  border: 1px solid rgba(224, 85, 85, 0.25);
+  background: #130909;
+  border: 1px solid #2e1010;
   border-radius: 8px;
-  color: #e05555;
+  color: #ff8888;
   padding: 12px 16px;
   font-size: 13px;
   margin-bottom: 16px;
@@ -449,7 +449,7 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 4px;
-  color: #374e64;
+  color: #6b8fa9;
 }
 
 .pd-empty-title {
@@ -600,8 +600,8 @@
   padding: 7px 14px;
   border-radius: 8px;
   border: 1px solid rgba(224, 85, 85, 0.4);
-  background: rgba(224, 85, 85, 0.1);
-  color: #e05555;
+  background: #130909;
+  color: #ff8888;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;

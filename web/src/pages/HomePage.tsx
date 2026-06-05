@@ -4,6 +4,15 @@ import { useAuth } from '../auth/AuthContext'
 import { listProducts, type Product } from '../api/products'
 import './HomePage.css'
 
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
 export default function HomePage() {
   const { user, logout, accessToken } = useAuth()
   const navigate = useNavigate()
@@ -23,15 +32,6 @@ export default function HomePage() {
 
   const displayName =
     user?.profile.name ?? user?.profile.preferred_username ?? 'User'
-
-  function getInitials(name: string): string {
-    return name
-      .split(/\s+/)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
-  }
 
   return (
     <div className="home-page">
