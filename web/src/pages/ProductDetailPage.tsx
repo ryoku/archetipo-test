@@ -144,6 +144,10 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (!slug || !accessToken) return
+    // Intentional reset: slug changed, clear stale list and show loading before new fetch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoadingComponents(true)
+    setComponents([])
     listComponents(accessToken, slug)
       .then(setComponents)
       .catch((err: unknown) => {

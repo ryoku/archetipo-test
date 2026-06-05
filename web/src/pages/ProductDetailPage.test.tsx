@@ -279,6 +279,32 @@ describe('ProductDetailPage — with product', () => {
       expect(mockListComponents).toHaveBeenCalledWith('test-token', 'test-product')
     })
   })
+
+  it('resets to loading state and clears stale components when slug changes', async () => {
+    // First render: foo product with one distinctly-named component
+    mockSlug = 'foo'
+    mockLocationState = makeProduct({ slug: 'foo' })
+    const fooComp = makeComponent({ id: 'c-foo', name: 'Foo Service', slug: 'foo-svc' })
+    mockListComponents.mockResolvedValueOnce([fooComp])
+
+    const { rerender } = renderPage()
+
+    await waitFor(() => expect(screen.getByText('Foo Service')).toBeTruthy())
+
+    // Simulate navigation to a different product (slug changes, new fetch never resolves)
+    mockSlug = 'bar'
+    mockLocationState = makeProduct({ slug: 'bar' })
+    mockListComponents.mockReturnValueOnce(new Promise(() => {}))
+
+    rerender(
+      <MemoryRouter initialEntries={['/products/bar']}>
+        <ProductDetailPage />
+      </MemoryRouter>,
+    )
+
+    // Stale component from 'foo' must NOT be visible while 'bar' is loading
+    await waitFor(() => expect(screen.queryByText('Foo Service')).toBeNull())
+  })
 })
 
 describe('ProductDetailPage — delete confirm dialog', () => {
