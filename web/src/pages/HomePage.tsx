@@ -59,7 +59,7 @@ export default function HomePage() {
         <div className="home-header-user">
           <div className="home-avatar">{getInitials(displayName)}</div>
           <span className="home-user-name">{displayName}</span>
-          <button className="home-btn-logout" onClick={() => logout()}>
+          <button className="home-btn-logout" onClick={() => { void logout() }}>
             Logout
           </button>
         </div>
