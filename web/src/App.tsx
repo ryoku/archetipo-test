@@ -4,6 +4,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import OidcCallbackPage from './pages/OidcCallbackPage'
+import ProductDetailPage from './pages/ProductDetailPage'
 
 export default function App() {
   return (
@@ -20,6 +21,14 @@ export default function App() {
           />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/auth/callback" element={<OidcCallbackPage />} />
+          <Route
+            path="/products/:slug"
+            element={
+              <ProtectedRoute>
+                <ProductDetailPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
