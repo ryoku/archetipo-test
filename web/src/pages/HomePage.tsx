@@ -13,7 +13,6 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!accessToken) return
-    setLoading(true)
     listProducts(accessToken)
       .then(setProducts)
       .catch((err: unknown) => {

@@ -72,7 +72,6 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (!slug || !accessToken) return
-    setLoadingComponents(true)
     listComponents(accessToken, slug)
       .then(setComponents)
       .catch((err: unknown) => {

@@ -95,4 +95,3 @@ func (s *pgxComponentStore) Delete(ctx context.Context, productID, slug string) 
 	}
 	return nil
 }
-

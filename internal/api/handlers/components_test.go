@@ -369,4 +369,3 @@ func TestDeleteComponent_StoreError_Returns500(t *testing.T) {
 	)
 	assertStatus(t, w, http.StatusInternalServerError)
 }
-

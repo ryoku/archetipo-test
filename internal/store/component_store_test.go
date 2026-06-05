@@ -33,7 +33,6 @@ func cleanComponents(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-
 func createTestProduct(t *testing.T, pool *pgxpool.Pool, slugSuffix string) *domain.Product {
 	t.Helper()
 	ps := store.NewProductStore(pool)
