@@ -119,6 +119,10 @@ func (h *ComponentHandlers) ListComponents(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
+	if product.ArchivedAt != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+		return
+	}
 
 	comps, err := h.compStore.ListByProduct(c.Request.Context(), product.ID)
 	if err != nil {

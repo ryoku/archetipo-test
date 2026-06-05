@@ -260,6 +260,21 @@ func TestListComponents_WithItems_Returns200WithArray(t *testing.T) {
 	}
 }
 
+func TestListComponents_ArchivedProduct_Returns404(t *testing.T) {
+	archived := makeProduct("old-prod")
+	archivedAt := time.Now()
+	archived.ArchivedAt = &archivedAt
+	ps := productStoreWithGetBySlug(func(_ context.Context, _ string) (*domain.Product, error) {
+		return &archived, nil
+	})
+	w := doPlain(
+		newComponentRouter(ps, &mockComponentStore{}, viewerIdentity("old-prod")),
+		http.MethodGet,
+		"/api/v1/products/old-prod/components",
+	)
+	assertStatus(t, w, http.StatusNotFound)
+}
+
 func TestListComponents_ProductNotFound_Returns404(t *testing.T) {
 	ps := productStoreWithGetBySlug(productGetBySlugNotFound())
 	cs := &mockComponentStore{}
