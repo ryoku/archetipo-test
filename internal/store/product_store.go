@@ -22,7 +22,7 @@ var ErrNotFound = errors.New("product not found")
 type ListOptions struct {
 	// SlugAllowlist, when non-nil, restricts results to products whose slug is in the set.
 	// A nil map means "return all" (admin path).
-	SlugAllowlist  map[string]struct{}
+	SlugAllowlist   map[string]struct{}
 	IncludeArchived bool
 }
 

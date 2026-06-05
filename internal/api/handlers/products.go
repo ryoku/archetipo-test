@@ -11,6 +11,11 @@ import (
 	"github.com/ryoku/kubegate/internal/store"
 )
 
+const (
+	errMsgInternal = "internal error"
+	errMsgNotFound = "not found"
+)
+
 // ProductHandlers bundles the HTTP handlers for the /products resource.
 type ProductHandlers struct {
 	store store.ProductStore
@@ -59,6 +64,35 @@ func toProductResponse(p *domain.Product) productResponse {
 	return r
 }
 
+// checkProductAccess verifies that a valid identity exists in the context and
+// that the caller has at least some role on slug (or is a DevOps Admin).
+// It writes the appropriate error response and returns false when access is
+// denied, so the caller can return immediately.
+func checkProductAccess(c *gin.Context, slug string) bool {
+	identity, ok := middleware.IdentityFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return false
+	}
+	if !identity.IsDevOpsAdmin {
+		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+			return false
+		}
+	}
+	return true
+}
+
+// validateURLSlug checks that slug is a valid product slug coming from a URL
+// parameter. It writes a 400 and returns false when validation fails.
+func validateURLSlug(c *gin.Context, slug string) bool {
+	if err := domain.ValidateSlug(slug); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product slug in URL"})
+		return false
+	}
+	return true
+}
+
 // CreateProduct handles POST /api/v1/products.
 // Reserved for DevOps Admin — enforced by RequireAdmin middleware upstream.
 func (h *ProductHandlers) CreateProduct(c *gin.Context) {
@@ -86,7 +120,7 @@ func (h *ProductHandlers) CreateProduct(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "slug already exists"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 	c.JSON(http.StatusCreated, toProductResponse(p))
@@ -114,7 +148,7 @@ func (h *ProductHandlers) ListProducts(c *gin.Context) {
 
 	products, err := h.store.List(c.Request.Context(), opts)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 
@@ -130,21 +164,7 @@ func (h *ProductHandlers) ListProducts(c *gin.Context) {
 // Access controlled by RequireRole(RoleEditor) middleware upstream.
 func (h *ProductHandlers) UpdateProduct(c *gin.Context) {
 	slug := c.Param("productSlug")
-
-	identity, ok := middleware.IdentityFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	if !identity.IsDevOpsAdmin {
-		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-			return
-		}
-	}
-
-	if err := domain.ValidateSlug(slug); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product slug in URL"})
+	if !checkProductAccess(c, slug) || !validateURLSlug(c, slug) {
 		return
 	}
 
@@ -161,10 +181,10 @@ func (h *ProductHandlers) UpdateProduct(c *gin.Context) {
 	updated, err := h.store.Update(c.Request.Context(), slug, req.Name, req.Description)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 	c.JSON(http.StatusOK, toProductResponse(updated))
@@ -175,30 +195,16 @@ func (h *ProductHandlers) UpdateProduct(c *gin.Context) {
 // Access controlled by RequireRole(RoleEditor) middleware upstream.
 func (h *ProductHandlers) ArchiveProduct(c *gin.Context) {
 	slug := c.Param("productSlug")
-
-	identity, ok := middleware.IdentityFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	if !identity.IsDevOpsAdmin {
-		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-			return
-		}
-	}
-
-	if err := domain.ValidateSlug(slug); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product slug in URL"})
+	if !checkProductAccess(c, slug) || !validateURLSlug(c, slug) {
 		return
 	}
 
 	if err := h.store.Archive(c.Request.Context(), slug); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 	c.Status(http.StatusNoContent)

@@ -45,14 +45,13 @@ func (m *mockProductStore) Archive(ctx context.Context, slug string) error {
 
 var _ store.ProductStore = (*mockProductStore)(nil)
 
-// --- helpers ---
+// --- test helpers ---
 
 func newRouter(s store.ProductStore, identity *domain.UserIdentity) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	h := handlers.NewProductHandlers(s)
 
-	// Inject identity via context setter — simulates JWTAuth having already run
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
 			c.Set(domain.IdentityContextKey, identity)
@@ -66,6 +65,31 @@ func newRouter(s store.ProductStore, identity *domain.UserIdentity) *gin.Engine 
 	api.PUT("/products/:productSlug", middleware.RequireRole(domain.RoleEditor), h.UpdateProduct)
 	api.DELETE("/products/:productSlug", middleware.RequireRole(domain.RoleEditor), h.ArchiveProduct)
 	return r
+}
+
+// doJSON sends method to path with a JSON body and returns the recorder.
+func doJSON(r *gin.Engine, method, path string, body *bytes.Buffer) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(method, path, body)
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// doPlain sends method to path with no body and returns the recorder.
+func doPlain(r *gin.Engine, method, path string) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(method, path, nil)
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// assertStatus fails the test if the recorded status differs from want.
+func assertStatus(t *testing.T, w *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	if w.Code != want {
+		t.Fatalf("expected %d, got %d: %s", want, w.Code, w.Body.String())
+	}
 }
 
 func adminIdentity() *domain.UserIdentity {
@@ -116,31 +140,15 @@ func TestCreateProduct_AdminCreatesProduct(t *testing.T) {
 			return nil
 		},
 	}
-	r := newRouter(s, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/products",
+	w := doJSON(newRouter(s, adminIdentity()), http.MethodPost, "/api/v1/products",
 		jsonBody(map[string]string{"name": "My Product", "slug": "my-product", "description": "desc"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Fatalf("expected 201, got %d: %s", w.Code, w.Body.String())
-	}
+	assertStatus(t, w, http.StatusCreated)
 }
 
 func TestCreateProduct_InvalidSlug_Returns422(t *testing.T) {
-	r := newRouter(&mockProductStore{}, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/products",
+	w := doJSON(newRouter(&mockProductStore{}, adminIdentity()), http.MethodPost, "/api/v1/products",
 		jsonBody(map[string]string{"name": "Bad Slug", "slug": "Bad Slug!"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422, got %d", w.Code)
-	}
+	assertStatus(t, w, http.StatusUnprocessableEntity)
 }
 
 func TestCreateProduct_SlugConflict_Returns409(t *testing.T) {
@@ -149,44 +157,63 @@ func TestCreateProduct_SlugConflict_Returns409(t *testing.T) {
 			return store.ErrSlugConflict
 		},
 	}
-	r := newRouter(s, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/products",
+	w := doJSON(newRouter(s, adminIdentity()), http.MethodPost, "/api/v1/products",
 		jsonBody(map[string]string{"name": "Dupe", "slug": "existing-slug"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusConflict {
-		t.Fatalf("expected 409, got %d", w.Code)
-	}
+	assertStatus(t, w, http.StatusConflict)
 }
 
 func TestCreateProduct_NonAdminForbidden(t *testing.T) {
-	r := newRouter(&mockProductStore{}, editorIdentity("some-product"))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/products",
+	w := doJSON(newRouter(&mockProductStore{}, editorIdentity("some-product")), http.MethodPost, "/api/v1/products",
 		jsonBody(map[string]string{"name": "X", "slug": "x"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", w.Code)
-	}
+	assertStatus(t, w, http.StatusForbidden)
 }
 
 func TestCreateProduct_MissingName_Returns422(t *testing.T) {
-	r := newRouter(&mockProductStore{}, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/products",
+	w := doJSON(newRouter(&mockProductStore{}, adminIdentity()), http.MethodPost, "/api/v1/products",
 		jsonBody(map[string]string{"slug": "valid-slug"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+}
 
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422, got %d", w.Code)
+func TestCreateProduct_BadJSON_Returns400(t *testing.T) {
+	w := doJSON(newRouter(&mockProductStore{}, adminIdentity()), http.MethodPost, "/api/v1/products",
+		bytes.NewBufferString("not-json"))
+	assertStatus(t, w, http.StatusBadRequest)
+}
+
+func TestCreateProduct_StoreInternalError_Returns500(t *testing.T) {
+	s := &mockProductStore{
+		createFn: func(_ context.Context, _ *domain.Product) error {
+			return errors.New("db is down")
+		},
+	}
+	w := doJSON(newRouter(s, adminIdentity()), http.MethodPost, "/api/v1/products",
+		jsonBody(map[string]string{"name": "Prod", "slug": "prod"}))
+	assertStatus(t, w, http.StatusInternalServerError)
+}
+
+// --- toProductResponse ---
+
+func TestToProductResponse_IncludesArchivedAt(t *testing.T) {
+	archivedAt := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	p := makeProduct("archived-slug")
+	p.ArchivedAt = &archivedAt
+	s := &mockProductStore{
+		listFn: func(_ context.Context, _ store.ListOptions) ([]domain.Product, error) {
+			return []domain.Product{p}, nil
+		},
+	}
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodGet, "/api/v1/products?include_archived=true")
+	assertStatus(t, w, http.StatusOK)
+
+	var resp []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(resp) != 1 {
+		t.Fatalf("expected 1 product, got %d", len(resp))
+	}
+	if resp[0]["archived_at"] == nil {
+		t.Error("expected archived_at in response for archived product")
 	}
 }
 
@@ -202,15 +229,9 @@ func TestListProducts_AdminReceivesAll(t *testing.T) {
 			return allProducts, nil
 		},
 	}
-	r := newRouter(s, adminIdentity())
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodGet, "/api/v1/products")
+	assertStatus(t, w, http.StatusOK)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
 	var resp []map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
@@ -232,15 +253,8 @@ func TestListProducts_UserReceivesOnlyOwnProducts(t *testing.T) {
 			return []domain.Product{makeProduct("my-product")}, nil
 		},
 	}
-	r := newRouter(s, editorIdentity("my-product"))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
+	w := doPlain(newRouter(s, editorIdentity("my-product")), http.MethodGet, "/api/v1/products")
+	assertStatus(t, w, http.StatusOK)
 }
 
 func TestListProducts_IncludeArchivedParam(t *testing.T) {
@@ -252,32 +266,19 @@ func TestListProducts_IncludeArchivedParam(t *testing.T) {
 			return []domain.Product{}, nil
 		},
 	}
-	r := newRouter(s, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/products?include_archived=true", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodGet, "/api/v1/products?include_archived=true")
+	assertStatus(t, w, http.StatusOK)
 }
 
 func TestListProducts_NoRoleUserReceivesEmptyList(t *testing.T) {
 	s := &mockProductStore{
-		listFn: func(_ context.Context, opts store.ListOptions) ([]domain.Product, error) {
+		listFn: func(_ context.Context, _ store.ListOptions) ([]domain.Product, error) {
 			return []domain.Product{}, nil
 		},
 	}
-	r := newRouter(s, noRoleIdentity())
+	w := doPlain(newRouter(s, noRoleIdentity()), http.MethodGet, "/api/v1/products")
+	assertStatus(t, w, http.StatusOK)
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
 	var resp []any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
@@ -285,6 +286,21 @@ func TestListProducts_NoRoleUserReceivesEmptyList(t *testing.T) {
 	if len(resp) != 0 {
 		t.Errorf("expected empty list, got %d items", len(resp))
 	}
+}
+
+func TestListProducts_NoIdentity_Returns401(t *testing.T) {
+	w := doPlain(newRouter(&mockProductStore{}, nil), http.MethodGet, "/api/v1/products")
+	assertStatus(t, w, http.StatusUnauthorized)
+}
+
+func TestListProducts_StoreError_Returns500(t *testing.T) {
+	s := &mockProductStore{
+		listFn: func(_ context.Context, _ store.ListOptions) ([]domain.Product, error) {
+			return nil, errors.New("db is down")
+		},
+	}
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodGet, "/api/v1/products")
+	assertStatus(t, w, http.StatusInternalServerError)
 }
 
 // --- UpdateProduct tests ---
@@ -300,71 +316,36 @@ func TestUpdateProduct_EditorUpdatesOwnProduct(t *testing.T) {
 			return &updated, nil
 		},
 	}
-	r := newRouter(s, editorIdentity("my-product"))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/my-product",
+	w := doJSON(newRouter(s, editorIdentity("my-product")), http.MethodPut, "/api/v1/products/my-product",
 		jsonBody(map[string]string{"name": "Updated", "description": "new desc"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
+	assertStatus(t, w, http.StatusOK)
 }
 
 func TestUpdateProduct_SlugInBodyIsIgnored(t *testing.T) {
 	updated := makeProduct("my-product")
 	s := &mockProductStore{
 		updateFn: func(_ context.Context, slug, _, _ string) (*domain.Product, error) {
-			// Store receives the URL slug, not any slug from the body
 			if slug != "my-product" {
 				t.Errorf("store received slug %q, expected my-product", slug)
 			}
 			return &updated, nil
 		},
 	}
-	r := newRouter(s, editorIdentity("my-product"))
-
-	// Body includes a different "slug" field — it must be ignored
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/my-product",
+	w := doJSON(newRouter(s, editorIdentity("my-product")), http.MethodPut, "/api/v1/products/my-product",
 		jsonBody(map[string]string{"name": "Name", "slug": "different-slug"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
+	assertStatus(t, w, http.StatusOK)
 }
 
 func TestUpdateProduct_ViewerForbidden(t *testing.T) {
-	r := newRouter(&mockProductStore{}, viewerIdentity("my-product"))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/my-product",
+	w := doJSON(newRouter(&mockProductStore{}, viewerIdentity("my-product")), http.MethodPut, "/api/v1/products/my-product",
 		jsonBody(map[string]string{"name": "X"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", w.Code)
-	}
+	assertStatus(t, w, http.StatusForbidden)
 }
 
 func TestUpdateProduct_NoRoleReturns404(t *testing.T) {
-	r := newRouter(&mockProductStore{}, noRoleIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/other-product",
+	w := doJSON(newRouter(&mockProductStore{}, noRoleIdentity()), http.MethodPut, "/api/v1/products/other-product",
 		jsonBody(map[string]string{"name": "X"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	// RequireRole middleware returns 404 for users with no role (anti-enumeration)
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", w.Code)
-	}
+	assertStatus(t, w, http.StatusNotFound)
 }
 
 func TestUpdateProduct_StoreNotFoundReturns404(t *testing.T) {
@@ -373,31 +354,38 @@ func TestUpdateProduct_StoreNotFoundReturns404(t *testing.T) {
 			return nil, store.ErrNotFound
 		},
 	}
-	r := newRouter(s, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/ghost",
+	w := doJSON(newRouter(s, adminIdentity()), http.MethodPut, "/api/v1/products/ghost",
 		jsonBody(map[string]string{"name": "X"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", w.Code)
-	}
+	assertStatus(t, w, http.StatusNotFound)
 }
 
 func TestUpdateProduct_MissingName_Returns422(t *testing.T) {
-	r := newRouter(&mockProductStore{}, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/products/my-product",
+	w := doJSON(newRouter(&mockProductStore{}, adminIdentity()), http.MethodPut, "/api/v1/products/my-product",
 		jsonBody(map[string]string{"description": "no name provided"}))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+}
 
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422, got %d", w.Code)
+func TestUpdateProduct_BadJSON_Returns400(t *testing.T) {
+	w := doJSON(newRouter(&mockProductStore{}, adminIdentity()), http.MethodPut, "/api/v1/products/my-product",
+		bytes.NewBufferString("not-json"))
+	assertStatus(t, w, http.StatusBadRequest)
+}
+
+func TestUpdateProduct_InvalidURLSlug_Returns400(t *testing.T) {
+	w := doJSON(newRouter(&mockProductStore{}, adminIdentity()), http.MethodPut, "/api/v1/products/CAPS",
+		jsonBody(map[string]string{"name": "X"}))
+	assertStatus(t, w, http.StatusBadRequest)
+}
+
+func TestUpdateProduct_StoreInternalError_Returns500(t *testing.T) {
+	s := &mockProductStore{
+		updateFn: func(_ context.Context, _, _, _ string) (*domain.Product, error) {
+			return nil, errors.New("db is down")
+		},
 	}
+	w := doJSON(newRouter(s, adminIdentity()), http.MethodPut, "/api/v1/products/my-product",
+		jsonBody(map[string]string{"name": "X"}))
+	assertStatus(t, w, http.StatusInternalServerError)
 }
 
 // --- ArchiveProduct tests ---
@@ -411,88 +399,45 @@ func TestArchiveProduct_EditorSoftDeletes(t *testing.T) {
 			return nil
 		},
 	}
-	r := newRouter(s, editorIdentity("my-product"))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/my-product", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", w.Code)
-	}
+	w := doPlain(newRouter(s, editorIdentity("my-product")), http.MethodDelete, "/api/v1/products/my-product")
+	assertStatus(t, w, http.StatusNoContent)
 }
 
 func TestArchiveProduct_ViewerForbidden(t *testing.T) {
-	r := newRouter(&mockProductStore{}, viewerIdentity("my-product"))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/my-product", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", w.Code)
-	}
+	w := doPlain(newRouter(&mockProductStore{}, viewerIdentity("my-product")), http.MethodDelete, "/api/v1/products/my-product")
+	assertStatus(t, w, http.StatusForbidden)
 }
 
 func TestArchiveProduct_NoRoleReturns404_AntiEnumeration(t *testing.T) {
-	r := newRouter(&mockProductStore{}, noRoleIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/secret-product", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 (anti-enumeration), got %d", w.Code)
-	}
+	w := doPlain(newRouter(&mockProductStore{}, noRoleIdentity()), http.MethodDelete, "/api/v1/products/secret-product")
+	assertStatus(t, w, http.StatusNotFound)
 }
 
 func TestArchiveProduct_AdminCanArchiveAnyProduct(t *testing.T) {
 	s := &mockProductStore{
-		archiveFn: func(_ context.Context, slug string) error {
-			return nil
-		},
+		archiveFn: func(_ context.Context, _ string) error { return nil },
 	}
-	r := newRouter(s, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/any-product", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", w.Code)
-	}
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodDelete, "/api/v1/products/any-product")
+	assertStatus(t, w, http.StatusNoContent)
 }
 
 func TestArchiveProduct_StoreNotFoundReturns404(t *testing.T) {
 	s := &mockProductStore{
-		archiveFn: func(_ context.Context, _ string) error {
-			return store.ErrNotFound
-		},
+		archiveFn: func(_ context.Context, _ string) error { return store.ErrNotFound },
 	}
-	r := newRouter(s, adminIdentity())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/ghost", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", w.Code)
-	}
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodDelete, "/api/v1/products/ghost")
+	assertStatus(t, w, http.StatusNotFound)
 }
 
 func TestArchiveProduct_InternalErrorReturns500(t *testing.T) {
 	s := &mockProductStore{
-		archiveFn: func(_ context.Context, _ string) error {
-			return errors.New("db is down")
-		},
+		archiveFn: func(_ context.Context, _ string) error { return errors.New("db is down") },
 	}
-	r := newRouter(s, adminIdentity())
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodDelete, "/api/v1/products/any-product")
+	assertStatus(t, w, http.StatusInternalServerError)
+}
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/any-product", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", w.Code)
-	}
+func TestArchiveProduct_InvalidURLSlug_Returns400(t *testing.T) {
+	w := doPlain(newRouter(&mockProductStore{}, adminIdentity()), http.MethodDelete, "/api/v1/products/CAPS")
+	assertStatus(t, w, http.StatusBadRequest)
 }
