@@ -308,13 +308,14 @@ describe('ProductDetailPage — with product', () => {
 })
 
 describe('ProductDetailPage — delete confirm dialog', () => {
-  it('dialog has role="dialog" for screen-reader accessibility', async () => {
+  it('renders delete confirmation as a native <dialog> element', async () => {
     const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
     mockListComponents.mockResolvedValue([comp])
     renderPage()
     await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
     act(() => { screen.getByRole('button', { name: /Delete api-gw/i }).click() })
-    expect(screen.getByRole('dialog')).toBeTruthy()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.tagName.toLowerCase()).toBe('dialog')
   })
 
   it('closes confirm dialog when Escape key is pressed on window', async () => {

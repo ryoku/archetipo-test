@@ -44,10 +44,10 @@ function formatDate(iso: string): string {
 }
 
 interface ComponentsContentProps {
-  loading: boolean
-  components: Component[]
-  canWrite: boolean
-  onDelete: (comp: Component) => void
+  readonly loading: boolean
+  readonly components: Component[]
+  readonly canWrite: boolean
+  readonly onDelete: (comp: Component) => void
 }
 
 function ComponentsContent({ loading, components, canWrite, onDelete }: ComponentsContentProps) {
@@ -162,8 +162,8 @@ export default function ProductDetailPage() {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setDeleteTarget(null)
     }
-    window.addEventListener('keydown', handleEscape)
-    return () => { window.removeEventListener('keydown', handleEscape) }
+    globalThis.addEventListener('keydown', handleEscape)
+    return () => { globalThis.removeEventListener('keydown', handleEscape) }
   }, [deleteTarget])
 
   if (!product) {
@@ -407,15 +407,13 @@ export default function ProductDetailPage() {
       {deleteTarget && (
         <div
           className="pd-backdrop"
-          role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteTarget(null)
           }}
         >
-          <div
+          <dialog
             className="pd-confirm-dialog"
-            role="dialog"
-            aria-modal="true"
+            open
             aria-label="Remove Component"
             onClick={(e) => e.stopPropagation()}
           >
@@ -474,7 +472,7 @@ export default function ProductDetailPage() {
                 {deleteInProgress ? 'Deleting…' : 'Delete Component'}
               </button>
             </div>
-          </div>
+          </dialog>
         </div>
       )}
     </div>
