@@ -136,6 +136,64 @@ func TestComponentListServerError(t *testing.T) {
 	}
 }
 
+func TestComponentListUnauthorized(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	cmd := cli.NewComponentListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "expired-token"}))
+	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
+	cmd.SetErr(&bytes.Buffer{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error on 401, got nil")
+	}
+	if !strings.Contains(err.Error(), "kubegate login") {
+		t.Errorf("401 error = %q, want to contain 'kubegate login'", err.Error())
+	}
+}
+
+func TestComponentListForbidden(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	cmd := cli.NewComponentListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "token"}))
+	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
+	cmd.SetErr(&bytes.Buffer{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error on 403, got nil")
+	}
+	if !strings.Contains(err.Error(), "permission") {
+		t.Errorf("403 error = %q, want to contain 'permission'", err.Error())
+	}
+}
+
+func TestComponentListInvalidOutputFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+
+	cmd := cli.NewComponentListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "token"}))
+	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app", "--output", "csv"})
+	cmd.SetErr(&bytes.Buffer{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for unsupported output format, got nil")
+	}
+	if !strings.Contains(err.Error(), "csv") {
+		t.Errorf("error = %q, want to contain 'csv'", err.Error())
+	}
+}
+
 func TestComponentListEmptyList(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

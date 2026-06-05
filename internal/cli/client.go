@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // APIClient is a lightweight HTTP client for the KubeGate API.
@@ -18,7 +19,7 @@ func NewAPIClient(baseURL string, tok StoredToken) *APIClient {
 	return &APIClient{
 		baseURL:    baseURL,
 		tok:        tok,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 

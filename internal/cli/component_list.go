@@ -62,6 +62,9 @@ func NewComponentListCmd(configDir string) *cobra.Command {
 				return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 			}
 
+			if outputFmt != "" && outputFmt != "json" {
+				return fmt.Errorf("unsupported output format %q: supported values: json", outputFmt)
+			}
 			if outputFmt == "json" {
 				_, err = fmt.Fprint(cmd.OutOrStdout(), string(body))
 				return err

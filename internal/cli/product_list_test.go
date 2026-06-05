@@ -30,16 +30,16 @@ func writeTempToken(t *testing.T, tok cli.StoredToken) string {
 	return dir
 }
 
-// executeProductList executes the given cobra command and returns the combined
-// stdout/stderr output and any RunE error.
+// executeProductList executes the given cobra command and returns the stdout
+// output and any RunE error. stderr is discarded to keep test output clean.
 func executeProductList(t *testing.T, cmd *cobra.Command, args []string) (stdout string, err error) {
 	t.Helper()
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
+	var out, errBuf bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errBuf)
 	cmd.SetArgs(args)
 	err = cmd.Execute()
-	return buf.String(), err
+	return out.String(), err
 }
 
 func TestProductListTabularOutput(t *testing.T) {
@@ -145,6 +145,55 @@ func TestProductListServerError(t *testing.T) {
 	_, err := executeProductList(t, cmd, []string{"--api-url", srv.URL})
 	if err == nil {
 		t.Fatal("expected error on HTTP 500 response, got nil")
+	}
+}
+
+func TestProductListUnauthorized(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	cmd := cli.NewProductListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "expired-token"}))
+	_, err := executeProductList(t, cmd, []string{"--api-url", srv.URL})
+	if err == nil {
+		t.Fatal("expected error on 401, got nil")
+	}
+	if !strings.Contains(err.Error(), "kubegate login") {
+		t.Errorf("401 error message = %q, want to contain 'kubegate login'", err.Error())
+	}
+}
+
+func TestProductListForbidden(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	cmd := cli.NewProductListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "token"}))
+	_, err := executeProductList(t, cmd, []string{"--api-url", srv.URL})
+	if err == nil {
+		t.Fatal("expected error on 403, got nil")
+	}
+	if !strings.Contains(err.Error(), "permission") {
+		t.Errorf("403 error message = %q, want to contain 'permission'", err.Error())
+	}
+}
+
+func TestProductListInvalidOutputFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+
+	cmd := cli.NewProductListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "token"}))
+	_, err := executeProductList(t, cmd, []string{"--api-url", srv.URL, "--output", "yaml"})
+	if err == nil {
+		t.Fatal("expected error for unsupported output format, got nil")
+	}
+	if !strings.Contains(err.Error(), "yaml") {
+		t.Errorf("error message = %q, want to contain 'yaml'", err.Error())
 	}
 }
 
