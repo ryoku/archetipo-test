@@ -77,7 +77,7 @@ export default function ProductDetailPage() {
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Failed to load components')
       })
-      .finally(() => setLoadingComponents(false))
+      .finally(() => { setLoadingComponents(false) })
   }, [slug, accessToken])
 
   if (!product) {

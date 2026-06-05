@@ -18,11 +18,11 @@ export default function HomePage() {
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Failed to load products')
       })
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false) })
   }, [accessToken])
 
   const displayName =
-    user?.profile?.name ?? user?.profile?.preferred_username ?? 'User'
+    user?.profile.name ?? user?.profile.preferred_username ?? 'User'
 
   function getInitials(name: string): string {
     return name

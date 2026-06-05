@@ -22,13 +22,13 @@ export interface Component {
 export async function listProducts(token: string): Promise<Product[]> {
   const res = await apiFetch('/api/v1/products', token)
   if (!res.ok) throw new Error(`listProducts: ${res.status}`)
-  return res.json()
+  return (await res.json()) as Product[]
 }
 
 export async function listComponents(token: string, productSlug: string): Promise<Component[]> {
   const res = await apiFetch(`/api/v1/products/${productSlug}/components`, token)
   if (!res.ok) throw new Error(`listComponents: ${res.status}`)
-  return res.json()
+  return (await res.json()) as Component[]
 }
 
 export async function createComponent(
@@ -42,7 +42,7 @@ export async function createComponent(
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error(`createComponent: ${res.status}`)
-  return res.json()
+  return (await res.json()) as Component
 }
 
 export async function deleteComponent(
