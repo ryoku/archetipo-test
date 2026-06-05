@@ -317,14 +317,15 @@ describe('ProductDetailPage — delete confirm dialog', () => {
     expect(screen.getByRole('dialog')).toBeTruthy()
   })
 
-  it('closes confirm dialog when Escape key is pressed', async () => {
+  it('closes confirm dialog when Escape key is pressed on window', async () => {
     const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
     mockListComponents.mockResolvedValue([comp])
     renderPage()
     await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
     act(() => { screen.getByRole('button', { name: /Delete api-gw/i }).click() })
     expect(screen.getByRole('dialog')).toBeTruthy()
-    act(() => { fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' }) })
+    // Escape must work even when the dialog is not focused — window-level listener required
+    act(() => { fireEvent.keyDown(window, { key: 'Escape' }) })
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 

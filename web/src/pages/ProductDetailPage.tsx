@@ -156,6 +156,16 @@ export default function ProductDetailPage() {
       .finally(() => { setLoadingComponents(false) })
   }, [slug, accessToken])
 
+  // Window-level Escape handler: closes the delete dialog regardless of focus state.
+  useEffect(() => {
+    if (!deleteTarget) return
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDeleteTarget(null)
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => { window.removeEventListener('keydown', handleEscape) }
+  }, [deleteTarget])
+
   if (!product) {
     return (
       <div className="pd-page">
@@ -408,7 +418,6 @@ export default function ProductDetailPage() {
             aria-modal="true"
             aria-label="Remove Component"
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => { if (e.key === 'Escape') setDeleteTarget(null) }}
           >
             <div className="pd-confirm-head">
               <div className="pd-confirm-icon-wrap">
