@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-014 · Components CRUD</title>
+<link rel="stylesheet" href="../kubegate/shared.css">
+<style>
+/* ─── US-014 specific overrides ─────────────────────────────── */
+
+/* Role switcher pill — demo helper */
+.role-switcher {
+  position: fixed;
+  top: 12px; right: 16px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 4px 6px 4px 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.role-switcher strong { color: var(--text-primary); font-weight: 600; }
+.role-pill {
+  padding: 3px 10px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  transition: all 140ms ease;
+  color: var(--text-muted);
+  background: transparent;
+}
+.role-pill.active-editor {
+  background: var(--accent-dim);
+  border-color: var(--border-accent);
+  color: var(--accent);
+}
+.role-pill.active-viewer {
+  background: rgba(123,156,232,.12);
+  border-color: rgba(123,156,232,.3);
+  color: var(--env-intg);
+}
+.role-pill:not(.active-editor):not(.active-viewer):hover {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+/* Product hero */
+.product-hero {
+  display: flex; align-items: flex-start; gap: 16px;
+}
+.hero-icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, #00c3aa 0%, #0077cc 100%);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 14px;
+  color: #fff; flex-shrink: 0;
+}
+.hero-name { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+.hero-meta {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 5px; flex-wrap: wrap;
+}
+
+/* Section header pattern */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.section-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Component table enhancements */
+.comp-table td { vertical-align: middle; }
+.comp-table .comp-name-cell { min-width: 140px; }
+.comp-name-str {
+  font-size: 13px; font-weight: 500;
+  color: var(--text-primary);
+}
+.comp-slug-str {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-muted); margin-top: 2px;
+}
+.comp-path-str {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-code);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 320px;
+}
+.comp-date {
+  font-size: 11px; color: var(--text-muted);
+  white-space: nowrap;
+}
+.comp-actions { text-align: right; white-space: nowrap; }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 40px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.empty-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--r-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+.empty-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.empty-sub   { font-size: 12px; color: var(--text-muted); }
+
+/* Inline-add form strip */
+.inline-form {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  animation: slideDown .16s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.inline-form-title {
+  font-size: 12px; font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 6px;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.form-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+
+/* Field hint */
+.field-hint {
+  font-size: 10.5px; color: var(--text-muted);
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+.field-error {
+  font-size: 10.5px; color: var(--danger);
+  margin-top: 4px;
+}
+
+/* Viewer notice bar */
+.viewer-notice {
+  display: flex; align-items: center; gap: 9px;
+  background: rgba(123,156,232,.07);
+  border: 1px solid rgba(123,156,232,.2);
+  border-radius: var(--r-md);
+  padding: 9px 13px;
+  font-size: 12px;
+  color: var(--env-intg);
+  margin-bottom: 14px;
+}
+
+/* ─── Delete confirm dialog ─────── */
+.confirm-dialog {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-modal);
+  width: 100%; max-width: 420px;
+  overflow: hidden;
+  animation: modalIn .18s ease;
+}
+.confirm-head {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.confirm-icon-wrap {
+  width: 32px; height: 32px; flex-shrink: 0;
+  background: rgba(224,85,85,.1);
+  border: 1px solid rgba(224,85,85,.25);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+}
+.confirm-title { font-size: 14px; font-weight: 600; }
+.confirm-sub   { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.confirm-body  { padding: 16px 22px; }
+.confirm-target {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.confirm-target-name {
+  font-size: 13px; font-weight: 500; color: var(--text-primary);
+}
+.confirm-target-sub {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-muted); margin-top: 3px;
+}
+.confirm-warn {
+  font-size: 11.5px; color: var(--text-secondary);
+  line-height: 1.55;
+}
+.confirm-foot {
+  padding: 12px 22px 16px;
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+
+/* row enter/exit animation */
+.comp-row-new td { animation: rowEnter .3s ease; }
+@keyframes rowEnter {
+  from { opacity: 0; background: var(--accent-dim); }
+  to   { opacity: 1; background: transparent; }
+}
+.comp-row-exit td {
+  animation: rowExit .25s ease forwards;
+}
+@keyframes rowExit {
+  from { opacity: 1; }
+  to   { opacity: 0; transform: translateX(10px); }
+}
+
+/* Toast */
+.toast-stack { z-index: 400; }
+
+/* Tabs */
+.mb-4 { margin-bottom: 16px; }
+
+/* Team tab member rows (mirrors product.html inline style) */
+.member-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.member-row:last-child { border-bottom: none; }
+.member-role {
+  margin-left: auto;
+  font-size: 11px; font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+/* Blocked delete info badge */
+.badge-blocked {
+  color: var(--warn);
+  background: rgba(240,160,48,.08);
+  border-color: rgba(240,160,48,.25);
+  font-size: 10px;
+  padding: 1px 6px;
+}
+</style>
+</head>
+<body>
+
+<!-- ─── ROLE SWITCHER (demo only) ───────────────────────────── -->
+<div class="role-switcher">
+  <span>Ruolo:</span>
+  <button class="role-pill active-editor" id="pill-editor" onclick="setRole('editor')">Editor</button>
+  <button class="role-pill" id="pill-viewer" onclick="setRole('viewer')">Viewer</button>
+</div>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ──────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="../kubegate/index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="../kubegate/admin.html" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" id="sidebarAvatar">MA</div>
+        <div>
+          <div class="user-name" id="sidebarName">Marco Andreoli</div>
+          <div class="user-role" id="sidebarRole">Editor — platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Page top / hero -->
+    <div class="page-top">
+      <div>
+        <div class="breadcrumb">
+          <a href="../kubegate/index.html" class="bc-link">Products</a>
+          <span class="bc-sep">/</span>
+          <span>platform-api</span>
+        </div>
+        <div class="product-hero">
+          <div class="hero-icon">PL</div>
+          <div>
+            <div class="hero-name">Platform API</div>
+            <div class="hero-meta">
+              <span class="tag-chip">platform-api</span>
+              <span class="badge badge-default">Platform Team</span>
+              <div class="flex items-center gap-2" style="margin-left:0">
+                <div class="dot dot-ok"></div>
+                <span class="text-xs text-muted">3 component · tutti sincronizzati</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- page-top actions -->
+      <div class="flex gap-2 items-center" style="flex-shrink:0;align-self:flex-start;margin-top:28px;">
+        <button class="btn btn-outline btn-sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="6" cy="6" r="4.5"/><path d="M6 3.5V6l2 1.5"/>
+          </svg>
+          History
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6.5 1L11 5.5H8V11H5V5.5H2L6.5 1Z"/>
+          </svg>
+          Deploy
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="page-body">
+
+      <!-- Tabs -->
+      <div class="tabs mb-4">
+        <button class="tab-btn active" data-tab="components">Components</button>
+        <button class="tab-btn" data-tab="matrix">Deployment Matrix</button>
+        <button class="tab-btn" data-tab="history">History</button>
+        <button class="tab-btn" data-tab="team">Team</button>
+      </div>
+
+      <!-- ══ COMPONENTS TAB ════════════════════════════════════ -->
+      <div id="tab-components" class="tab-panel active">
+
+        <!-- Viewer notice (hidden when editor) -->
+        <div class="viewer-notice hidden" id="viewerNotice">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0">
+            <circle cx="7" cy="7" r="6"/><path d="M7 5v3M7 9.5v.5"/>
+          </svg>
+          Hai accesso in sola lettura a questo prodotto. Contatta un Editor o un DevOps Admin per aggiungere o rimuovere component.
+        </div>
+
+        <!-- Section header -->
+        <div class="section-head">
+          <div>
+            <div class="section-label">Component registrati</div>
+            <div class="text-xs text-muted mt-1">Ogni component è collegato al proprio repository immagine su Google Artifact Registry</div>
+          </div>
+          <button class="btn btn-primary btn-sm editor-only" id="addComponentBtn" onclick="openInlineForm()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2v8M2 6h8"/>
+            </svg>
+            Aggiungi component
+          </button>
+        </div>
+
+        <!-- Inline add form (hidden by default) -->
+        <div class="inline-form hidden" id="inlineForm">
+          <div class="inline-form-title">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M6.5 1L11 5.5H8V11H5V5.5H2L6.5 1Z"/>
+            </svg>
+            Nuovo component
+          </div>
+          <div class="form-row">
+            <div class="field" style="margin-bottom:0">
+              <label class="field-label" for="compName">Nome *</label>
+              <input class="input" id="compName" type="text" placeholder="es. api-gateway"
+                     oninput="syncSlug(this.value)" autocomplete="off">
+              <div class="field-hint" id="nameHint">display name del component</div>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label class="field-label" for="compSlug">Slug *</label>
+              <input class="input text-mono" id="compSlug" type="text"
+                     placeholder="es. api-gateway" autocomplete="off"
+                     style="font-family:var(--font-mono);font-size:12px;">
+              <div class="field-hint" id="slugHint">identificatore URL-safe</div>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label class="field-label" for="compGcr">GCR Image Path *</label>
+              <input class="input text-mono" id="compGcr" type="text"
+                     placeholder="europe-west1-docker.pkg.dev/project/repo/image"
+                     autocomplete="off"
+                     style="font-family:var(--font-mono);font-size:11px;">
+              <div class="field-hint" id="gcrHint">percorso completo Artifact Registry</div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-ghost btn-sm" onclick="closeInlineForm()">Annulla</button>
+            <button class="btn btn-primary btn-sm" onclick="saveComponent()">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1.5 5.5l3 3L9.5 2.5"/>
+              </svg>
+              Salva component
+            </button>
+          </div>
+        </div>
+
+        <!-- Component table -->
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="tbl-wrap">
+            <table class="comp-table" id="compTable">
+              <thead>
+                <tr>
+                  <th style="padding-left:18px;">Component</th>
+                  <th>GCR Image Path</th>
+                  <th>Aggiunto il</th>
+                  <th class="editor-only" style="text-align:right;padding-right:18px;"></th>
+                </tr>
+              </thead>
+              <tbody id="compTbody">
+                <!-- populated by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty state (shown when no components) -->
+          <div class="empty-state hidden" id="emptyState">
+            <div class="empty-icon">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-muted)">
+                <rect x="2" y="3" width="14" height="12" rx="2"/>
+                <path d="M6 3v12M12 3v12M2 7h14M2 11h14"/>
+              </svg>
+            </div>
+            <div class="empty-title">Nessun component registrato</div>
+            <div class="empty-sub editor-only">Aggiungi il primo component con il pulsante in alto</div>
+            <div class="empty-sub viewer-only hidden">Contatta un Editor per aggiungere component</div>
+          </div>
+        </div>
+
+      </div><!-- /components tab -->
+
+      <!-- ══ DEPLOYMENT MATRIX TAB ═════════════════════════════ -->
+      <div id="tab-matrix" class="tab-panel">
+        <div class="card" style="padding:16px 14px;">
+          <div class="matrix-wrap">
+            <table class="matrix">
+              <thead>
+                <tr>
+                  <th class="component-th">Component</th>
+                  <th><div class="env-header"><div class="env-dot dev"></div><span>development</span></div></th>
+                  <th><div class="env-header"><div class="env-dot intg"></div><span>integration</span></div></th>
+                  <th><div class="env-header"><div class="env-dot prod"></div><span>production</span></div></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="component-td">
+                    <div class="comp-name">api</div>
+                    <div class="comp-path">europe-west1-docker.pkg.dev/acme/platform/api</div>
+                  </td>
+                  <td><div class="deploy-cell env-dev"><div class="dc-tag">v2.2.0-rc.3</div><div class="dc-time">oggi 09:14</div><div class="dc-actor">sara.b</div><span class="dc-arrow">↗ deploy</span></div></td>
+                  <td><div class="deploy-cell env-intg"><div class="dc-tag">v2.1.4</div><div class="dc-time">ieri 16:30</div><div class="dc-actor">marco.a</div><span class="dc-arrow">↗ deploy</span></div></td>
+                  <td><div class="deploy-cell env-prod"><div class="dc-tag">v2.1.3</div><div class="dc-time">3 gg fa</div><div class="dc-actor">sara.b</div><span class="dc-arrow">↗ deploy</span></div></td>
+                </tr>
+                <tr>
+                  <td class="component-td">
+                    <div class="comp-name">worker</div>
+                    <div class="comp-path">europe-west1-docker.pkg.dev/acme/platform/worker</div>
+                  </td>
+                  <td><div class="deploy-cell env-dev"><div class="dc-tag">v2.2.0-rc.2</div><div class="dc-time">oggi 08:50</div><div class="dc-actor">dev.ci</div><span class="dc-arrow">↗ deploy</span></div></td>
+                  <td><div class="deploy-cell env-intg"><div class="dc-tag">v2.1.4</div><div class="dc-time">ieri 16:32</div><div class="dc-actor">marco.a</div><span class="dc-arrow">↗ deploy</span></div></td>
+                  <td><div class="deploy-cell env-prod"><div class="dc-tag">v2.1.3</div><div class="dc-time">3 gg fa</div><div class="dc-actor">sara.b</div><span class="dc-arrow">↗ deploy</span></div></td>
+                </tr>
+                <tr>
+                  <td class="component-td">
+                    <div class="comp-name">frontend</div>
+                    <div class="comp-path">europe-west1-docker.pkg.dev/acme/platform/frontend</div>
+                  </td>
+                  <td><div class="deploy-cell env-dev"><div class="dc-tag">v2.2.0-rc.1</div><div class="dc-time">2 ore fa</div><div class="dc-actor">marco.a</div><span class="dc-arrow">↗ deploy</span></div></td>
+                  <td><div class="deploy-cell env-intg"><div class="dc-tag">v2.1.4</div><div class="dc-time">ieri 16:35</div><div class="dc-actor">marco.a</div><span class="dc-arrow">↗ deploy</span></div></td>
+                  <td><div class="deploy-cell env-prod"><div class="dc-tag">v2.1.2</div><div class="dc-time">5 gg fa</div><div class="dc-actor">sara.b</div><span class="dc-arrow">↗ deploy</span></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /matrix tab -->
+
+      <!-- ══ HISTORY TAB ════════════════════════════════════════ -->
+      <div id="tab-history" class="tab-panel">
+        <div class="tbl-wrap card" style="padding:0;overflow:hidden;">
+          <table>
+            <thead>
+              <tr>
+                <th>Utente</th><th>Component</th><th>Ambiente</th>
+                <th>Tag</th><th>Data</th><th>Commit</th><th>Stato</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="flex items-center gap-2"><div class="avatar" style="width:20px;height:20px;font-size:8px;background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div> marco.a</div></td>
+                <td>frontend</td>
+                <td><span class="badge badge-dev">dev</span></td>
+                <td><span class="tag-chip">v2.2.0-rc.1</span></td>
+                <td class="text-xs text-muted">oggi 09:22</td>
+                <td><span class="text-mono text-xs" style="color:var(--text-secondary);">a3f12b9</span></td>
+                <td><div class="flex items-center gap-2"><div class="dot dot-ok"></div><span class="text-xs">synced</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="flex items-center gap-2"><div class="avatar" style="width:20px;height:20px;font-size:8px;background:linear-gradient(135deg,#f09030,#e04060);">SB</div> sara.b</div></td>
+                <td>api</td>
+                <td><span class="badge badge-dev">dev</span></td>
+                <td><span class="tag-chip">v2.2.0-rc.3</span></td>
+                <td class="text-xs text-muted">oggi 09:14</td>
+                <td><span class="text-mono text-xs" style="color:var(--text-secondary);">8d0c44e</span></td>
+                <td><div class="flex items-center gap-2"><div class="dot dot-ok"></div><span class="text-xs">synced</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ TEAM TAB ══════════════════════════════════════════ -->
+      <div id="tab-team" class="tab-panel">
+        <div class="card" style="max-width:500px;">
+          <div class="card-header">
+            <span class="card-label">Membri del team</span>
+            <button class="btn btn-outline btn-sm editor-only">Aggiungi membro</button>
+          </div>
+          <div class="member-row">
+            <div class="avatar avatar-lg" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div>
+            <div><div style="font-size:13px;font-weight:500;">Marco Andreoli</div><div class="text-xs text-muted">marco.andreoli@acme.com</div></div>
+            <div class="member-role">editor</div>
+          </div>
+          <div class="member-row">
+            <div class="avatar avatar-lg" style="background:linear-gradient(135deg,#7b6cf0,#c060f0);">LP</div>
+            <div><div style="font-size:13px;font-weight:500;">Lucia Parisi</div><div class="text-xs text-muted">lucia.parisi@acme.com</div></div>
+            <div class="member-role">viewer</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- DELETE CONFIRM DIALOG                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="backdrop hidden" id="deleteBackdrop" onclick="closeDeleteIfOutside(event)">
+  <div class="confirm-dialog" onclick="event.stopPropagation()">
+    <div class="confirm-head">
+      <div class="confirm-icon-wrap">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--danger)" stroke-width="1.8">
+          <path d="M2 4h11M5 4V2.5a.5.5 0 01.5-.5h4a.5.5 0 01.5.5V4M6 7v4M9 7v4M3.5 4l.5 8.5a1 1 0 001 .5h5a1 1 0 001-.5L12 4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="confirm-title">Rimuovi component</div>
+        <div class="confirm-sub">Questa azione è irreversibile</div>
+      </div>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-target" id="deleteTarget">
+        <div class="confirm-target-name" id="deleteName">—</div>
+        <div class="confirm-target-sub" id="deleteSlug">—</div>
+        <div class="confirm-target-sub" id="deleteGcr" style="color:var(--text-code);margin-top:2px;">—</div>
+      </div>
+      <div class="confirm-warn" id="deleteWarn">
+        Stai per rimuovere definitivamente questo component. Una volta rimosso,
+        non sarà più disponibile per i deployment.
+      </div>
+      <div class="alert alert-warn hidden mt-2" id="blockedWarn">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px">
+          <path d="M7 1L13 12H1L7 1Z"/><path d="M7 5.5v3M7 9.5v.5"/>
+        </svg>
+        <span>Questo component ha deployment attivi e non può essere eliminato. Rimuovi prima tutti i deployment associati.</span>
+      </div>
+    </div>
+    <div class="confirm-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()">Annulla</button>
+      <button class="btn btn-danger btn-sm" id="confirmDeleteBtn" onclick="confirmDelete()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
+        </svg>
+        Elimina component
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SCRIPT                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script>
+// ─── State ────────────────────────────────────────────────────
+let currentRole = 'editor'; // 'editor' | 'viewer'
+let deleteTarget = null;
+
+let components = [
+  {
+    id: 1,
+    name: 'api',
+    slug: 'api',
+    gcr: 'europe-west1-docker.pkg.dev/acme/platform/api',
+    createdAt: '2025-11-14',
+    hasDeployments: true,
+  },
+  {
+    id: 2,
+    name: 'worker',
+    slug: 'worker',
+    gcr: 'europe-west1-docker.pkg.dev/acme/platform/worker',
+    createdAt: '2025-11-14',
+    hasDeployments: true,
+  },
+  {
+    id: 3,
+    name: 'frontend',
+    slug: 'frontend',
+    gcr: 'europe-west1-docker.pkg.dev/acme/platform/frontend',
+    createdAt: '2025-11-20',
+    hasDeployments: false,
+  },
+];
+
+let nextId = 4;
+
+// ─── Role switching ───────────────────────────────────────────
+function setRole(role) {
+  currentRole = role;
+
+  // pill states
+  document.getElementById('pill-editor').className = 'role-pill' + (role === 'editor' ? ' active-editor' : '');
+  document.getElementById('pill-viewer').className = 'role-pill' + (role === 'viewer' ? ' active-viewer' : '');
+
+  // sidebar user
+  const avatar = document.getElementById('sidebarAvatar');
+  const name   = document.getElementById('sidebarName');
+  const sRole  = document.getElementById('sidebarRole');
+
+  if (role === 'editor') {
+    avatar.textContent = 'MA';
+    avatar.style.background = 'linear-gradient(135deg,#7b9ce8,#00c3aa)';
+    name.textContent = 'Marco Andreoli';
+    sRole.textContent = 'Editor — platform-api';
+  } else {
+    avatar.textContent = 'LP';
+    avatar.style.background = 'linear-gradient(135deg,#7b6cf0,#c060f0)';
+    name.textContent = 'Lucia Parisi';
+    sRole.textContent = 'Viewer — platform-api';
+  }
+
+  // viewer notice
+  const notice = document.getElementById('viewerNotice');
+  notice.classList.toggle('hidden', role !== 'viewer');
+
+  // editor-only elements
+  document.querySelectorAll('.editor-only').forEach(el => {
+    el.classList.toggle('hidden', role !== 'editor');
+  });
+  document.querySelectorAll('.viewer-only').forEach(el => {
+    el.classList.toggle('hidden', role !== 'viewer');
+  });
+
+  // close inline form if visible
+  closeInlineForm();
+
+  renderComponents();
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ─── Render component rows ────────────────────────────────────
+function renderComponents(newId) {
+  const tbody = document.getElementById('compTbody');
+  const empty = document.getElementById('emptyState');
+  const isEditor = currentRole === 'editor';
+
+  if (components.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = components.map(c => {
+    const isNew = c.id === newId;
+    const actionsCell = isEditor ? `
+      <td class="comp-actions editor-only" style="padding-right:14px;">
+        ${c.hasDeployments
+          ? `<button class="btn btn-sm btn-ghost" title="Blocked: ha deployment attivi" style="opacity:.4;cursor:not-allowed;" disabled>
+               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/></svg>
+             </button>
+             <span class="badge badge-warn badge-blocked" style="margin-left:4px;">ha deployment</span>`
+          : `<button class="btn btn-danger btn-sm" onclick="openDeleteModal(${c.id})" title="Rimuovi ${c.name}">
+               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/></svg>
+               Rimuovi
+             </button>`
+        }
+      </td>
+    ` : '';
+
+    return `
+      <tr class="${isNew ? 'comp-row-new' : ''}">
+        <td class="comp-name-cell" style="padding-left:18px;">
+          <div class="comp-name-str">${c.name}</div>
+          <div class="comp-slug-str">${c.slug}</div>
+        </td>
+        <td>
+          <span class="comp-path-str">${c.gcr}</span>
+        </td>
+        <td>
+          <span class="comp-date">${c.createdAt}</span>
+        </td>
+        ${actionsCell}
+      </tr>
+    `;
+  }).join('');
+}
+
+// ─── Inline form ──────────────────────────────────────────────
+function openInlineForm() {
+  document.getElementById('inlineForm').classList.remove('hidden');
+  document.getElementById('compName').value = '';
+  document.getElementById('compSlug').value = '';
+  document.getElementById('compGcr').value = '';
+  clearFieldErrors();
+  document.getElementById('compName').focus();
+  document.getElementById('addComponentBtn').classList.add('hidden');
+}
+
+function closeInlineForm() {
+  document.getElementById('inlineForm').classList.add('hidden');
+  clearFieldErrors();
+  if (currentRole === 'editor') {
+    document.getElementById('addComponentBtn').classList.remove('hidden');
+  }
+}
+
+function clearFieldErrors() {
+  ['nameHint','slugHint','gcrHint'].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'field-hint';
+  });
+  ['compName','compSlug','compGcr'].forEach(id => {
+    document.getElementById(id).style.borderColor = '';
+  });
+}
+
+function syncSlug(val) {
+  const slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  document.getElementById('compSlug').value = slug;
+}
+
+function showFieldError(inputId, hintId, msg) {
+  const input = document.getElementById(inputId);
+  const hint  = document.getElementById(hintId);
+  input.style.borderColor = 'var(--danger)';
+  hint.className = 'field-error';
+  hint.textContent = msg;
+}
+
+function saveComponent() {
+  const name = document.getElementById('compName').value.trim();
+  const slug = document.getElementById('compSlug').value.trim();
+  const gcr  = document.getElementById('compGcr').value.trim();
+
+  clearFieldErrors();
+
+  let valid = true;
+  if (!name) { showFieldError('compName','nameHint','Il nome è obbligatorio'); valid = false; }
+  if (!slug) { showFieldError('compSlug','slugHint','Lo slug è obbligatorio'); valid = false; }
+  else if (!/^[a-z0-9][a-z0-9\-]*[a-z0-9]$/.test(slug) && slug.length > 1) {
+    showFieldError('compSlug','slugHint','Solo lettere minuscole, cifre e trattini'); valid = false;
+  }
+  if (!gcr)  { showFieldError('compGcr','gcrHint','Il percorso GCR è obbligatorio'); valid = false; }
+
+  if (!valid) return;
+
+  const id = nextId++;
+  const today = new Date().toISOString().slice(0,10);
+  components.unshift({ id, name, slug, gcr, createdAt: today, hasDeployments: false });
+
+  closeInlineForm();
+  renderComponents(id);
+  showToast(`Component <strong>${name}</strong> aggiunto`, 'ok');
+}
+
+// ─── Delete modal ─────────────────────────────────────────────
+function openDeleteModal(id) {
+  const comp = components.find(c => c.id === id);
+  if (!comp) return;
+  deleteTarget = comp;
+
+  document.getElementById('deleteName').textContent = comp.name;
+  document.getElementById('deleteSlug').textContent = comp.slug;
+  document.getElementById('deleteGcr').textContent  = comp.gcr;
+
+  const blocked = comp.hasDeployments;
+  document.getElementById('blockedWarn').classList.toggle('hidden', !blocked);
+  document.getElementById('deleteWarn').classList.toggle('hidden', blocked);
+  document.getElementById('confirmDeleteBtn').disabled = blocked;
+  document.getElementById('confirmDeleteBtn').style.opacity = blocked ? '0.38' : '1';
+
+  document.getElementById('deleteBackdrop').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteBackdrop').classList.add('hidden');
+  deleteTarget = null;
+}
+
+function closeDeleteIfOutside(e) {
+  if (e.target === document.getElementById('deleteBackdrop')) closeDeleteModal();
+}
+
+function confirmDelete() {
+  if (!deleteTarget) return;
+  const name = deleteTarget.name;
+  components = components.filter(c => c.id !== deleteTarget.id);
+  closeDeleteModal();
+  renderComponents();
+  showToast(`Component <strong>${name}</strong> rimosso`, 'ok');
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+function showToast(html, type) {
+  const stack = document.getElementById('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + (type === 'ok' ? 'ok' : 'err');
+  const dot = type === 'ok' ? '<div class="dot dot-ok"></div>' : '<div class="dot dot-err"></div>';
+  t.innerHTML = `${dot}<div class="toast-msg">${html}</div>`;
+  stack.appendChild(t);
+  setTimeout(() => {
+    t.style.transition = 'opacity .3s';
+    t.style.opacity = '0';
+    setTimeout(() => t.remove(), 350);
+  }, 3500);
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+renderComponents();
+setRole('editor');
+</script>
+</body>
+</html>

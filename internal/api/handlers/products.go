@@ -47,6 +47,7 @@ type productResponse struct {
 	Description string  `json:"description"`
 	ArchivedAt  *string `json:"archived_at,omitempty"`
 	CreatedAt   string  `json:"created_at"`
+	MyRole      string  `json:"my_role,omitempty"` // caller's effective role on this product
 }
 
 func toProductResponse(p *domain.Product) productResponse {
@@ -155,6 +156,11 @@ func (h *ProductHandlers) ListProducts(c *gin.Context) {
 	resp := make([]productResponse, len(products))
 	for i := range products {
 		resp[i] = toProductResponse(&products[i])
+		if identity.IsDevOpsAdmin {
+			resp[i].MyRole = "admin"
+		} else if role, ok := identity.ProductRoles[products[i].Slug]; ok {
+			resp[i].MyRole = role
+		}
 	}
 	c.JSON(http.StatusOK, resp)
 }

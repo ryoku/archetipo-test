@@ -23,19 +23,28 @@ func extractRoles(roles []string) (map[string]domain.Role, bool) {
 				isDevOpsAdmin = true
 			}
 		case 3:
-			if !strings.HasPrefix(parts[1], "product-") {
-				continue
+			if slug, role, ok := parseProductRole(parts); ok {
+				productRoles[slug] = role
 			}
-			slug := strings.TrimPrefix(parts[1], "product-")
-			if slug == "" {
-				continue
-			}
-			role := domain.Role(parts[2])
-			if role != domain.RoleEditor && role != domain.RoleViewer {
-				continue
-			}
-			productRoles[slug] = role
 		}
 	}
 	return productRoles, isDevOpsAdmin
+}
+
+// parseProductRole validates a 3-part kubegate claim of the form
+// [kubegate, product-<slug>, <role>] and returns the slug and role.
+// Returns ("", "", false) for claims that do not conform to the expected format.
+func parseProductRole(parts []string) (string, domain.Role, bool) {
+	if !strings.HasPrefix(parts[1], "product-") {
+		return "", "", false
+	}
+	slug := strings.TrimPrefix(parts[1], "product-")
+	if slug == "" {
+		return "", "", false
+	}
+	role := domain.Role(parts[2])
+	if role != domain.RoleEditor && role != domain.RoleViewer {
+		return "", "", false
+	}
+	return slug, role, true
 }

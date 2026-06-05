@@ -10,10 +10,10 @@ export default function LoginPage() {
   useEffect(() => {
     if (loading) return
     if (isAuthenticated) {
-      navigate('/', { replace: true })
+      void navigate('/', { replace: true })
       return
     }
-    createUserManager().signinRedirect().catch((err) => {
+    void createUserManager().signinRedirect().catch((err: unknown) => {
       console.error('OIDC signinRedirect failed:', err)
     })
   }, [isAuthenticated, loading, navigate])

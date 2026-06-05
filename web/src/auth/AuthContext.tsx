@@ -25,15 +25,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    userManager.getUser().then(setUser).finally(() => setLoading(false))
+    void userManager.getUser().then(setUser).finally(() => { setLoading(false) })
 
-    const onUserLoaded = (u: User) => setUser(u)
-    const onTokenExpired = () => navigate('/login')
+    const onUserLoaded = (u: User) => { setUser(u) }
+    const onTokenExpired = () => { void navigate('/login') }
 
     userManager.events.addUserLoaded(onUserLoaded)
     userManager.events.addAccessTokenExpired(onTokenExpired)
 
-    const onUnauthorized = () => navigate('/login')
+    const onUnauthorized = () => { void navigate('/login') }
     globalThis.addEventListener('auth:unauthorized', onUnauthorized)
 
     return () => {

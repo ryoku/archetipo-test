@@ -53,6 +53,7 @@ func main() {
 	defer pool.Close()
 
 	productStore := store.NewProductStore(pool)
+	componentStore := store.NewComponentStore(pool)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -60,7 +61,10 @@ func main() {
 	}
 	addr := ":" + port
 
-	r := router.New(verifier, router.RegisterProductRoutes(productStore))
+	r := router.New(verifier,
+		router.RegisterProductRoutes(productStore),
+		router.RegisterComponentRoutes(productStore, componentStore),
+	)
 	registerSPA(r)
 
 	log.Printf("Server listening on %s", addr)
