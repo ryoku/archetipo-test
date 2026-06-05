@@ -64,6 +64,35 @@ func toProductResponse(p *domain.Product) productResponse {
 	return r
 }
 
+// checkProductAccess verifies that a valid identity exists in the context and
+// that the caller has at least some role on slug (or is a DevOps Admin).
+// It writes the appropriate error response and returns false when access is
+// denied, so the caller can return immediately.
+func checkProductAccess(c *gin.Context, slug string) bool {
+	identity, ok := middleware.IdentityFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return false
+	}
+	if !identity.IsDevOpsAdmin {
+		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+			return false
+		}
+	}
+	return true
+}
+
+// validateURLSlug checks that slug is a valid product slug coming from a URL
+// parameter. It writes a 400 and returns false when validation fails.
+func validateURLSlug(c *gin.Context, slug string) bool {
+	if err := domain.ValidateSlug(slug); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product slug in URL"})
+		return false
+	}
+	return true
+}
+
 // CreateProduct handles POST /api/v1/products.
 // Reserved for DevOps Admin — enforced by RequireAdmin middleware upstream.
 func (h *ProductHandlers) CreateProduct(c *gin.Context) {
@@ -135,21 +164,7 @@ func (h *ProductHandlers) ListProducts(c *gin.Context) {
 // Access controlled by RequireRole(RoleEditor) middleware upstream.
 func (h *ProductHandlers) UpdateProduct(c *gin.Context) {
 	slug := c.Param("productSlug")
-
-	identity, ok := middleware.IdentityFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	if !identity.IsDevOpsAdmin {
-		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
-			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
-			return
-		}
-	}
-
-	if err := domain.ValidateSlug(slug); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product slug in URL"})
+	if !checkProductAccess(c, slug) || !validateURLSlug(c, slug) {
 		return
 	}
 
@@ -180,21 +195,7 @@ func (h *ProductHandlers) UpdateProduct(c *gin.Context) {
 // Access controlled by RequireRole(RoleEditor) middleware upstream.
 func (h *ProductHandlers) ArchiveProduct(c *gin.Context) {
 	slug := c.Param("productSlug")
-
-	identity, ok := middleware.IdentityFromContext(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	if !identity.IsDevOpsAdmin {
-		if _, hasRole := identity.ProductRoles[slug]; !hasRole {
-			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
-			return
-		}
-	}
-
-	if err := domain.ValidateSlug(slug); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product slug in URL"})
+	if !checkProductAccess(c, slug) || !validateURLSlug(c, slug) {
 		return
 	}
 
