@@ -50,6 +50,7 @@ export default function ProductDetailPage() {
   const { accessToken } = useAuth()
 
   const product = location.state as Product | undefined
+  const canWrite = product?.my_role === 'editor' || product?.my_role === 'admin'
 
   const [components, setComponents] = useState<Component[]>([])
   const [loadingComponents, setLoadingComponents] = useState(true)
@@ -124,7 +125,7 @@ export default function ProductDetailPage() {
         slug: formState.slug.trim(),
         gcr_image_path: formState.gcr_image_path.trim(),
       })
-      setComponents((prev) => [newComp, ...prev])
+      setComponents((prev) => [...prev, newComp])
       setShowForm(false)
       setFormState({ name: '', slug: '', gcr_image_path: '' })
       setFormErrors({})
@@ -199,7 +200,7 @@ export default function ProductDetailPage() {
               Each component maps to a Google Artifact Registry image repository.
             </div>
           </div>
-          {!showForm && (
+          {!showForm && canWrite && (
             <button
               className="pd-btn-primary"
               onClick={() => setShowForm(true)}
@@ -358,23 +359,25 @@ export default function ProductDetailPage() {
                         <span className="pd-comp-date">{formatDate(comp.created_at)}</span>
                       </td>
                       <td>
-                        <button
-                          className="pd-btn-danger"
-                          onClick={() => setDeleteTarget(comp)}
-                          aria-label={`Delete ${comp.name}`}
-                        >
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
+                        {canWrite && (
+                          <button
+                            className="pd-btn-danger"
+                            onClick={() => setDeleteTarget(comp)}
+                            aria-label={`Delete ${comp.name}`}
                           >
-                            <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5l.5-7" />
-                          </svg>
-                          Delete
-                        </button>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 12 12"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            >
+                              <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5l.5-7" />
+                            </svg>
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -47,6 +47,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     slug: 'test-product',
     description: 'The platform API product',
     created_at: '2025-01-01T00:00:00Z',
+    my_role: 'editor',
     ...overrides,
   }
 }

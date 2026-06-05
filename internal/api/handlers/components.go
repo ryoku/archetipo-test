@@ -63,6 +63,10 @@ func (h *ComponentHandlers) CreateComponent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
+	if product.ArchivedAt != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+		return
+	}
 
 	var req createComponentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -137,6 +141,10 @@ func (h *ComponentHandlers) DeleteComponent(c *gin.Context) {
 	if !checkProductAccess(c, productSlug) || !validateURLSlug(c, productSlug) {
 		return
 	}
+	if err := domain.ValidateSlug(componentSlug); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid component slug in URL"})
+		return
+	}
 
 	product, err := h.productStore.GetBySlug(c.Request.Context(), productSlug)
 	if err != nil {
@@ -145,6 +153,10 @@ func (h *ComponentHandlers) DeleteComponent(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return
+	}
+	if product.ArchivedAt != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 		return
 	}
 

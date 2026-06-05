@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS components (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    product_id     UUID NOT NULL REFERENCES products(id),
+    product_id     UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     name           VARCHAR(255) NOT NULL,
     slug           VARCHAR(255) NOT NULL,
     gcr_image_path VARCHAR(500) NOT NULL,

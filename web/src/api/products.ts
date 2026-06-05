@@ -7,6 +7,7 @@ export interface Product {
   description: string
   archived_at?: string
   created_at: string
+  my_role?: string // caller's effective role: 'editor' | 'viewer' | 'admin'
 }
 
 export interface Component {
