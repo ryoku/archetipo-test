@@ -18,7 +18,7 @@ func TestComponentListTabularOutput(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[{"name":"Auth Service","slug":"auth-service","gcr_image_path":"gcr.io/project/auth-service"},{"name":"Gateway","slug":"gateway","gcr_image_path":"gcr.io/project/gateway"}]`))
+		_, _ = w.Write([]byte(`[{"name":"Auth Service","slug":"auth-service","gcr_image_path":"gcr.io/project/auth-service"},{"name":"Gateway","slug":"gateway","gcr_image_path":"gcr.io/project/gateway"}]`))
 	}))
 	defer srv.Close()
 
@@ -70,7 +70,7 @@ func TestComponentListJSONOutput(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(rawJSON))
+		_, _ = w.Write([]byte(rawJSON))
 	}))
 	defer srv.Close()
 
@@ -94,7 +94,7 @@ func TestComponentListJSONOutput(t *testing.T) {
 func TestComponentListProductNotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error":"not found"}`))
+		_, _ = w.Write([]byte(`{"error":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -117,7 +117,7 @@ func TestComponentListProductNotFound(t *testing.T) {
 func TestComponentListServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error"))
+		_, _ = w.Write([]byte("internal server error"))
 	}))
 	defer srv.Close()
 
@@ -177,7 +177,7 @@ func TestComponentListForbidden(t *testing.T) {
 func TestComponentListInvalidOutputFormat(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	}))
 	defer srv.Close()
 
@@ -198,7 +198,7 @@ func TestComponentListEmptyList(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	}))
 	defer srv.Close()
 

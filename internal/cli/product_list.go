@@ -20,8 +20,8 @@ type product struct {
 // NewProductListCmd returns the "kubegate product list" command.
 func NewProductListCmd(configDir string) *cobra.Command {
 	var (
-		apiURL     string
-		outputFmt  string
+		apiURL    string
+		outputFmt string
 	)
 
 	cmd := &cobra.Command{
@@ -39,7 +39,7 @@ func NewProductListCmd(configDir string) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("GET /api/v1/products: %w", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -71,9 +71,13 @@ func NewProductListCmd(configDir string) *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-			fmt.Fprintln(w, "NAME\tSLUG\tDESCRIPTION")
+			if _, err := fmt.Fprintln(w, "NAME\tSLUG\tDESCRIPTION"); err != nil {
+				return fmt.Errorf("writing output: %w", err)
+			}
 			for _, p := range products {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, p.Slug, p.Description)
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, p.Slug, p.Description); err != nil {
+					return fmt.Errorf("writing output: %w", err)
+				}
 			}
 			return w.Flush()
 		},

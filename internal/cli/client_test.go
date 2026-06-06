@@ -24,7 +24,7 @@ func TestAPIClientGetAuthorizationHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get returned unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	const want = "Bearer my-access-token"
 	if gotAuthHeader != want {
@@ -45,7 +45,7 @@ func TestAPIClientGetSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get returned unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -83,7 +83,7 @@ func TestAPIClientGetPathConcatenation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get returned unexpected error: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if gotPath != path {
 		t.Errorf("request path = %q, want %q", gotPath, path)

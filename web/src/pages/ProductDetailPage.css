@@ -499,6 +499,15 @@
   padding: 24px;
 }
 
+/* Invisible full-area button that closes the dialog on backdrop click */
+.pd-backdrop-dismiss {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+
 /* Confirm dialog */
 .pd-confirm-dialog {
   background: #0b0f1c;

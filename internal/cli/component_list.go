@@ -21,9 +21,9 @@ type component struct {
 // NewComponentListCmd returns the "kubegate component list" command.
 func NewComponentListCmd(configDir string) *cobra.Command {
 	var (
-		apiURL       string
-		outputFmt    string
-		productSlug  string
+		apiURL      string
+		outputFmt   string
+		productSlug string
 	)
 
 	cmd := &cobra.Command{
@@ -42,7 +42,7 @@ func NewComponentListCmd(configDir string) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("GET %s: %w", path, err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -76,9 +76,13 @@ func NewComponentListCmd(configDir string) *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-			fmt.Fprintln(w, "NAME\tSLUG\tGCR IMAGE PATH")
+			if _, err := fmt.Fprintln(w, "NAME\tSLUG\tGCR IMAGE PATH"); err != nil {
+				return fmt.Errorf("writing output: %w", err)
+			}
 			for _, c := range components {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, c.Slug, c.GCRImagePath)
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, c.Slug, c.GCRImagePath); err != nil {
+					return fmt.Errorf("writing output: %w", err)
+				}
 			}
 			return w.Flush()
 		},
