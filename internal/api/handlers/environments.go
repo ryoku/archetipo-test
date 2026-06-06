@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -83,6 +84,10 @@ func (h *EnvironmentHandlers) CreateEnvironment(c *gin.Context) {
 	}
 	if req.OverlayPath == "" {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "overlay_path is required"})
+		return
+	}
+	if strings.HasPrefix(req.OverlayPath, "/") || strings.Contains(req.OverlayPath, "..") {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "overlay_path must be a relative path"})
 		return
 	}
 
