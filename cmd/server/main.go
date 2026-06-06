@@ -54,6 +54,7 @@ func main() {
 
 	productStore := store.NewProductStore(pool)
 	componentStore := store.NewComponentStore(pool)
+	environmentStore := store.NewEnvironmentStore(pool)
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -64,6 +65,7 @@ func main() {
 	r := router.New(verifier,
 		router.RegisterProductRoutes(productStore),
 		router.RegisterComponentRoutes(productStore, componentStore),
+		router.RegisterEnvironmentRoutes(productStore, environmentStore),
 	)
 	registerSPA(r)
 

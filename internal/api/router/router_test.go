@@ -121,6 +121,43 @@ func TestRegisterComponentRoutes_RoutesRegistered(t *testing.T) {
 	}
 }
 
+// noopEnvironmentStore is a no-op implementation used to verify environment route registration.
+type noopEnvironmentStore struct{}
+
+func (noopEnvironmentStore) Create(_ context.Context, _ *domain.Environment) error { return nil }
+func (noopEnvironmentStore) ListByProduct(_ context.Context, _ string) ([]domain.Environment, error) {
+	return nil, nil
+}
+func (noopEnvironmentStore) Delete(_ context.Context, _, _ string) error { return nil }
+
+var _ store.EnvironmentStore = noopEnvironmentStore{}
+
+// TestRegisterEnvironmentRoutes_RoutesRegistered verifies that RegisterEnvironmentRoutes registers
+// the expected HTTP endpoints. All /api/v1/* requests return 401 when no valid token is
+// present, confirming the routes exist (a missing route returns 404 instead).
+func TestRegisterEnvironmentRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterEnvironmentRoutes(noopProductStore{}, noopEnvironmentStore{}))
+
+	endpoints := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/api/v1/products/some-slug/environments"},
+		{http.MethodGet, "/api/v1/products/some-slug/environments"},
+		{http.MethodDelete, "/api/v1/products/some-slug/environments/some-id"},
+	}
+	for _, e := range endpoints {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(e.method, e.path, nil)
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s: expected 401 (route exists, no auth), got %d", e.method, e.path, w.Code)
+		}
+	}
+}
+
 func TestRouterHealthzBypassesAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(alwaysDenyVerifier{})
