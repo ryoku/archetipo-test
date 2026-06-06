@@ -405,7 +405,7 @@ export default function ProductDetailPage() {
 
       {/* Delete confirm dialog */}
       {deleteTarget && (
-        <div className="pd-backdrop" role="presentation">
+        <div className="pd-backdrop">
           <button
             type="button"
             className="pd-backdrop-dismiss"

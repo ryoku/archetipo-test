@@ -54,7 +54,9 @@ func TestAPIClientGetSuccess(t *testing.T) {
 
 func TestAPIClientGetUnreachableServer(t *testing.T) {
 	// Start a server and immediately close it so the address is unreachable.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// never called — server is closed immediately after creation
+	}))
 	baseURL := srv.URL
 	srv.Close()
 

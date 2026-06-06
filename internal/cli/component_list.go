@@ -18,6 +18,63 @@ type component struct {
 	GCRImagePath string `json:"gcr_image_path"`
 }
 
+func listComponents(cmd *cobra.Command, configDir, apiURL, outputFmt, productSlug string) error {
+	tok, err := ReadToken(configDir)
+	if err != nil {
+		return fmt.Errorf("reading stored token: %w", err)
+	}
+
+	path := "/api/v1/products/" + url.PathEscape(productSlug) + "/components"
+	client := NewAPIClient(apiURL, tok)
+	resp, err := client.Get(cmdContext(cmd), path)
+	if err != nil {
+		return fmt.Errorf("GET %s: %w", path, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response body: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// ok
+	case http.StatusNotFound:
+		return fmt.Errorf("product not found: %s", productSlug)
+	case http.StatusUnauthorized:
+		return fmt.Errorf("session expired, please run `kubegate login`")
+	case http.StatusForbidden:
+		return fmt.Errorf("access denied: you do not have permission to access this product")
+	default:
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	if outputFmt != "" && outputFmt != "json" {
+		return fmt.Errorf("unsupported output format %q: supported values: json", outputFmt)
+	}
+	if outputFmt == "json" {
+		_, err = fmt.Fprint(cmd.OutOrStdout(), string(body))
+		return err
+	}
+
+	var components []component
+	if err := json.Unmarshal(body, &components); err != nil {
+		return fmt.Errorf("parsing response: %w", err)
+	}
+
+	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
+	if _, err := fmt.Fprintln(w, "NAME\tSLUG\tGCR IMAGE PATH"); err != nil {
+		return fmt.Errorf("writing output: %w", err)
+	}
+	for _, c := range components {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, c.Slug, c.GCRImagePath); err != nil {
+			return fmt.Errorf("writing output: %w", err)
+		}
+	}
+	return w.Flush()
+}
+
 // NewComponentListCmd returns the "kubegate component list" command.
 func NewComponentListCmd(configDir string) *cobra.Command {
 	var (
@@ -31,60 +88,7 @@ func NewComponentListCmd(configDir string) *cobra.Command {
 		Short:        "List components for a product",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tok, err := ReadToken(configDir)
-			if err != nil {
-				return fmt.Errorf("reading stored token: %w", err)
-			}
-
-			path := "/api/v1/products/" + url.PathEscape(productSlug) + "/components"
-			client := NewAPIClient(apiURL, tok)
-			resp, err := client.Get(cmdContext(cmd), path)
-			if err != nil {
-				return fmt.Errorf("GET %s: %w", path, err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("reading response body: %w", err)
-			}
-
-			switch resp.StatusCode {
-			case http.StatusOK:
-				// ok
-			case http.StatusNotFound:
-				return fmt.Errorf("product not found: %s", productSlug)
-			case http.StatusUnauthorized:
-				return fmt.Errorf("session expired, please run `kubegate login`")
-			case http.StatusForbidden:
-				return fmt.Errorf("access denied: you do not have permission to access this product")
-			default:
-				return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-			}
-
-			if outputFmt != "" && outputFmt != "json" {
-				return fmt.Errorf("unsupported output format %q: supported values: json", outputFmt)
-			}
-			if outputFmt == "json" {
-				_, err = fmt.Fprint(cmd.OutOrStdout(), string(body))
-				return err
-			}
-
-			var components []component
-			if err := json.Unmarshal(body, &components); err != nil {
-				return fmt.Errorf("parsing response: %w", err)
-			}
-
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-			if _, err := fmt.Fprintln(w, "NAME\tSLUG\tGCR IMAGE PATH"); err != nil {
-				return fmt.Errorf("writing output: %w", err)
-			}
-			for _, c := range components {
-				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, c.Slug, c.GCRImagePath); err != nil {
-					return fmt.Errorf("writing output: %w", err)
-				}
-			}
-			return w.Flush()
+			return listComponents(cmd, configDir, apiURL, outputFmt, productSlug)
 		},
 	}
 
