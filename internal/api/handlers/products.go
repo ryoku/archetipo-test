@@ -94,6 +94,26 @@ func validateURLSlug(c *gin.Context, slug string) bool {
 	return true
 }
 
+// resolveProduct fetches the product by slug and writes an appropriate error
+// response if not found, inaccessible, or archived. Returns (nil, false) when
+// a response has already been written, (*Product, true) on success.
+func resolveProduct(c *gin.Context, ps store.ProductStore, slug string) (*domain.Product, bool) {
+	product, err := ps.GetBySlug(c.Request.Context(), slug)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+			return nil, false
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return nil, false
+	}
+	if product.ArchivedAt != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+		return nil, false
+	}
+	return product, true
+}
+
 // CreateProduct handles POST /api/v1/products.
 // Reserved for DevOps Admin — enforced by RequireAdmin middleware upstream.
 func (h *ProductHandlers) CreateProduct(c *gin.Context) {

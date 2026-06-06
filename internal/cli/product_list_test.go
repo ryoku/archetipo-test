@@ -42,13 +42,38 @@ func executeProductList(t *testing.T, cmd *cobra.Command, args []string) (stdout
 	return out.String(), err
 }
 
+// runProductList starts a test server with handler, executes `product list --api-url <srv>`
+// plus any extraArgs, and returns the captured stdout. It fails the test if Execute returns
+// an error.
+func runProductList(t *testing.T, handler http.HandlerFunc, extraArgs ...string) string {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	dir := writeTempToken(t, cli.StoredToken{AccessToken: "test-token"})
+	cmd := cli.NewProductListCmd(dir)
+	out, err := executeProductList(t, cmd, append([]string{"--api-url", srv.URL}, extraArgs...))
+	if err != nil {
+		t.Fatalf("command returned unexpected error: %v", err)
+	}
+	return out
+}
+
+// assertProductTableHeaders verifies that output contains all three table column headers.
+func assertProductTableHeaders(t *testing.T, out string) {
+	t.Helper()
+	for _, header := range []string{"NAME", "SLUG", "DESCRIPTION"} {
+		if !strings.Contains(out, header) {
+			t.Errorf("output missing %q column header; got:\n%s", header, out)
+		}
+	}
+}
+
 func TestProductListTabularOutput(t *testing.T) {
 	products := []map[string]any{
 		{"name": "Alpha", "slug": "alpha", "description": "First product"},
 		{"name": "Beta", "slug": "beta", "description": "Second product"},
 	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	out := runProductList(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/products" {
 			http.NotFound(w, r)
 			return
@@ -58,46 +83,12 @@ func TestProductListTabularOutput(t *testing.T) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}))
-	defer srv.Close()
 
-	tok := cli.StoredToken{AccessToken: "test-token"}
-	dir := writeTempToken(t, tok)
-
-	cmd := cli.NewProductListCmd(dir)
-	out, err := executeProductList(t, cmd, []string{"--api-url", srv.URL})
-	if err != nil {
-		t.Fatalf("command returned unexpected error: %v", err)
-	}
-
-	// Verify header row is present.
-	if !strings.Contains(out, "NAME") {
-		t.Errorf("output missing NAME column header; got:\n%s", out)
-	}
-	if !strings.Contains(out, "SLUG") {
-		t.Errorf("output missing SLUG column header; got:\n%s", out)
-	}
-	if !strings.Contains(out, "DESCRIPTION") {
-		t.Errorf("output missing DESCRIPTION column header; got:\n%s", out)
-	}
-
-	// Verify product data rows.
-	if !strings.Contains(out, "Alpha") {
-		t.Errorf("output missing product name 'Alpha'; got:\n%s", out)
-	}
-	if !strings.Contains(out, "alpha") {
-		t.Errorf("output missing product slug 'alpha'; got:\n%s", out)
-	}
-	if !strings.Contains(out, "First product") {
-		t.Errorf("output missing description 'First product'; got:\n%s", out)
-	}
-	if !strings.Contains(out, "Beta") {
-		t.Errorf("output missing product name 'Beta'; got:\n%s", out)
-	}
-	if !strings.Contains(out, "beta") {
-		t.Errorf("output missing product slug 'beta'; got:\n%s", out)
-	}
-	if !strings.Contains(out, "Second product") {
-		t.Errorf("output missing description 'Second product'; got:\n%s", out)
+	assertProductTableHeaders(t, out)
+	for _, want := range []string{"Alpha", "alpha", "First product", "Beta", "beta", "Second product"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q; got:\n%s", want, out)
+		}
 	}
 }
 
@@ -198,33 +189,13 @@ func TestProductListInvalidOutputFormat(t *testing.T) {
 }
 
 func TestProductListEmptyList(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	out := runProductList(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`[]`))
 	}))
-	defer srv.Close()
 
-	tok := cli.StoredToken{AccessToken: "test-token"}
-	dir := writeTempToken(t, tok)
-
-	cmd := cli.NewProductListCmd(dir)
-	out, err := executeProductList(t, cmd, []string{"--api-url", srv.URL})
-	if err != nil {
-		t.Fatalf("command returned unexpected error: %v", err)
-	}
-
-	// Only the header row should be present, no data rows.
-	if !strings.Contains(out, "NAME") {
-		t.Errorf("output missing NAME column header on empty list; got:\n%s", out)
-	}
-	if !strings.Contains(out, "SLUG") {
-		t.Errorf("output missing SLUG column header on empty list; got:\n%s", out)
-	}
-	if !strings.Contains(out, "DESCRIPTION") {
-		t.Errorf("output missing DESCRIPTION column header on empty list; got:\n%s", out)
-	}
-
+	assertProductTableHeaders(t, out)
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	if len(lines) != 1 {
 		t.Errorf("expected exactly 1 line (header only) for empty list, got %d lines:\n%s", len(lines), out)

@@ -10,8 +10,49 @@ import (
 	"github.com/ryoku/kubegate/internal/cli"
 )
 
+// runComponentList starts a test server with handler, executes `component list
+// --api-url <srv> --product my-app` plus any extraArgs, and returns captured
+// stdout. It fails the test if Execute returns an error.
+func runComponentList(t *testing.T, handler http.HandlerFunc, extraArgs ...string) string {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	configDir := writeTempToken(t, cli.StoredToken{AccessToken: "test-token"})
+	cmd := cli.NewComponentListCmd(configDir)
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs(append([]string{"--api-url", srv.URL, "--product", "my-app"}, extraArgs...))
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute returned unexpected error: %v", err)
+	}
+	return buf.String()
+}
+
+// runComponentListExpectError starts a test server with handler, executes
+// `component list --api-url <srv> --product my-app` plus any extraArgs using
+// the given token, suppresses stderr, and returns the execution error.
+func runComponentListExpectError(t *testing.T, handler http.HandlerFunc, token string, extraArgs ...string) error {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	cmd := cli.NewComponentListCmd(writeTempToken(t, cli.StoredToken{AccessToken: token}))
+	cmd.SetArgs(append([]string{"--api-url", srv.URL, "--product", "my-app"}, extraArgs...))
+	cmd.SetErr(&bytes.Buffer{})
+	return cmd.Execute()
+}
+
+// assertComponentHeaders verifies that output contains all three table column headers.
+func assertComponentHeaders(t *testing.T, output string) {
+	t.Helper()
+	for _, header := range []string{"NAME", "SLUG", "GCR IMAGE PATH"} {
+		if !strings.Contains(output, header) {
+			t.Errorf("output missing %q header, got:\n%s", header, output)
+		}
+	}
+}
+
 func TestComponentListTabularOutput(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	output := runComponentList(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/products/my-app/components" {
 			http.NotFound(w, r)
 			return
@@ -20,92 +61,35 @@ func TestComponentListTabularOutput(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`[{"name":"Auth Service","slug":"auth-service","gcr_image_path":"gcr.io/project/auth-service"},{"name":"Gateway","slug":"gateway","gcr_image_path":"gcr.io/project/gateway"}]`))
 	}))
-	defer srv.Close()
 
-	configDir := writeTempToken(t, cli.StoredToken{AccessToken: "test-token"})
-
-	cmd := cli.NewComponentListCmd(configDir)
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute returned unexpected error: %v", err)
-	}
-
-	output := buf.String()
-
-	if !strings.Contains(output, "NAME") {
-		t.Errorf("output missing NAME header, got:\n%s", output)
-	}
-	if !strings.Contains(output, "SLUG") {
-		t.Errorf("output missing SLUG header, got:\n%s", output)
-	}
-	if !strings.Contains(output, "GCR IMAGE PATH") {
-		t.Errorf("output missing GCR IMAGE PATH header, got:\n%s", output)
-	}
-	if !strings.Contains(output, "Auth Service") {
-		t.Errorf("output missing component name 'Auth Service', got:\n%s", output)
-	}
-	if !strings.Contains(output, "auth-service") {
-		t.Errorf("output missing component slug 'auth-service', got:\n%s", output)
-	}
-	if !strings.Contains(output, "gcr.io/project/auth-service") {
-		t.Errorf("output missing gcr image path 'gcr.io/project/auth-service', got:\n%s", output)
-	}
-	if !strings.Contains(output, "Gateway") {
-		t.Errorf("output missing component name 'Gateway', got:\n%s", output)
-	}
-	if !strings.Contains(output, "gateway") {
-		t.Errorf("output missing component slug 'gateway', got:\n%s", output)
-	}
-	if !strings.Contains(output, "gcr.io/project/gateway") {
-		t.Errorf("output missing gcr image path 'gcr.io/project/gateway', got:\n%s", output)
+	assertComponentHeaders(t, output)
+	for _, want := range []string{
+		"Auth Service", "auth-service", "gcr.io/project/auth-service",
+		"Gateway", "gateway", "gcr.io/project/gateway",
+	} {
+		if !strings.Contains(output, want) {
+			t.Errorf("output missing %q, got:\n%s", want, output)
+		}
 	}
 }
 
 func TestComponentListJSONOutput(t *testing.T) {
 	rawJSON := `[{"name":"Auth Service","slug":"auth-service","gcr_image_path":"gcr.io/project/auth-service"}]`
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	output := runComponentList(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(rawJSON))
-	}))
-	defer srv.Close()
-
-	configDir := writeTempToken(t, cli.StoredToken{AccessToken: "test-token"})
-
-	cmd := cli.NewComponentListCmd(configDir)
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app", "--output", "json"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute returned unexpected error: %v", err)
-	}
-
-	output := buf.String()
+	}), "--output", "json")
 	if output != rawJSON {
 		t.Errorf("JSON output = %q, want %q", output, rawJSON)
 	}
 }
 
 func TestComponentListProductNotFound(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err := runComponentListExpectError(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"error":"not found"}`))
-	}))
-	defer srv.Close()
-
-	configDir := writeTempToken(t, cli.StoredToken{AccessToken: "test-token"})
-
-	cmd := cli.NewComponentListCmd(configDir)
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
-	// Suppress error output so test output stays clean.
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	}), "test-token")
 	if err == nil {
 		t.Fatal("expected error for unknown product, got nil")
 	}
@@ -115,19 +99,10 @@ func TestComponentListProductNotFound(t *testing.T) {
 }
 
 func TestComponentListServerError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err := runComponentListExpectError(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("internal server error"))
-	}))
-	defer srv.Close()
-
-	configDir := writeTempToken(t, cli.StoredToken{AccessToken: "test-token"})
-
-	cmd := cli.NewComponentListCmd(configDir)
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	}), "test-token")
 	if err == nil {
 		t.Fatal("expected error for 500 response, got nil")
 	}
@@ -137,16 +112,9 @@ func TestComponentListServerError(t *testing.T) {
 }
 
 func TestComponentListUnauthorized(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err := runComponentListExpectError(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer srv.Close()
-
-	cmd := cli.NewComponentListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "expired-token"}))
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	}), "expired-token")
 	if err == nil {
 		t.Fatal("expected error on 401, got nil")
 	}
@@ -156,16 +124,9 @@ func TestComponentListUnauthorized(t *testing.T) {
 }
 
 func TestComponentListForbidden(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err := runComponentListExpectError(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-	}))
-	defer srv.Close()
-
-	cmd := cli.NewComponentListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "token"}))
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	}), "token")
 	if err == nil {
 		t.Fatal("expected error on 403, got nil")
 	}
@@ -175,17 +136,10 @@ func TestComponentListForbidden(t *testing.T) {
 }
 
 func TestComponentListInvalidOutputFormat(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err := runComponentListExpectError(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`[]`))
-	}))
-	defer srv.Close()
-
-	cmd := cli.NewComponentListCmd(writeTempToken(t, cli.StoredToken{AccessToken: "token"}))
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app", "--output", "csv"})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
+	}), "token", "--output", "csv")
 	if err == nil {
 		t.Fatal("expected error for unsupported output format, got nil")
 	}
@@ -195,35 +149,12 @@ func TestComponentListInvalidOutputFormat(t *testing.T) {
 }
 
 func TestComponentListEmptyList(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	output := runComponentList(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`[]`))
 	}))
-	defer srv.Close()
-
-	configDir := writeTempToken(t, cli.StoredToken{AccessToken: "test-token"})
-
-	cmd := cli.NewComponentListCmd(configDir)
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-	cmd.SetArgs([]string{"--api-url", srv.URL, "--product", "my-app"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute returned unexpected error: %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "NAME") {
-		t.Errorf("output missing NAME header for empty list, got:\n%s", output)
-	}
-	if !strings.Contains(output, "SLUG") {
-		t.Errorf("output missing SLUG header for empty list, got:\n%s", output)
-	}
-	if !strings.Contains(output, "GCR IMAGE PATH") {
-		t.Errorf("output missing GCR IMAGE PATH header for empty list, got:\n%s", output)
-	}
-	// There should be exactly one line (the header) beyond the final newline.
+	assertComponentHeaders(t, output)
 	lines := strings.Split(strings.TrimRight(output, "\n"), "\n")
 	if len(lines) != 1 {
 		t.Errorf("expected 1 line (header only) for empty list, got %d lines:\n%s", len(lines), output)

@@ -55,17 +55,8 @@ func (h *EnvironmentHandlers) CreateEnvironment(c *gin.Context) {
 		return
 	}
 
-	product, err := h.productStore.GetBySlug(c.Request.Context(), slug)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
-		return
-	}
-	if product.ArchivedAt != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+	product, ok := resolveProduct(c, h.productStore, slug)
+	if !ok {
 		return
 	}
 
@@ -115,17 +106,8 @@ func (h *EnvironmentHandlers) ListEnvironments(c *gin.Context) {
 		return
 	}
 
-	product, err := h.productStore.GetBySlug(c.Request.Context(), slug)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
-		return
-	}
-	if product.ArchivedAt != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+	product, ok := resolveProduct(c, h.productStore, slug)
+	if !ok {
 		return
 	}
 
@@ -155,17 +137,8 @@ func (h *EnvironmentHandlers) DeleteEnvironment(c *gin.Context) {
 		return
 	}
 
-	product, err := h.productStore.GetBySlug(c.Request.Context(), productSlug)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
-		return
-	}
-	if product.ArchivedAt != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+	product, ok := resolveProduct(c, h.productStore, productSlug)
+	if !ok {
 		return
 	}
 

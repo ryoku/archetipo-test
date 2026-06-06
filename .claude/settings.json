@@ -9,11 +9,10 @@
       "Bash(pnpm test:coverage)",
       "Bash(go tool cover *)",
       "Bash(pnpm exec *)",
-      "Bash(pnpm lint *)"
+      "Bash(pnpm lint *)",
+      "Bash(go build *)",
+      "Bash(go test *)"
     ]
-  },
-  "enabledPlugins": {
-    "playwright@claude-plugins-official": true
   },
   "hooks": {
     "PostToolUse": [
@@ -29,5 +28,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "playwright@claude-plugins-official": true
   }
 }
