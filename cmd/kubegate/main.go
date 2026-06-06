@@ -39,7 +39,19 @@ func main() {
 	logoutCmd := cli.NewLogoutCmd(configDir)
 	logoutCmd.PersistentPreRunE = noAuth
 
-	root.AddCommand(loginCmd, logoutCmd)
+	productCmd := &cobra.Command{
+		Use:   "product",
+		Short: "Manage products",
+	}
+	productCmd.AddCommand(cli.NewProductListCmd(configDir))
+
+	componentCmd := &cobra.Command{
+		Use:   "component",
+		Short: "Manage components",
+	}
+	componentCmd.AddCommand(cli.NewComponentListCmd(configDir))
+
+	root.AddCommand(loginCmd, logoutCmd, productCmd, componentCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

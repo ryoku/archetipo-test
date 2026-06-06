@@ -405,17 +405,17 @@ export default function ProductDetailPage() {
 
       {/* Delete confirm dialog */}
       {deleteTarget && (
-        <div
-          className="pd-backdrop"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDeleteTarget(null)
-          }}
-        >
+        <div className="pd-backdrop" role="presentation">
+          <button
+            type="button"
+            className="pd-backdrop-dismiss"
+            aria-label="Close dialog"
+            onClick={() => setDeleteTarget(null)}
+          />
           <dialog
             className="pd-confirm-dialog"
             open
             aria-label="Remove Component"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="pd-confirm-head">
               <div className="pd-confirm-icon-wrap">

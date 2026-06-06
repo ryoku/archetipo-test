@@ -205,6 +205,14 @@ Never edit an already-applied migration. Always create a new one.
 
 ---
 
+## Code Quality
+
+Code quality is enforced by SonarQube quality gates. 
+General instructions can be found [here](./.github/instructions/sonarqube_mcp.instructions.md)
+Use SonarQube MCP server for specific instructions.
+
+---
+
 ## Test Strategy
 
 ### Go unit tests
