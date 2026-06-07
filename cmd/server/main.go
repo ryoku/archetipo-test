@@ -56,6 +56,8 @@ func main() {
 	componentStore := store.NewComponentStore(pool)
 	environmentStore := store.NewEnvironmentStore(pool)
 
+	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
+
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8081"
@@ -66,6 +68,7 @@ func main() {
 		router.RegisterProductRoutes(productStore),
 		router.RegisterComponentRoutes(productStore, componentStore),
 		router.RegisterEnvironmentRoutes(productStore, environmentStore),
+		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
 	)
 	registerSPA(r)
 

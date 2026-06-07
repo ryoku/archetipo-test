@@ -13,8 +13,9 @@ type Product struct {
 	ID          string
 	Name        string
 	Slug        string
-	Description string
-	ArchivedAt  *time.Time
+	Description        string
+	TagConventionRegex *string
+	ArchivedAt         *time.Time
 	CreatedAt   time.Time
 }
 

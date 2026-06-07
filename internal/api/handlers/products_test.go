@@ -20,11 +20,13 @@ import (
 // --- mock store ---
 
 type mockProductStore struct {
-	createFn    func(ctx context.Context, p *domain.Product) error
-	listFn      func(ctx context.Context, opts store.ListOptions) ([]domain.Product, error)
-	getBySlugFn func(ctx context.Context, slug string) (*domain.Product, error)
-	updateFn    func(ctx context.Context, slug, name, description string) (*domain.Product, error)
-	archiveFn   func(ctx context.Context, slug string) error
+	createFn           func(ctx context.Context, p *domain.Product) error
+	listFn             func(ctx context.Context, opts store.ListOptions) ([]domain.Product, error)
+	getBySlugFn        func(ctx context.Context, slug string) (*domain.Product, error)
+	updateFn           func(ctx context.Context, slug, name, description string) (*domain.Product, error)
+	archiveFn          func(ctx context.Context, slug string) error
+	getTagConventionFn func(ctx context.Context, slug string) (*string, error)
+	setTagConventionFn func(ctx context.Context, slug, regex string) error
 }
 
 func (m *mockProductStore) Create(ctx context.Context, p *domain.Product) error {
@@ -41,6 +43,12 @@ func (m *mockProductStore) Update(ctx context.Context, slug, name, description s
 }
 func (m *mockProductStore) Archive(ctx context.Context, slug string) error {
 	return m.archiveFn(ctx, slug)
+}
+func (m *mockProductStore) GetTagConvention(ctx context.Context, slug string) (*string, error) {
+	return m.getTagConventionFn(ctx, slug)
+}
+func (m *mockProductStore) SetTagConvention(ctx context.Context, slug, regex string) error {
+	return m.setTagConventionFn(ctx, slug, regex)
 }
 
 var _ store.ProductStore = (*mockProductStore)(nil)

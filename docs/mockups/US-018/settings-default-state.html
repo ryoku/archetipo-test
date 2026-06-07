@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-018 · Impostazioni con default globale (nessun override)</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deploy
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">SA</div>
+        <div>
+          <div class="user-name">Sara Altieri</div>
+          <div class="user-role">DevOps Admin</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <div class="page-top">
+      <div class="breadcrumb">
+        <a href="#" class="bc-link">Prodotti</a>
+        <span class="bc-sep">/</span>
+        <span>payments-gateway</span>
+      </div>
+
+      <div class="product-hero">
+        <div class="hero-icon">PG</div>
+        <div>
+          <div class="hero-name">Payments Gateway</div>
+          <div class="hero-meta">
+            <span class="tag-chip">payments-gateway</span>
+            <span class="badge badge-prod">production</span>
+          </div>
+          <div class="hero-desc">Gateway pagamenti multi-PSP — nessuna naming convention personalizzata.</div>
+        </div>
+      </div>
+
+      <nav class="page-subnav">
+        <a href="#" class="subnav-link">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="12" height="10" rx="1.5"/>
+            <path d="M5 2v10M9 2v10M1 6h12M1 9h12"/>
+          </svg>
+          Componenti
+        </a>
+        <a href="#" class="subnav-link">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <ellipse cx="7" cy="4" rx="5" ry="2"/>
+            <path d="M2 4v6c0 1.1 2.2 2 5 2s5-.9 5-2V4M2 7c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </svg>
+          Ambienti
+        </a>
+        <a href="#" class="subnav-link active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="7" cy="7" r="1.5"/>
+            <path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.9 2.9l1.4 1.4M9.7 9.7l1.4 1.4M2.9 11.1l1.4-1.4M9.7 4.3l1.4-1.4"/>
+          </svg>
+          Impostazioni
+        </a>
+      </nav>
+    </div>
+
+    <div class="page-body">
+      <div class="settings-layout">
+
+        <nav class="settings-nav">
+          <div class="settings-nav-item active">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M1 3h12M1 7h12M1 11h12"/>
+            </svg>
+            Tag Convention
+          </div>
+          <div class="settings-nav-item">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="7" cy="5" r="2.5"/>
+              <path d="M2 12c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+            </svg>
+            Permessi &amp; RBAC
+            <span style="margin-left:auto;font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">presto</span>
+          </div>
+        </nav>
+
+        <div class="settings-content">
+
+          <!-- TAG CONVENTION CARD — source=default (no override) -->
+          <div class="settings-card">
+            <div class="settings-card-head">
+              <div class="settings-card-icon" style="background:var(--bg-elevated);border-color:var(--border-default);color:var(--text-secondary);">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M1 3h13M1 7h13M1 11h13"/>
+                </svg>
+              </div>
+              <div class="settings-card-title-group">
+                <div class="settings-card-title">
+                  Tag Convention
+                  <!-- source = default -->
+                  <span class="source-badge source-badge-default">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <circle cx="5" cy="5" r="4"/><path d="M5 3v2l1.5 1.5"/>
+                    </svg>
+                    default globale
+                  </span>
+                </div>
+                <div class="settings-card-sub">
+                  Questo prodotto usa il default globale della piattaforma. Puoi impostare un override specifico tramite il form qui sotto.
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card-body">
+
+              <!-- Banner: no override set -->
+              <div style="
+                display:flex;align-items:flex-start;gap:10px;
+                padding:11px 14px;border-radius:var(--r-md);
+                background:var(--bg-elevated);border:1px solid var(--border-default);
+                font-size:12.5px;color:var(--text-secondary);
+                margin-bottom:16px;
+              ">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px;opacity:0.55;">
+                  <circle cx="7" cy="7" r="6"/><path d="M7 4.5v3M7 9.5v.5"/>
+                </svg>
+                <span>Nessun override configurato per questo prodotto. Il pattern in uso è il <strong style="color:var(--text-primary);">default globale</strong> impostato tramite <code style="font-family:var(--font-mono);font-size:11px;color:var(--text-code);">TAG_CONVENTION_DEFAULT</code>.</span>
+              </div>
+
+              <!-- Default value display (muted / read-only feel) -->
+              <div class="regex-display" style="border-color:var(--border-subtle);background:var(--bg-surface);margin-bottom:16px;">
+                <span class="regex-value" style="color:var(--text-secondary);">^v\d+\.\d+\.\d+$</span>
+                <div class="regex-display-actions">
+                  <span style="font-size:11px;color:var(--text-muted);">default globale</span>
+                </div>
+              </div>
+
+              <!-- Edit form: set a product override -->
+              <div class="regex-edit-form" id="editFormDefault" style="display:none;">
+                <div class="regex-edit-title">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M6 2v8M2 6h8"/>
+                  </svg>
+                  Imposta override prodotto
+                </div>
+                <div class="regex-edit-row">
+                  <div class="field">
+                    <label class="field-label" for="regexInputNew">Pattern regex (Go)</label>
+                    <input
+                      id="regexInputNew"
+                      type="text"
+                      class="input input-mono"
+                      placeholder="es. ^v\d+\.\d+\.\d+(-pg\.\d+)?$"
+                    />
+                    <span class="field-hint">Il valore sovrascriverà il default globale solo per questo prodotto.</span>
+                  </div>
+                  <button class="btn btn-primary" onclick="applyOverride()">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M2 6l3.5 3.5L10 3"/>
+                    </svg>
+                    Salva
+                  </button>
+                </div>
+                <div class="regex-edit-footer">
+                  <div></div>
+                  <button class="btn btn-ghost btn-sm" onclick="cancelNew()">Annulla</button>
+                </div>
+              </div>
+
+              <!-- CTA: set override -->
+              <div id="ctaOverride">
+                <button class="btn btn-outline btn-sm" onclick="showNewForm()" style="margin-bottom:16px;">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M6 2v8M2 6h8"/>
+                  </svg>
+                  Imposta override per questo prodotto
+                </button>
+              </div>
+
+              <!-- Test panel -->
+              <div class="regex-test-panel">
+                <div class="regex-test-title">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M2 3l8 9M10 3L2 12"/>
+                  </svg>
+                  Test del pattern (default globale)
+                </div>
+                <div class="regex-test-row">
+                  <input
+                    type="text"
+                    class="input input-mono"
+                    id="testInputDef"
+                    placeholder="es. v2.1.0"
+                    oninput="runTestDef(this.value)"
+                  />
+                  <div class="test-result test-result-idle" id="testResultDef">—</div>
+                </div>
+                <div class="test-examples">
+                  <span class="test-example-chip match" onclick="loadExDef(this,'v2.1.0')">v2.1.0</span>
+                  <span class="test-example-chip match" onclick="loadExDef(this,'v1.0.0')">v1.0.0</span>
+                  <span class="test-example-chip nomatch" onclick="loadExDef(this,'v1.4.2-cs.1')">v1.4.2-cs.1</span>
+                  <span class="test-example-chip nomatch" onclick="loadExDef(this,'latest')">latest</span>
+                  <span class="test-example-chip nomatch" onclick="loadExDef(this,'main-abc1234')">main-abc1234</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- Back link -->
+<div style="position:fixed;bottom:16px;left:232px;z-index:99;">
+  <a href="index.html" style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;text-decoration:none;transition:color 140ms ease;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7.5 2.5L3 6l4.5 3.5"/></svg>
+    Torna alla schermata principale
+  </a>
+</div>
+
+<script>
+const globalDef = '^v\\d+\\.\\d+\\.\\d+$';
+
+function runTestDef(val) {
+  const el = document.getElementById('testResultDef');
+  if (!val) { el.className = 'test-result test-result-idle'; el.textContent = '—'; return; }
+  try {
+    const m = new RegExp(globalDef).test(val);
+    el.className = m ? 'test-result test-result-match' : 'test-result test-result-nomatch';
+    el.textContent = m ? '✓ match' : '✗ no match';
+  } catch { el.className = 'test-result test-result-nomatch'; el.textContent = 'err'; }
+}
+function loadExDef(chip, val) {
+  document.getElementById('testInputDef').value = val;
+  runTestDef(val);
+}
+function showNewForm() {
+  document.getElementById('editFormDefault').style.display = 'block';
+  document.getElementById('ctaOverride').style.display = 'none';
+  document.getElementById('regexInputNew').focus();
+}
+function cancelNew() {
+  document.getElementById('editFormDefault').style.display = 'none';
+  document.getElementById('ctaOverride').style.display = 'block';
+}
+function applyOverride() {
+  showToast('ok', 'Override impostato con successo. Ricarica per vedere il badge aggiornato.');
+  cancelNew();
+}
+function showToast(type, msg) {
+  const stack = document.getElementById('toastStack');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  const icon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#00c97a" stroke-width="1.8"><path d="M3 8.5l3.5 3.5L13 5"/></svg>`;
+  toast.innerHTML = `${icon}<span class="toast-msg">${msg}</span>`;
+  stack.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+</script>
+</body>
+</html>

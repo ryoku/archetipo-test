@@ -1,0 +1,116 @@
+/* Settings card — wraps a settings section */
+.pd-settings-card {
+  background: #0b0f1c;
+  border: 1px solid #16233a;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.pd-settings-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #16233a;
+}
+
+.pd-settings-card-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: rgba(0, 195, 170, 0.08);
+  border: 1px solid rgba(0, 195, 170, 0.2);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00c3aa;
+}
+
+.pd-settings-card-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pd-settings-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #dde6f2;
+}
+
+.pd-settings-card-sub {
+  font-size: 12px;
+  color: #6b859e;
+  line-height: 1.5;
+}
+
+.pd-settings-card-body {
+  padding: 16px 20px 18px;
+}
+
+/* Source badge */
+.pd-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.pd-source-badge--product {
+  color: #00c3aa;
+  background: rgba(0, 195, 170, 0.1);
+  border-color: rgba(0, 195, 170, 0.3);
+}
+
+.pd-source-badge--default {
+  color: #6b859e;
+  background: rgba(107, 133, 158, 0.1);
+  border-color: rgba(107, 133, 158, 0.25);
+}
+
+/* Regex display row */
+.pd-regex-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pd-regex-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #90d0c8;
+  background: #101626;
+  border: 1px solid #1d2f4a;
+  border-radius: 6px;
+  padding: 6px 12px;
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Edit form */
+.pd-regex-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 600px;
+}
+
+/* Small button variant */
+.pd-btn-sm {
+  padding: 4px 10px;
+  font-size: 11px;
+}

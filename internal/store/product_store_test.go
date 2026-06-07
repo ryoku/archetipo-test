@@ -254,3 +254,71 @@ func TestProductStore_List_EmptyAllowlist(t *testing.T) {
 		t.Errorf("expected 0 results for empty allowlist, got %d", len(results))
 	}
 }
+
+func TestGetTagConvention_NoOverride(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	p := &domain.Product{Name: "No Convention", Slug: "no-convention"}
+	if err := s.Create(context.Background(), p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := s.GetTagConvention(context.Background(), "no-convention")
+	if err != nil {
+		t.Fatalf("GetTagConvention: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil pointer for product with no override, got %q", *got)
+	}
+}
+
+func TestSetAndGetTagConvention(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	p := &domain.Product{Name: "Convention Product", Slug: "convention-product"}
+	if err := s.Create(context.Background(), p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	regex := `^v\d+\.\d+\.\d+$`
+	if err := s.SetTagConvention(context.Background(), "convention-product", regex); err != nil {
+		t.Fatalf("SetTagConvention: %v", err)
+	}
+
+	got, err := s.GetTagConvention(context.Background(), "convention-product")
+	if err != nil {
+		t.Fatalf("GetTagConvention: %v", err)
+	}
+	if got == nil {
+		t.Fatal("expected non-nil pointer after SetTagConvention, got nil")
+	}
+	if *got != regex {
+		t.Errorf("expected regex %q, got %q", regex, *got)
+	}
+}
+
+func TestSetTagConvention_NotFound(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	err := s.SetTagConvention(context.Background(), "nonexistent", `^v\d+$`)
+	if err != store.ErrNotFound {
+		t.Errorf("expected ErrNotFound for nonexistent slug, got %v", err)
+	}
+}
+
+func TestGetTagConvention_NotFound(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	_, err := s.GetTagConvention(context.Background(), "nonexistent")
+	if err != store.ErrNotFound {
+		t.Errorf("expected ErrNotFound for nonexistent slug, got %v", err)
+	}
+}
