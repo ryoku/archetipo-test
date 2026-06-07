@@ -125,9 +125,9 @@ func (s *pgxProductStore) List(ctx context.Context, opts ListOptions) ([]domain.
 func (s *pgxProductStore) GetBySlug(ctx context.Context, slug string) (*domain.Product, error) {
 	var p domain.Product
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, name, slug, description, archived_at, created_at FROM products WHERE slug = $1`,
+		`SELECT id, name, slug, description, archived_at, created_at, tag_convention_regex FROM products WHERE slug = $1`,
 		slug,
-	).Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt)
+	).Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt, &p.TagConventionRegex)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
