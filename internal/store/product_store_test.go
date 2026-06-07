@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -307,7 +308,7 @@ func TestSetTagConvention_NotFound(t *testing.T) {
 
 	s := store.NewProductStore(pool)
 	err := s.SetTagConvention(context.Background(), "nonexistent", `^v\d+$`)
-	if err != store.ErrNotFound {
+	if !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("expected ErrNotFound for nonexistent slug, got %v", err)
 	}
 }
@@ -318,7 +319,7 @@ func TestGetTagConvention_NotFound(t *testing.T) {
 
 	s := store.NewProductStore(pool)
 	_, err := s.GetTagConvention(context.Background(), "nonexistent")
-	if err != store.ErrNotFound {
+	if !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("expected ErrNotFound for nonexistent slug, got %v", err)
 	}
 }
