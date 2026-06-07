@@ -94,7 +94,16 @@
 }
 
 .home-page-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 28px;
+}
+
+.home-page-head {
+  flex: 1;
+  min-width: 0;
 }
 
 .home-page-title {
@@ -274,4 +283,44 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Add Product button */
+.home-btn-add-product {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid #00c3aa;
+  background: #00c3aa;
+  color: #070a12;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 140ms ease;
+  flex-shrink: 0;
+}
+
+.home-btn-add-product:hover {
+  background: #00ddc0;
+  border-color: #00ddc0;
+}
+
+/* Inline add form — positioned between page-top and product grid */
+.home-inline-form {
+  margin-bottom: 24px;
+}
+
+
+/* Form-level error banner */
+.home-form-error {
+  background: #130909;
+  border: 1px solid #2e1010;
+  border-radius: 8px;
+  color: #ff8888;
+  padding: 10px 14px;
+  font-size: 12px;
+  margin-bottom: 12px;
 }

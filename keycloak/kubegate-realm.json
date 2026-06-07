@@ -62,6 +62,15 @@
       }
     }
   ],
+  "roles": {
+    "realm": [
+      {
+        "name": "kubegate:devops-admin",
+        "description": "KubeGate DevOps Admin — full platform access including product creation",
+        "composite": false
+      }
+    ]
+  },
   "users": [
     {
       "username": "dev",
@@ -74,6 +83,25 @@
         {
           "type": "password",
           "value": "devpassword",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kubegate",
+        "kubegate:devops-admin"
+      ]
+    },
+    {
+      "username": "viewer",
+      "email": "viewer@kubegate.local",
+      "firstName": "Viewer",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewerpassword",
           "temporary": false
         }
       ],

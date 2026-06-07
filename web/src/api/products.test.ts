@@ -7,6 +7,7 @@ import {
   listEnvironments,
   createEnvironment,
   deleteEnvironment,
+  createProduct,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -273,5 +274,52 @@ describe('deleteEnvironment', () => {
     vi.stubGlobal('fetch', makeFetchStub(404))
 
     await expect(deleteEnvironment('tok', 'my-product', 'env-uuid-1')).rejects.toThrow('deleteEnvironment: 404')
+  })
+})
+
+// ─── createProduct ─────────────────────────────────────────────
+describe('createProduct', () => {
+  it('returns the created product on 201', async () => {
+    const created: import('./products').Product = {
+      id: 'p1',
+      name: 'Platform',
+      slug: 'platform',
+      description: 'A platform product',
+      created_at: '2025-01-01T00:00:00Z',
+    }
+    vi.stubGlobal('fetch', makeFetchStub(201, created))
+
+    const result = await createProduct('tok', { name: 'Platform', slug: 'platform', description: 'A platform product' })
+    expect(result).toEqual(created)
+  })
+
+  it('sends a POST request with correct method, Content-Type header, and body', async () => {
+    const created: import('./products').Product = {
+      id: 'p1',
+      name: 'Platform',
+      slug: 'platform',
+      description: 'A platform product',
+      created_at: '2025-01-01T00:00:00Z',
+    }
+    const fetchStub = makeFetchStub(201, created)
+    vi.stubGlobal('fetch', fetchStub)
+
+    const data = { name: 'Platform', slug: 'platform', description: 'A platform product' }
+    await createProduct('tok', data)
+
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify(data))
+    const headers = new Headers(init.headers)
+    expect(headers.get('Content-Type')).toBe('application/json')
+  })
+
+  it('throws on non-ok response (409)', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(409))
+
+    await expect(
+      createProduct('tok', { name: 'Platform', slug: 'platform', description: 'A platform product' }),
+    ).rejects.toThrow('createProduct: 409')
   })
 })

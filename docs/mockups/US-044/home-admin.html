@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — Home (Admin) · US-044</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Icon palette */
+.p-icon-a { background: linear-gradient(135deg, #00c3aa, #0077cc); }
+.p-icon-b { background: linear-gradient(135deg, #7b6cf0, #c060f0); }
+.p-icon-c { background: linear-gradient(135deg, #f09030, #e04060); }
+.p-icon-d { background: linear-gradient(135deg, #40c060, #0080a0); }
+.p-icon-new { background: linear-gradient(135deg, var(--accent), #0080f0); }
+</style>
+</head>
+<body>
+
+<!-- ─── ROLE SWITCHER (demo only) ──────────────────────────────── -->
+<div class="role-switcher">
+  <span>Ruolo:</span>
+  <button class="role-pill active-admin" id="pill-admin"  onclick="setRole('admin')">Admin</button>
+  <button class="role-pill"             id="pill-viewer" onclick="setRole('viewer')">Viewer</button>
+</div>
+
+<div class="home-page">
+
+  <!-- ─── HEADER ─────────────────────────────────────────────────── -->
+  <header class="home-header">
+    <div class="home-header-brand">
+      <div class="home-logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="home-logo-name">KubeGate</span>
+    </div>
+    <div class="home-header-user">
+      <div class="home-avatar" id="headerAvatar">SB</div>
+      <span class="home-user-name" id="headerName">Sara Bianchi</span>
+      <span class="home-user-role" id="headerRole">DevOps Admin</span>
+      <button class="home-btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <!-- ─── MAIN ────────────────────────────────────────────────────── -->
+  <main class="home-main">
+    <!-- Page title row + Add button -->
+    <div class="home-page-top">
+      <div class="home-page-head">
+        <h1 class="home-page-title">Products</h1>
+        <p class="home-page-desc">Seleziona un prodotto per visualizzare e gestire i suoi componenti.</p>
+      </div>
+      <!-- "Add Product" visible only to admin -->
+      <button class="btn btn-primary admin-only" id="addProductBtn" onclick="openForm()">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6.5 1v11M1 6.5h11"/>
+        </svg>
+        Add Product
+      </button>
+    </div>
+
+    <!-- ─── API ERROR BANNER (hidden by default) ─────────────────── -->
+    <div class="pd-api-error hidden" id="apiError">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px">
+        <circle cx="7" cy="7" r="6"/>
+        <path d="M7 4.5v3M7 9.5v.5"/>
+      </svg>
+      <span id="apiErrorMsg">Errore dal server.</span>
+    </div>
+
+    <!-- ─── INLINE ADD FORM (hidden by default) ───────────────────── -->
+    <div class="pd-inline-form hidden admin-only" id="inlineForm">
+      <div class="pd-inline-form-title">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2v8M2 6h8"/>
+        </svg>
+        Nuovo prodotto
+      </div>
+
+      <div class="pd-form-row">
+        <!-- Name -->
+        <div class="pd-field">
+          <label class="pd-field-label" for="prodName">Name *</label>
+          <input class="pd-input" id="prodName" type="text"
+                 placeholder="e.g. Payments Service"
+                 oninput="clearError('prodName','nameHint','nome visualizzato')"
+                 autocomplete="off">
+          <span class="pd-field-hint" id="nameHint">nome visualizzato</span>
+        </div>
+
+        <!-- Slug -->
+        <div class="pd-field">
+          <label class="pd-field-label" for="prodSlug">Slug *</label>
+          <input class="pd-input pd-input-mono" id="prodSlug" type="text"
+                 placeholder="payments-service"
+                 oninput="onSlugInput()"
+                 autocomplete="off">
+          <span class="pd-field-hint" id="slugHint">lowercase, lettere, cifre e trattini</span>
+        </div>
+
+        <!-- Description -->
+        <div class="pd-field">
+          <label class="pd-field-label" for="prodDesc">Description</label>
+          <input class="pd-input" id="prodDesc" type="text"
+                 placeholder="breve descrizione (opzionale)"
+                 autocomplete="off">
+          <span class="pd-field-hint">opzionale</span>
+        </div>
+      </div>
+
+      <div class="pd-form-actions">
+        <button class="btn btn-ghost btn-sm" onclick="closeForm()">Annulla</button>
+        <button class="btn btn-primary btn-sm" id="saveBtn" onclick="saveProduct()">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1.5 5.5l3 3L9.5 2.5"/>
+          </svg>
+          Salva prodotto
+        </button>
+      </div>
+    </div>
+
+    <!-- ─── PRODUCT GRID ──────────────────────────────────────────── -->
+    <div class="home-product-grid" id="productGrid">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- ─── EMPTY STATE ───────────────────────────────────────────── -->
+    <div class="home-empty hidden" id="emptyState">
+      <div class="home-empty-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
+      <p class="home-empty-title">Nessun prodotto ancora</p>
+      <p class="home-empty-sub admin-only">Aggiungi il primo prodotto usando il pulsante in alto.</p>
+      <p class="home-empty-sub viewer-only hidden">Contatta un DevOps Admin per aggiungere prodotti.</p>
+    </div>
+  </main>
+</div>
+
+<!-- ─── TOAST STACK ───────────────────────────────────────────────── -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────
+let role = 'admin';
+let nextId = 5;
+const ICON_CLASSES = ['p-icon-a','p-icon-b','p-icon-c','p-icon-d','p-icon-new'];
+
+let products = [
+  { id:1, name:'Platform API',   slug:'platform-api',   desc:'Core API layer per la piattaforma.',   icon:'p-icon-a', initials:'PL' },
+  { id:2, name:'Customer App',   slug:'customer-app',   desc:'Applicazione per gli utenti finali.',  icon:'p-icon-b', initials:'CA' },
+  { id:3, name:'Data Sync',      slug:'data-sync',      desc:'Sincronizzazione dati tra i sistemi.',  icon:'p-icon-c', initials:'DS' },
+  { id:4, name:'Nexus Gateway',  slug:'nexus-gateway',  desc:'Gateway per l\'ingress del traffico.', icon:'p-icon-d', initials:'NX' },
+];
+
+// ─── Role switch ──────────────────────────────────────────────────────
+function setRole(r) {
+  role = r;
+  document.getElementById('pill-admin').className  = 'role-pill' + (r === 'admin'  ? ' active-admin'  : '');
+  document.getElementById('pill-viewer').className = 'role-pill' + (r === 'viewer' ? ' active-viewer' : '');
+
+  const av = document.getElementById('headerAvatar');
+  const nm = document.getElementById('headerName');
+  const rl = document.getElementById('headerRole');
+  if (r === 'admin') {
+    av.textContent = 'SB';
+    av.style.background = 'linear-gradient(135deg,#f09030,#e04060)';
+    nm.textContent = 'Sara Bianchi';
+    rl.textContent = 'DevOps Admin';
+  } else {
+    av.textContent = 'LP';
+    av.style.background = 'linear-gradient(135deg,#7b6cf0,#c060f0)';
+    nm.textContent = 'Lucia Parisi';
+    rl.textContent = 'Viewer';
+  }
+
+  document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', r !== 'admin'));
+  document.querySelectorAll('.viewer-only').forEach(el => el.classList.toggle('hidden', r !== 'viewer'));
+
+  closeForm();
+  renderProducts();
+}
+
+// ─── Slug auto-gen ────────────────────────────────────────────────────
+function onSlugInput() {
+  clearError('prodSlug','slugHint','lowercase, lettere, cifre e trattini');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('prodName').addEventListener('input', function() {
+    const slug = document.getElementById('prodSlug');
+    if (!slug.dataset.edited) {
+      slug.value = this.value
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-');
+    }
+    clearError('prodName','nameHint','nome visualizzato');
+  });
+  document.getElementById('prodSlug').addEventListener('keydown', () => {
+    document.getElementById('prodSlug').dataset.edited = '1';
+  });
+
+  // Escape to close form
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeForm();
+  });
+
+  setRole('admin');
+});
+
+// ─── Form open/close ──────────────────────────────────────────────────
+function openForm() {
+  const form = document.getElementById('inlineForm');
+  form.classList.remove('hidden');
+  document.getElementById('addProductBtn').classList.add('hidden');
+  document.getElementById('apiError').classList.add('hidden');
+  document.getElementById('prodName').value = '';
+  document.getElementById('prodSlug').value = '';
+  delete document.getElementById('prodSlug').dataset.edited;
+  document.getElementById('prodDesc').value = '';
+  clearAllErrors();
+  setTimeout(() => document.getElementById('prodName').focus(), 50);
+}
+function closeForm() {
+  document.getElementById('inlineForm').classList.add('hidden');
+  document.getElementById('apiError').classList.add('hidden');
+  clearAllErrors();
+  if (role === 'admin') {
+    document.getElementById('addProductBtn').classList.remove('hidden');
+  }
+}
+
+// ─── Validation ───────────────────────────────────────────────────────
+function clearError(inputId, hintId, defaultText) {
+  const hint = document.getElementById(hintId);
+  if (hint.classList.contains('pd-field-error')) {
+    hint.className = 'pd-field-hint';
+    hint.textContent = defaultText;
+    document.getElementById(inputId).classList.remove('error');
+  }
+}
+function showError(inputId, hintId, msg) {
+  const hint = document.getElementById(hintId);
+  hint.className = 'pd-field-error';
+  hint.textContent = msg;
+  document.getElementById(inputId).classList.add('error');
+}
+function clearAllErrors() {
+  clearError('prodName','nameHint','nome visualizzato');
+  clearError('prodSlug','slugHint','lowercase, lettere, cifre e trattini');
+}
+
+// ─── Save (simulated API call) ────────────────────────────────────────
+function saveProduct() {
+  const name = document.getElementById('prodName').value.trim();
+  const slug = document.getElementById('prodSlug').value.trim();
+  const desc = document.getElementById('prodDesc').value.trim();
+  clearAllErrors();
+  document.getElementById('apiError').classList.add('hidden');
+
+  let valid = true;
+  if (!name) { showError('prodName','nameHint','Il nome è obbligatorio'); valid = false; }
+  if (!slug) { showError('prodSlug','slugHint','Lo slug è obbligatorio'); valid = false; }
+  else if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(slug)) {
+    showError('prodSlug','slugHint','Solo lowercase, cifre e trattini (non agli estremi)'); valid = false;
+  }
+  if (!valid) return;
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Salvataggio…';
+
+  // Simulate network delay + success
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1.5 5.5l3 3L9.5 2.5"/>
+      </svg>
+      Salva prodotto`;
+
+    const iconIdx = (nextId - 1) % ICON_CLASSES.length;
+    const initials = name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
+    const newProduct = {
+      id: nextId++,
+      name, slug,
+      desc: desc || null,
+      icon: ICON_CLASSES[iconIdx],
+      initials,
+      isNew: true,
+    };
+    products.unshift(newProduct);
+    closeForm();
+    renderProducts(newProduct.id);
+    showToast(`Prodotto <strong>${name}</strong> creato`, 'ok');
+  }, 700);
+}
+
+// ─── Render grid ──────────────────────────────────────────────────────
+function renderProducts(newId) {
+  const grid = document.getElementById('productGrid');
+  const empty = document.getElementById('emptyState');
+
+  if (products.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  grid.innerHTML = products.map(p => `
+    <button class="home-product-card ${p.id === newId ? 'card-new' : ''}">
+      <div class="home-p-card-top">
+        <div class="home-p-icon ${p.icon}">${p.initials}</div>
+        <div class="home-p-info">
+          <div class="home-p-name">${p.name}</div>
+          <div class="home-p-slug">${p.slug}</div>
+        </div>
+      </div>
+      ${p.desc ? `<p class="home-p-desc">${p.desc}</p>` : ''}
+    </button>
+  `).join('');
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────
+function showToast(html, type) {
+  const stack = document.getElementById('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  const dot = type === 'ok'
+    ? `<div style="width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 5px var(--ok);flex-shrink:0;"></div>`
+    : `<div style="width:6px;height:6px;border-radius:50%;background:var(--danger);box-shadow:0 0 5px var(--danger);flex-shrink:0;"></div>`;
+  t.innerHTML = `${dot}<div class="toast-msg">${html}</div>`;
+  stack.appendChild(t);
+  setTimeout(() => {
+    t.style.transition = 'opacity .3s';
+    t.style.opacity = '0';
+    setTimeout(() => t.remove(), 350);
+  }, 3500);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — Home (Viewer) · US-044</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.p-icon-a { background: linear-gradient(135deg, #00c3aa, #0077cc); }
+.p-icon-b { background: linear-gradient(135deg, #7b6cf0, #c060f0); }
+.p-icon-c { background: linear-gradient(135deg, #f09030, #e04060); }
+.p-icon-d { background: linear-gradient(135deg, #40c060, #0080a0); }
+
+/* Role-info callout */
+.role-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--r-lg);
+  background: rgba(123,156,232,0.07);
+  border: 1px solid rgba(123,156,232,0.22);
+  margin-bottom: 28px;
+}
+.role-callout-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  background: rgba(123,156,232,0.12);
+  border: 1px solid rgba(123,156,232,0.25);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  color: #7b9ce8;
+}
+.role-callout-title { font-size: 13px; font-weight: 600; color: #7b9ce8; }
+.role-callout-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div class="home-page">
+
+  <!-- ─── HEADER ─────────────────────────────────────────────────── -->
+  <header class="home-header">
+    <div class="home-header-brand">
+      <div class="home-logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="home-logo-name">KubeGate</span>
+    </div>
+    <div class="home-header-user">
+      <div class="home-avatar" style="background: linear-gradient(135deg,#7b6cf0,#c060f0);">LP</div>
+      <span class="home-user-name">Lucia Parisi</span>
+      <span class="home-user-role" style="color:#7b9ce8;border-color:rgba(123,156,232,.3);background:rgba(123,156,232,.08);">Viewer</span>
+      <button class="home-btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <!-- ─── MAIN ────────────────────────────────────────────────────── -->
+  <main class="home-main">
+    <!-- Page title — no Add button for viewer -->
+    <div class="home-page-top">
+      <div class="home-page-head">
+        <h1 class="home-page-title">Products</h1>
+        <p class="home-page-desc">Seleziona un prodotto per visualizzare e gestire i suoi componenti.</p>
+      </div>
+      <!-- No "Add Product" button here — viewer cannot create products -->
+    </div>
+
+    <!-- Role callout (purely illustrative for mockup) -->
+    <div class="role-callout">
+      <div class="role-callout-icon">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="7" cy="7" r="6"/><path d="M7 4.5v3M7 9.5v.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="role-callout-title">Accesso in sola lettura</div>
+        <div class="role-callout-sub">Il pulsante "Add Product" è visibile solo agli utenti DevOps Admin. Contatta un admin per aggiungere nuovi prodotti al catalogo.</div>
+      </div>
+    </div>
+
+    <!-- ─── PRODUCT GRID ──────────────────────────────────────────── -->
+    <div class="home-product-grid">
+      <button class="home-product-card">
+        <div class="home-p-card-top">
+          <div class="home-p-icon p-icon-a">PL</div>
+          <div class="home-p-info">
+            <div class="home-p-name">Platform API</div>
+            <div class="home-p-slug">platform-api</div>
+          </div>
+        </div>
+        <p class="home-p-desc">Core API layer per la piattaforma — gestisce auth, routing e service mesh.</p>
+      </button>
+
+      <button class="home-product-card">
+        <div class="home-p-card-top">
+          <div class="home-p-icon p-icon-b">CA</div>
+          <div class="home-p-info">
+            <div class="home-p-name">Customer App</div>
+            <div class="home-p-slug">customer-app</div>
+          </div>
+        </div>
+        <p class="home-p-desc">Applicazione per gli utenti finali del servizio.</p>
+      </button>
+
+      <button class="home-product-card">
+        <div class="home-p-card-top">
+          <div class="home-p-icon p-icon-c">DS</div>
+          <div class="home-p-info">
+            <div class="home-p-name">Data Sync</div>
+            <div class="home-p-slug">data-sync</div>
+          </div>
+        </div>
+        <p class="home-p-desc">Sincronizzazione dati tra sistemi interni e partner.</p>
+      </button>
+
+      <button class="home-product-card">
+        <div class="home-p-card-top">
+          <div class="home-p-icon p-icon-d">NX</div>
+          <div class="home-p-info">
+            <div class="home-p-name">Nexus Gateway</div>
+            <div class="home-p-slug">nexus-gateway</div>
+          </div>
+        </div>
+        <p class="home-p-desc">Gateway per il traffico ingress della piattaforma.</p>
+      </button>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
