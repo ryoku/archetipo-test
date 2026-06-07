@@ -40,6 +40,9 @@ type ProductStore interface {
 	// SetTagConvention sets the tag convention regex for the product identified by slug.
 	// Returns ErrNotFound if no product with that slug exists.
 	SetTagConvention(ctx context.Context, slug, regex string) error
+	// ClearTagConvention removes the product-level tag convention override, reverting to
+	// the global default. Returns ErrNotFound if no active product with that slug exists.
+	ClearTagConvention(ctx context.Context, slug string) error
 }
 
 type pgxProductStore struct {
@@ -192,6 +195,20 @@ func (s *pgxProductStore) SetTagConvention(ctx context.Context, slug, regex stri
 	)
 	if err != nil {
 		return fmt.Errorf("set tag convention: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *pgxProductStore) ClearTagConvention(ctx context.Context, slug string) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE products SET tag_convention_regex = NULL WHERE slug = $1 AND archived_at IS NULL`,
+		slug,
+	)
+	if err != nil {
+		return fmt.Errorf("clear tag convention: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound

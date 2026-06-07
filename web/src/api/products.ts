@@ -144,3 +144,10 @@ export async function setTagConvention(
   }
   return (await res.json()) as TagConvention
 }
+
+export async function clearTagConvention(token: string, productSlug: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/tag-convention`, token, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error(`clearTagConvention: ${res.status}`)
+}

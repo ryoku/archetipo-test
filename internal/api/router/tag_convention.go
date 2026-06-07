@@ -18,5 +18,7 @@ func RegisterTagConventionRoutes(s store.ProductStore, defaultRegex string) func
 		tc.GET("", middleware.RequireRole(domain.RoleViewer), h.GetTagConvention)
 		// PUT: Editor (or DevOps Admin) only
 		tc.PUT("", middleware.RequireRole(domain.RoleEditor), h.PutTagConvention)
+		// DELETE: Editor (or DevOps Admin) only — clears the product-level override
+		tc.DELETE("", middleware.RequireRole(domain.RoleEditor), h.DeleteTagConvention)
 	}
 }

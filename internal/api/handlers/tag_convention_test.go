@@ -33,6 +33,7 @@ func newTagConventionRouter(ps store.ProductStore, identity *domain.UserIdentity
 	tc := api.Group("/products/:productSlug/tag-convention")
 	tc.GET("", middleware.RequireRole(domain.RoleViewer), h.GetTagConvention)
 	tc.PUT("", middleware.RequireRole(domain.RoleEditor), h.PutTagConvention)
+	tc.DELETE("", middleware.RequireRole(domain.RoleEditor), h.DeleteTagConvention)
 	return r
 }
 
@@ -44,6 +45,15 @@ func tagConventionStore(
 	return &mockProductStore{
 		getTagConventionFn: getTagConventionFn,
 		setTagConventionFn: setTagConventionFn,
+	}
+}
+
+// clearTagConventionStore returns a mockProductStore with ClearTagConvention wired.
+func clearTagConventionStore(
+	clearTagConventionFn func(ctx context.Context, slug string) error,
+) *mockProductStore {
+	return &mockProductStore{
+		clearTagConventionFn: clearTagConventionFn,
 	}
 }
 
@@ -215,6 +225,44 @@ func TestPutTagConvention_UnknownProduct_Returns404(t *testing.T) {
 		http.MethodPut,
 		"/api/v1/products/ghost-product/tag-convention",
 		jsonBody(map[string]string{"regex": `^v\d+$`}),
+	)
+	assertStatus(t, w, http.StatusNotFound)
+}
+
+// --- DeleteTagConvention tests ---
+
+func TestDeleteTagConvention_Success_Returns204(t *testing.T) {
+	called := false
+	ps := clearTagConventionStore(
+		func(_ context.Context, slug string) error {
+			if slug != "my-product" {
+				t.Errorf("unexpected slug %q", slug)
+			}
+			called = true
+			return nil
+		},
+	)
+	w := doPlain(
+		newTagConventionRouter(ps, editorIdentity("my-product")),
+		http.MethodDelete,
+		"/api/v1/products/my-product/tag-convention",
+	)
+	assertStatus(t, w, http.StatusNoContent)
+	if !called {
+		t.Error("expected ClearTagConvention to be called")
+	}
+}
+
+func TestDeleteTagConvention_UnknownProduct_Returns404(t *testing.T) {
+	ps := clearTagConventionStore(
+		func(_ context.Context, _ string) error {
+			return store.ErrNotFound
+		},
+	)
+	w := doPlain(
+		newTagConventionRouter(ps, adminIdentity()),
+		http.MethodDelete,
+		"/api/v1/products/ghost-product/tag-convention",
 	)
 	assertStatus(t, w, http.StatusNotFound)
 }

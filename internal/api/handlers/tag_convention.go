@@ -99,3 +99,24 @@ func (h *TagConventionHandlers) PutTagConvention(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, tagConventionResponse{Regex: *req.Regex, Source: "product"})
 }
+
+// DeleteTagConvention handles DELETE /api/v1/products/:productSlug/tag-convention.
+// Clears the product-level override and reverts to the global default.
+// Returns 204 No Content on success.
+// Restricted to Editor and DevOps Admin roles (enforced by middleware upstream).
+func (h *TagConventionHandlers) DeleteTagConvention(c *gin.Context) {
+	slug := c.Param("productSlug")
+	if !checkProductAccess(c, slug) || !validateURLSlug(c, slug) {
+		return
+	}
+
+	if err := h.store.ClearTagConvention(c.Request.Context(), slug); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}

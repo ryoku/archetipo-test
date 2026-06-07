@@ -33,6 +33,7 @@ func (noopProductStore) GetTagConvention(_ context.Context, _ string) (*string, 
 	return nil, nil
 }
 func (noopProductStore) SetTagConvention(_ context.Context, _, _ string) error { return nil }
+func (noopProductStore) ClearTagConvention(_ context.Context, _ string) error  { return nil }
 
 var _ store.ProductStore = noopProductStore{}
 
@@ -150,6 +151,7 @@ func TestRegisterTagConventionRoutes_RoutesRegistered(t *testing.T) {
 	assertRoutesReturn401(t, r, [][2]string{
 		{http.MethodGet, "/api/v1/products/some-slug/tag-convention"},
 		{http.MethodPut, "/api/v1/products/some-slug/tag-convention"},
+		{http.MethodDelete, "/api/v1/products/some-slug/tag-convention"},
 	})
 }
 

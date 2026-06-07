@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import {
   getTagConvention,
   setTagConvention,
+  clearTagConvention,
   type TagConvention,
   type Product,
 } from '../api/products'
@@ -60,6 +61,18 @@ export default function ProductSettingsPage() {
     setEditMode(false)
     setEditValue('')
     setEditError(null)
+  }
+
+  async function handleResetToDefault() {
+    if (!accessToken || !slug) return
+    setError(null)
+    try {
+      await clearTagConvention(accessToken, slug)
+      const updated = await getTagConvention(accessToken, slug)
+      setTagConventionState(updated)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to reset tag convention')
+    }
   }
 
   async function handleSave() {
@@ -172,6 +185,19 @@ export default function ProductSettingsPage() {
                       <path d="M8.5 1.5L10.5 3.5L4 10H2v-2L8.5 1.5Z" />
                     </svg>
                     Edit
+                  </button>
+                )}
+                {canWrite && tagConvention.source === 'product' && (
+                  <button
+                    type="button"
+                    className="pd-btn-ghost pd-btn-sm"
+                    onClick={handleResetToDefault}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 6a4 4 0 1 1 1.2 2.8" />
+                      <path d="M2 9V6h3" />
+                    </svg>
+                    Reset to default
                   </button>
                 )}
               </div>
