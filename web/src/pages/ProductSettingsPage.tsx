@@ -23,7 +23,7 @@ export default function ProductSettingsPage() {
   const product = location.state as Product | undefined
   const canWrite = product?.my_role === 'editor' || product?.my_role === 'admin'
 
-  const [tagConvention, setTagConventionState] = useState<TagConvention | null>(null)
+  const [tagConventionData, setTagConventionData] = useState<TagConvention | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,7 +41,7 @@ export default function ProductSettingsPage() {
     setError(null)
     getTagConvention(accessToken, slug)
       .then((tc) => {
-        setTagConventionState(tc)
+        setTagConventionData(tc)
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Failed to load tag convention')
@@ -54,7 +54,7 @@ export default function ProductSettingsPage() {
   }
 
   function handleEditClick() {
-    setEditValue(tagConvention?.regex ?? '')
+    setEditValue(tagConventionData?.regex ?? '')
     setEditError(null)
     setEditMode(true)
   }
@@ -71,7 +71,7 @@ export default function ProductSettingsPage() {
     try {
       await clearTagConvention(accessToken, slug)
       const updated = await getTagConvention(accessToken, slug)
-      setTagConventionState(updated)
+      setTagConventionData(updated)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to reset tag convention')
     }
@@ -88,7 +88,7 @@ export default function ProductSettingsPage() {
     setEditError(null)
     try {
       const updated = await setTagConvention(accessToken, slug, trimmed)
-      setTagConventionState(updated)
+      setTagConventionData(updated)
       setEditMode(false)
       setEditValue('')
     } catch (err: unknown) {
@@ -96,6 +96,94 @@ export default function ProductSettingsPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  function renderCardBody() {
+    if (loading) {
+      return (
+        <div className="pd-loading">
+          <div className="pd-spinner" />
+          <span>Loading tag convention…</span>
+        </div>
+      )
+    }
+    if (editMode) {
+      return (
+        <div className="pd-regex-edit">
+          <div className="pd-field">
+            <label className="pd-field-label" htmlFor="tag-convention-regex">
+              Regex pattern
+            </label>
+            <input
+              id="tag-convention-regex"
+              type="text"
+              className="pd-input pd-input-mono"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              autoComplete="off"
+              autoFocus
+              disabled={saving}
+            />
+            {editError ? (
+              <span className="pd-field-error">{editError}</span>
+            ) : (
+              <span className="pd-field-hint">e.g. ^v\d+\.\d+\.\d+$</span>
+            )}
+          </div>
+          <div className="pd-form-actions">
+            <button
+              type="button"
+              className="pd-btn-ghost"
+              onClick={handleCancelEdit}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="pd-btn-primary"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )
+    }
+    if (tagConventionData) {
+      return (
+        <div className="pd-regex-display">
+          <span className="pd-regex-value">{tagConventionData.regex}</span>
+          {canWrite && (
+            <button
+              type="button"
+              className="pd-btn-ghost pd-btn-sm"
+              onClick={handleEditClick}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M8.5 1.5L10.5 3.5L4 10H2v-2L8.5 1.5Z" />
+              </svg>
+              Edit
+            </button>
+          )}
+          {canWrite && tagConventionData.source === 'product' && (
+            <button
+              type="button"
+              className="pd-btn-ghost pd-btn-sm"
+              onClick={handleResetToDefault}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2 6a4 4 0 1 1 1.2 2.8" />
+                <path d="M2 9V6h3" />
+              </svg>
+              Reset to default
+            </button>
+          )}
+        </div>
+      )
+    }
+    return null
   }
 
   return (
@@ -135,15 +223,15 @@ export default function ProductSettingsPage() {
             <div className="pd-settings-card-title-group">
               <div className="pd-settings-card-title">
                 Tag Convention
-                {tagConvention && (
+                {tagConventionData && (
                   <span
                     className={
-                      tagConvention.source === 'product'
+                      tagConventionData.source === 'product'
                         ? 'pd-source-badge pd-source-badge--product'
                         : 'pd-source-badge pd-source-badge--default'
                     }
                   >
-                    {tagConvention.source === 'product' ? (
+                    {tagConventionData.source === 'product' ? (
                       <>
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
                           <path d="M2 5.5L4 7.5L8 3" />
@@ -168,84 +256,7 @@ export default function ProductSettingsPage() {
           </div>
 
           <div className="pd-settings-card-body">
-            {loading ? (
-              <div className="pd-loading">
-                <div className="pd-spinner" />
-                <span>Loading tag convention…</span>
-              </div>
-            ) : tagConvention && !editMode ? (
-              /* View mode */
-              <div className="pd-regex-display">
-                <span className="pd-regex-value">{tagConvention.regex}</span>
-                {canWrite && (
-                  <button
-                    type="button"
-                    className="pd-btn-ghost pd-btn-sm"
-                    onClick={handleEditClick}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M8.5 1.5L10.5 3.5L4 10H2v-2L8.5 1.5Z" />
-                    </svg>
-                    Edit
-                  </button>
-                )}
-                {canWrite && tagConvention.source === 'product' && (
-                  <button
-                    type="button"
-                    className="pd-btn-ghost pd-btn-sm"
-                    onClick={handleResetToDefault}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M2 6a4 4 0 1 1 1.2 2.8" />
-                      <path d="M2 9V6h3" />
-                    </svg>
-                    Reset to default
-                  </button>
-                )}
-              </div>
-            ) : editMode ? (
-              /* Edit mode */
-              <div className="pd-regex-edit">
-                <div className="pd-field">
-                  <label className="pd-field-label" htmlFor="tag-convention-regex">
-                    Regex pattern
-                  </label>
-                  <input
-                    id="tag-convention-regex"
-                    type="text"
-                    className="pd-input pd-input-mono"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    autoComplete="off"
-                    autoFocus
-                    disabled={saving}
-                  />
-                  {editError ? (
-                    <span className="pd-field-error">{editError}</span>
-                  ) : (
-                    <span className="pd-field-hint">e.g. ^v\d+\.\d+\.\d+$</span>
-                  )}
-                </div>
-                <div className="pd-form-actions">
-                  <button
-                    type="button"
-                    className="pd-btn-ghost"
-                    onClick={handleCancelEdit}
-                    disabled={saving}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="pd-btn-primary"
-                    onClick={handleSave}
-                    disabled={saving}
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            ) : null}
+            {renderCardBody()}
           </div>
         </div>
       </div>

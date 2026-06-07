@@ -19,7 +19,7 @@
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  background: rgba(0, 195, 170, 0.08);
+  background: #071410;
   border: 1px solid rgba(0, 195, 170, 0.2);
   border-radius: 8px;
   display: flex;
@@ -70,13 +70,13 @@
 
 .pd-source-badge--product {
   color: #00c3aa;
-  background: rgba(0, 195, 170, 0.1);
+  background: #071410;
   border-color: rgba(0, 195, 170, 0.3);
 }
 
 .pd-source-badge--default {
   color: #6b859e;
-  background: rgba(107, 133, 158, 0.1);
+  background: #0c1520;
   border-color: rgba(107, 133, 158, 0.25);
 }
 
