@@ -76,6 +76,10 @@ func (h *TagConventionHandlers) PutTagConvention(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "regex is required"})
 		return
 	}
+	if len(req.Regex) > 500 {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "regex must not exceed 500 characters"})
+		return
+	}
 	if _, err := regexp.Compile(req.Regex); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid regex: not a valid Go regular expression"})
 		return
