@@ -28,7 +28,7 @@ type tagConventionResponse struct {
 
 // putTagConventionRequest is the body for PUT .../tag-convention.
 type putTagConventionRequest struct {
-	Regex string `json:"regex"`
+	Regex *string `json:"regex"`
 }
 
 // GetTagConvention handles GET /api/v1/products/:productSlug/tag-convention.
@@ -72,20 +72,24 @@ func (h *TagConventionHandlers) PutTagConvention(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
-	if req.Regex == "" {
+	if req.Regex == nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "regex is required"})
 		return
 	}
-	if len(req.Regex) > 500 {
+	if *req.Regex == "" {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "regex must not be empty"})
+		return
+	}
+	if len(*req.Regex) > 500 {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "regex must not exceed 500 characters"})
 		return
 	}
-	if _, err := regexp.Compile(req.Regex); err != nil {
+	if _, err := regexp.Compile(*req.Regex); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid regex: not a valid Go regular expression"})
 		return
 	}
 
-	if err := h.store.SetTagConvention(c.Request.Context(), slug, req.Regex); err != nil {
+	if err := h.store.SetTagConvention(c.Request.Context(), slug, *req.Regex); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
@@ -93,5 +97,5 @@ func (h *TagConventionHandlers) PutTagConvention(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
-	c.JSON(http.StatusOK, tagConventionResponse{Regex: req.Regex, Source: "product"})
+	c.JSON(http.StatusOK, tagConventionResponse{Regex: *req.Regex, Source: "product"})
 }
