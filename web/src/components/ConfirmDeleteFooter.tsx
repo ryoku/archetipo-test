@@ -1,3 +1,4 @@
+// Requires ProductDetailPage.css to be imported by the page consumer.
 interface Props {
   readonly label: string
   readonly inProgress: boolean

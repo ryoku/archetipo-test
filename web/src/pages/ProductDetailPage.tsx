@@ -9,7 +9,6 @@ import {
   type Component,
 } from '../api/products'
 import './ProductDetailPage.css'
-import './EnvironmentsPage.css'
 import ProductHero from '../components/ProductHero'
 import ProductSubNav from '../components/ProductSubNav'
 import ProductNotFound from '../components/ProductNotFound'

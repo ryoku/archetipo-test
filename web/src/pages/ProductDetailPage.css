@@ -621,3 +621,34 @@
 .pd-btn-confirm-delete:hover {
   background: rgba(224, 85, 85, 0.2);
 }
+
+/* Sub-nav strip — shared by ProductDetailPage and EnvironmentsPage via ProductSubNav component */
+.pd-subnav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 22px;
+  border-bottom: 1px solid #16233a;
+  padding-bottom: 0;
+}
+.pd-subnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b859e;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 140ms ease, border-color 140ms ease;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+.pd-subnav-link:hover { color: #dde6f2; }
+.pd-subnav-link--active {
+  color: #00c3aa;
+  border-bottom-color: #00c3aa;
+}

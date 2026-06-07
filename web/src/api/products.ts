@@ -76,7 +76,7 @@ export async function listEnvironments(token: string, productSlug: string): Prom
 export async function createEnvironment(
   token: string,
   productSlug: string,
-  data: { name: string; type: string; overlay_path: string }
+  data: { name: string; type: Environment['type']; overlay_path: string }
 ): Promise<Environment> {
   const res = await apiFetch(`/api/v1/products/${productSlug}/environments`, token, {
     method: 'POST',

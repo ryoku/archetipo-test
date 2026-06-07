@@ -230,7 +230,7 @@ describe('createEnvironment', () => {
     const fetchStub = makeFetchStub(201, mockEnv)
     vi.stubGlobal('fetch', fetchStub)
 
-    const data = { name: 'staging', type: 'integration', overlay_path: 'overlays/staging' }
+    const data = { name: 'staging', type: 'integration' as const, overlay_path: 'overlays/staging' }
     await createEnvironment('tok', 'my-product', data)
 
     const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]

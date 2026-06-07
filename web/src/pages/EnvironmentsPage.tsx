@@ -15,7 +15,7 @@ import ProductSubNav from '../components/ProductSubNav'
 import ProductNotFound from '../components/ProductNotFound'
 import ConfirmDeleteFooter from '../components/ConfirmDeleteFooter'
 
-interface EnvFormState { name: string; type: string; overlay_path: string }
+interface EnvFormState { name: string; type: Environment['type'] | ''; overlay_path: string }
 interface EnvFormErrors { name?: string; type?: string; overlay_path?: string }
 
 function formatDate(iso: string): string {
@@ -186,7 +186,7 @@ export default function EnvironmentsPage() {
     try {
       const newEnv = await createEnvironment(accessToken, slug, {
         name: formState.name.trim(),
-        type: formState.type,
+        type: formState.type as Environment['type'],
         overlay_path: formState.overlay_path.trim(),
       })
       setEnvironments((prev) => [...prev, newEnv])
@@ -306,7 +306,7 @@ export default function EnvironmentsPage() {
                   id="env-type"
                   className="pd-input"
                   value={formState.type}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, type: e.target.value }))}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, type: e.target.value as Environment['type'] | '' }))}
                 >
                   <option value="">Select type…</option>
                   <option value="dev">dev</option>

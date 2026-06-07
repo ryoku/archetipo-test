@@ -1,3 +1,4 @@
+// Requires ProductDetailPage.css to be imported by the page consumer.
 import type { Product } from '../api/products'
 
 function getInitials(name: string): string {

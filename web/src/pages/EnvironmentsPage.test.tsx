@@ -489,6 +489,33 @@ describe('EnvironmentsPage — delete flow (admin)', () => {
   })
 })
 
+describe('EnvironmentsPage — API error on delete', () => {
+  it('shows error message and closes dialog when deleteEnvironment rejects', async () => {
+    mockLocationState = makeProduct({ my_role: 'admin' })
+    mockListEnvironments.mockResolvedValue(mockEnvs)
+    mockDeleteEnvironment.mockRejectedValue(new Error('Conflict'))
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /delete development/i }))
+
+    act(() => {
+      screen.getByRole('button', { name: /delete development/i }).click()
+    })
+
+    await act(async () => {
+      screen.getByText('Delete Environment').click()
+    })
+
+    await waitFor(() => {
+      const errorEl = document.querySelector('.pd-error')
+      expect(errorEl).toBeTruthy()
+      expect(errorEl?.textContent).toContain('Conflict')
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+  })
+})
+
 describe('EnvironmentsPage — API error on create', () => {
   it('shows page-level error message when createEnvironment rejects', async () => {
     mockLocationState = makeProduct({ my_role: 'admin' })
@@ -552,6 +579,19 @@ describe('EnvironmentsPage — data loading', () => {
     await waitFor(() => {
       expect(screen.getByText('overlays/dev')).toBeTruthy()
       expect(screen.getByText('overlays/prod')).toBeTruthy()
+    })
+  })
+
+  it('shows error message when listEnvironments rejects', async () => {
+    mockLocationState = makeProduct({ my_role: 'admin' })
+    mockListEnvironments.mockRejectedValue(new Error('Network error'))
+
+    renderPage()
+
+    await waitFor(() => {
+      const errorEl = document.querySelector('.pd-error')
+      expect(errorEl).toBeTruthy()
+      expect(errorEl?.textContent).toContain('Network error')
     })
   })
 })
