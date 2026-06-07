@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { listProducts, createProduct, type Product } from '../api/products'
 import { isDevOpsAdmin } from '../auth/claims'
+import './ProductDetailPage.css'
 import './HomePage.css'
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -77,7 +78,7 @@ export default function HomePage() {
       setFormError(null)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create product'
-      if (msg.includes('409') || msg.toLowerCase().includes('slug already exists')) {
+      if (msg.includes('409')) {
         setFormError('A product with this slug already exists')
       } else {
         setFormError(msg)

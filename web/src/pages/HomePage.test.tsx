@@ -302,4 +302,45 @@ describe('Add Product form', () => {
     // Form should still be open
     expect(screen.getByLabelText('Name *')).toBeTruthy()
   })
+
+  it('shows slug format error for invalid slug', async () => {
+    mockIsDevOpsAdmin.mockReturnValue(true)
+    mockListProducts.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => screen.getByText('Add Product'))
+
+    act(() => { screen.getByText('Add Product').click() })
+
+    fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'My App' } })
+    fireEvent.change(screen.getByLabelText('Slug *'), { target: { value: 'My Slug' } })
+
+    act(() => { screen.getByText('Save Product').click() })
+
+    await waitFor(() => {
+      expect(screen.getByText('Slug must be lowercase letters, numbers, and hyphens only')).toBeTruthy()
+    })
+    expect(mockCreateProduct).not.toHaveBeenCalled()
+  })
+
+  it('closes form and restores Add Product button when Cancel is clicked', async () => {
+    mockIsDevOpsAdmin.mockReturnValue(true)
+    mockListProducts.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => screen.getByText('Add Product'))
+
+    act(() => { screen.getByText('Add Product').click() })
+
+    expect(screen.getByLabelText('Name *')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Some App' } })
+
+    act(() => { screen.getByText('Cancel').click() })
+
+    expect(screen.queryByLabelText('Name *')).toBeNull()
+    expect(screen.getByText('Add Product')).toBeTruthy()
+  })
 })
