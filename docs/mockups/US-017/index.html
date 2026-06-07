@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-017 · Environments (Admin)</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+
+<!-- ─── ROLE SWITCHER (demo only) ─────────────────────────────── -->
+<div class="role-switcher">
+  <span>Ruolo:</span>
+  <button class="role-pill active-admin" id="pill-admin"   onclick="setRole('admin')">Admin</button>
+  <button class="role-pill"              id="pill-viewer"  onclick="setRole('viewer')">Viewer</button>
+</div>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ───────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="../kubegate/index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" id="sidebarAvatar"
+             style="background:linear-gradient(135deg,#f09030,#e04060);">SB</div>
+        <div>
+          <div class="user-name" id="sidebarName">Sara Bianchi</div>
+          <div class="user-role" id="sidebarRole">Admin — platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ──────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Page top -->
+    <div class="page-top">
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <a href="../kubegate/index.html" class="bc-link">Products</a>
+        <span class="bc-sep">/</span>
+        <a href="../US-014/index.html" class="bc-link">platform-api</a>
+        <span class="bc-sep">/</span>
+        <span>Environments</span>
+      </div>
+
+      <!-- Hero -->
+      <div class="product-hero">
+        <div class="hero-icon">PL</div>
+        <div>
+          <div class="hero-name">Platform API</div>
+          <div class="hero-meta">
+            <span class="tag-chip">platform-api</span>
+            <span class="badge badge-default">Platform Team</span>
+          </div>
+          <div class="hero-desc">Core API layer for the platform — handles auth, routing and service mesh.</div>
+        </div>
+      </div>
+
+      <!-- Sub-navigation: Components | Environments -->
+      <nav class="page-subnav">
+        <a href="../US-014/index.html" class="subnav-link">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="12" height="10" rx="2"/>
+            <path d="M5 2v10M9 2v10M1 6h12M1 9h12"/>
+          </svg>
+          Components
+        </a>
+        <a href="#" class="subnav-link active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 3h10a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/>
+            <path d="M4 3V2M10 3V2M1 7h12"/>
+          </svg>
+          Environments
+          <span class="nav-badge" style="margin-left:2px;font-size:9px;">3</span>
+        </a>
+      </nav>
+    </div><!-- /page-top -->
+
+    <!-- Body -->
+    <div class="page-body">
+
+      <!-- Error inline (hidden by default) -->
+      <div class="alert-err hidden" id="pageError" role="alert">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px">
+          <circle cx="7" cy="7" r="6"/><path d="M7 4.5v3M7 9.5v.5"/>
+        </svg>
+        <span id="pageErrorMsg">Errore generico.</span>
+      </div>
+
+      <!-- Section header -->
+      <div class="section-head">
+        <div>
+          <div class="section-label">Ambienti di deployment</div>
+          <div class="section-sub">Ogni ambiente definisce un target di deployment con un overlay Kustomize dedicato.</div>
+        </div>
+        <button class="btn btn-primary btn-sm admin-only" id="addEnvBtn" onclick="openInlineForm()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2v8M2 6h8"/>
+          </svg>
+          Add Environment
+        </button>
+      </div>
+
+      <!-- Inline add form (hidden by default) -->
+      <div class="inline-form hidden" id="inlineForm">
+        <div class="inline-form-title">
+          <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2v8M2 6h8"/>
+          </svg>
+          New Environment
+        </div>
+        <div class="form-row">
+          <!-- Name -->
+          <div class="field">
+            <label class="field-label" for="envName">Name *</label>
+            <input class="input" id="envName" type="text"
+                   placeholder="e.g. staging"
+                   oninput="clearFieldError('envName','nameHint','display name')"
+                   autocomplete="off">
+            <span class="field-hint" id="nameHint">display name</span>
+          </div>
+          <!-- Type -->
+          <div class="field">
+            <label class="field-label" for="envType">Type *</label>
+            <select class="select" id="envType"
+                    onchange="clearFieldError('envType','typeHint','dev / integration / production')">
+              <option value="" disabled selected>Select type…</option>
+              <option value="dev">dev</option>
+              <option value="integration">integration</option>
+              <option value="production">production</option>
+            </select>
+            <span class="field-hint" id="typeHint">dev / integration / production</span>
+          </div>
+          <!-- Overlay path -->
+          <div class="field">
+            <label class="field-label" for="envOverlay">Overlay Path *</label>
+            <input class="input input-mono" id="envOverlay" type="text"
+                   placeholder="overlays/staging"
+                   oninput="clearFieldError('envOverlay','overlayHint','relative path')"
+                   autocomplete="off">
+            <span class="field-hint" id="overlayHint">relative path</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-ghost btn-sm" onclick="closeInlineForm()">Cancel</button>
+          <button class="btn btn-primary btn-sm" onclick="saveEnvironment()">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1.5 5.5l3 3L9.5 2.5"/>
+            </svg>
+            Save Environment
+          </button>
+        </div>
+      </div>
+
+      <!-- Environments table card -->
+      <div class="card">
+        <div class="tbl-wrap">
+          <table id="envTable">
+            <thead>
+              <tr>
+                <th>Environment</th>
+                <th>Type</th>
+                <th>Overlay Path</th>
+                <th>Created</th>
+                <th class="admin-only"></th>
+              </tr>
+            </thead>
+            <tbody id="envTbody">
+              <!-- populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state hidden" id="emptyState">
+          <div class="empty-icon">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M2 4h14a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V5a1 1 0 011-1z"/>
+              <path d="M4 4V3M14 4V3M1 9h16"/>
+            </svg>
+          </div>
+          <div class="empty-title">No environments configured</div>
+          <div class="empty-sub admin-only">Add the first environment using the button above.</div>
+          <div class="empty-sub viewer-only hidden">Contact a DevOps Admin to add environments.</div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- DELETE CONFIRM DIALOG                                          -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="backdrop hidden" id="deleteBackdrop" onclick="closeDeleteIfOutside(event)">
+  <div class="confirm-dialog" onclick="event.stopPropagation()">
+    <div class="confirm-head">
+      <div class="confirm-icon-wrap">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--danger)" stroke-width="1.8">
+          <path d="M2 4h11M5 4V2.5a.5.5 0 01.5-.5h4a.5.5 0 01.5.5V4M6 7v4M9 7v4M3.5 4l.5 8.5a1 1 0 001 .5h5a1 1 0 001-.5L12 4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="confirm-title">Remove Environment</div>
+        <div class="confirm-sub">This action cannot be undone.</div>
+      </div>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-target">
+        <div class="confirm-target-name" id="deleteName">—</div>
+        <div class="confirm-target-type" id="deleteType"></div>
+        <div class="confirm-target-path" id="deletePath">—</div>
+      </div>
+      <div class="confirm-warn">
+        You are about to permanently remove this environment. Once removed,
+        it will no longer be available as a deployment target.
+      </div>
+    </div>
+    <div class="confirm-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-confirm-delete" id="confirmDeleteBtn" onclick="confirmDelete()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
+        </svg>
+        Delete Environment
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<script>
+// ─── State ────────────────────────────────────────────────────────
+let currentRole = 'admin'; // 'admin' | 'viewer'
+let deleteTarget = null;
+let nextId = 4;
+
+const TYPE_BADGE = {
+  dev:         '<span class="badge badge-dev">dev</span>',
+  integration: '<span class="badge badge-intg">integration</span>',
+  production:  '<span class="badge badge-prod">production</span>',
+};
+
+let environments = [
+  { id: 1, name: 'development',  type: 'dev',         overlay: 'overlays/dev',         createdAt: '14 Nov 2025' },
+  { id: 2, name: 'integration',  type: 'integration', overlay: 'overlays/integration',  createdAt: '14 Nov 2025' },
+  { id: 3, name: 'production',   type: 'production',  overlay: 'overlays/production',   createdAt: '20 Nov 2025' },
+];
+
+// ─── Role switching ────────────────────────────────────────────────
+function setRole(role) {
+  currentRole = role;
+
+  document.getElementById('pill-admin').className  = 'role-pill' + (role === 'admin'  ? ' active-admin'  : '');
+  document.getElementById('pill-viewer').className = 'role-pill' + (role === 'viewer' ? ' active-viewer' : '');
+
+  const av   = document.getElementById('sidebarAvatar');
+  const nm   = document.getElementById('sidebarName');
+  const rl   = document.getElementById('sidebarRole');
+
+  if (role === 'admin') {
+    av.textContent = 'SB';
+    av.style.background = 'linear-gradient(135deg,#f09030,#e04060)';
+    nm.textContent = 'Sara Bianchi';
+    rl.textContent = 'Admin — platform-api';
+  } else {
+    av.textContent = 'LP';
+    av.style.background = 'linear-gradient(135deg,#7b6cf0,#c060f0)';
+    nm.textContent = 'Lucia Parisi';
+    rl.textContent = 'Viewer — platform-api';
+  }
+
+  document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', role !== 'admin'));
+  document.querySelectorAll('.viewer-only').forEach(el => el.classList.toggle('hidden', role !== 'viewer'));
+
+  closeInlineForm();
+  renderEnvironments();
+}
+
+// ─── Render rows ───────────────────────────────────────────────────
+function renderEnvironments(newId) {
+  const tbody = document.getElementById('envTbody');
+  const empty = document.getElementById('emptyState');
+  const isAdmin = currentRole === 'admin';
+
+  if (environments.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = environments.map(env => {
+    const isNew = env.id === newId;
+    const actionCell = isAdmin ? `
+      <td style="text-align:right;padding-right:14px;white-space:nowrap;">
+        <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${env.id})"
+                aria-label="Delete ${env.name}">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
+          </svg>
+          Delete
+        </button>
+      </td>` : '';
+
+    return `
+      <tr class="${isNew ? 'row-new' : ''}">
+        <td class="env-name-cell" style="padding-left:18px;">
+          <div class="env-name-str">${env.name}</div>
+        </td>
+        <td>${TYPE_BADGE[env.type] ?? env.type}</td>
+        <td><span class="env-path-str">${env.overlay}</span></td>
+        <td><span class="env-date">${env.createdAt}</span></td>
+        ${actionCell}
+      </tr>`;
+  }).join('');
+}
+
+// ─── Inline form ───────────────────────────────────────────────────
+function openInlineForm() {
+  const form = document.getElementById('inlineForm');
+  form.classList.remove('hidden');
+  document.getElementById('envName').value = '';
+  document.getElementById('envType').value = '';
+  document.getElementById('envOverlay').value = '';
+  clearAllErrors();
+  document.getElementById('addEnvBtn').classList.add('hidden');
+  document.getElementById('envName').focus();
+}
+
+function closeInlineForm() {
+  document.getElementById('inlineForm').classList.add('hidden');
+  clearAllErrors();
+  if (currentRole === 'admin') {
+    document.getElementById('addEnvBtn').classList.remove('hidden');
+  }
+}
+
+function clearAllErrors() {
+  setFieldHint('envName',    'nameHint',    'display name');
+  setFieldHint('envType',    'typeHint',    'dev / integration / production');
+  setFieldHint('envOverlay', 'overlayHint', 'relative path');
+}
+
+function setFieldHint(inputId, hintId, text) {
+  const el = document.getElementById(hintId);
+  el.className = 'field-hint';
+  el.textContent = text;
+  document.getElementById(inputId).style.borderColor = '';
+}
+
+function clearFieldError(inputId, hintId, defaultText) {
+  const el = document.getElementById(hintId);
+  if (el.classList.contains('field-error')) setFieldHint(inputId, hintId, defaultText);
+}
+
+function showFieldError(inputId, hintId, msg) {
+  const input = document.getElementById(inputId);
+  const hint  = document.getElementById(hintId);
+  input.style.borderColor = 'var(--danger)';
+  hint.className = 'field-error';
+  hint.textContent = msg;
+}
+
+function saveEnvironment() {
+  const name    = document.getElementById('envName').value.trim();
+  const type    = document.getElementById('envType').value;
+  const overlay = document.getElementById('envOverlay').value.trim();
+  clearAllErrors();
+  let valid = true;
+
+  if (!name) { showFieldError('envName','nameHint','Name is required'); valid = false; }
+
+  // Simulate duplicate name check
+  if (name && environments.some(e => e.name.toLowerCase() === name.toLowerCase())) {
+    showFieldError('envName','nameHint','An environment with this name already exists'); valid = false;
+  }
+
+  if (!type) { showFieldError('envType','typeHint','Type is required'); valid = false; }
+
+  if (!overlay) {
+    showFieldError('envOverlay','overlayHint','Overlay path is required'); valid = false;
+  } else if (!/^[a-z0-9/_-]+$/.test(overlay)) {
+    showFieldError('envOverlay','overlayHint','Only lowercase letters, digits, / _ and -'); valid = false;
+  }
+
+  if (!valid) return;
+
+  const id      = nextId++;
+  const today   = new Date().toLocaleDateString('en-GB', { year:'numeric', month:'short', day:'numeric' });
+  environments.unshift({ id, name, type, overlay, createdAt: today });
+  closeInlineForm();
+  renderEnvironments(id);
+  showToast(`Environment <strong>${name}</strong> added`, 'ok');
+}
+
+// ─── Delete modal ──────────────────────────────────────────────────
+function openDeleteModal(id) {
+  const env = environments.find(e => e.id === id);
+  if (!env) return;
+  deleteTarget = env;
+  document.getElementById('deleteName').textContent = env.name;
+  document.getElementById('deleteType').innerHTML   = TYPE_BADGE[env.type] ?? env.type;
+  document.getElementById('deletePath').textContent = env.overlay;
+  document.getElementById('deleteBackdrop').classList.remove('hidden');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteBackdrop').classList.add('hidden');
+  deleteTarget = null;
+}
+function closeDeleteIfOutside(e) {
+  if (e.target === document.getElementById('deleteBackdrop')) closeDeleteModal();
+}
+function confirmDelete() {
+  if (!deleteTarget) return;
+  const name = deleteTarget.name;
+  environments = environments.filter(e => e.id !== deleteTarget.id);
+  closeDeleteModal();
+  renderEnvironments();
+  showToast(`Environment <strong>${name}</strong> removed`, 'ok');
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────
+function showToast(html, type) {
+  const stack = document.getElementById('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + (type === 'ok' ? 'ok' : 'err');
+  const dot = type === 'ok'
+    ? '<div style="width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 5px var(--ok);flex-shrink:0;"></div>'
+    : '<div style="width:6px;height:6px;border-radius:50%;background:var(--danger);box-shadow:0 0 5px var(--danger);flex-shrink:0;"></div>';
+  t.innerHTML = `${dot}<div class="toast-msg">${html}</div>`;
+  stack.appendChild(t);
+  setTimeout(() => {
+    t.style.transition = 'opacity .3s';
+    t.style.opacity = '0';
+    setTimeout(() => t.remove(), 350);
+  }, 3500);
+}
+
+// ─── Keyboard: Escape closes dialog ────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDeleteModal();
+});
+
+// ─── Init ──────────────────────────────────────────────────────────
+setRole('admin');
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-017 · Environments (Viewer / Editor)</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ───────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="../kubegate/index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#7b6cf0,#c060f0);">LP</div>
+        <div>
+          <div class="user-name">Lucia Parisi</div>
+          <div class="user-role">Viewer — platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ──────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Page top -->
+    <div class="page-top">
+      <div class="breadcrumb">
+        <a href="../kubegate/index.html" class="bc-link">Products</a>
+        <span class="bc-sep">/</span>
+        <a href="../US-014/index.html" class="bc-link">platform-api</a>
+        <span class="bc-sep">/</span>
+        <span>Environments</span>
+      </div>
+
+      <div class="product-hero">
+        <div class="hero-icon">PL</div>
+        <div>
+          <div class="hero-name">Platform API</div>
+          <div class="hero-meta">
+            <span class="tag-chip">platform-api</span>
+            <span class="badge badge-default">Platform Team</span>
+          </div>
+          <div class="hero-desc">Core API layer for the platform — handles auth, routing and service mesh.</div>
+        </div>
+      </div>
+
+      <nav class="page-subnav">
+        <a href="../US-014/index.html" class="subnav-link">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="12" height="10" rx="2"/>
+            <path d="M5 2v10M9 2v10M1 6h12M1 9h12"/>
+          </svg>
+          Components
+        </a>
+        <a href="#" class="subnav-link active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 3h10a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/>
+            <path d="M4 3V2M10 3V2M1 7h12"/>
+          </svg>
+          Environments
+          <span class="nav-badge" style="margin-left:2px;font-size:9px;">3</span>
+        </a>
+      </nav>
+    </div><!-- /page-top -->
+
+    <!-- Body -->
+    <div class="page-body">
+
+      <!-- Viewer notice bar -->
+      <div style="
+        display:flex; align-items:center; gap:9px;
+        background:rgba(123,156,232,.07);
+        border:1px solid rgba(123,156,232,.2);
+        border-radius:var(--r-md);
+        padding:9px 13px;
+        font-size:12px;
+        color:var(--env-intg);
+        margin-bottom:14px;
+      ">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0">
+          <circle cx="7" cy="7" r="6"/><path d="M7 5v3M7 9.5v.5"/>
+        </svg>
+        You have read-only access to this product. Contact an Admin to add or remove environments.
+      </div>
+
+      <!-- Section header — no add button -->
+      <div class="section-head" style="margin-bottom:12px;">
+        <div>
+          <div class="section-label">Ambienti di deployment</div>
+          <div class="section-sub">Ogni ambiente definisce un target di deployment con un overlay Kustomize dedicato.</div>
+        </div>
+        <!-- No button for viewer/editor -->
+      </div>
+
+      <!-- Read-only environments table -->
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Environment</th>
+                <th>Type</th>
+                <th>Overlay Path</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding-left:18px;">
+                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">development</div>
+                </td>
+                <td><span class="badge badge-dev">dev</span></td>
+                <td><span class="env-path-str">overlays/dev</span></td>
+                <td><span class="env-date">14 Nov 2025</span></td>
+              </tr>
+              <tr>
+                <td style="padding-left:18px;">
+                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">integration</div>
+                </td>
+                <td><span class="badge badge-intg">integration</span></td>
+                <td><span class="env-path-str">overlays/integration</span></td>
+                <td><span class="env-date">14 Nov 2025</span></td>
+              </tr>
+              <tr>
+                <td style="padding-left:18px;border-bottom:none;">
+                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">production</div>
+                </td>
+                <td style="border-bottom:none;"><span class="badge badge-prod">production</span></td>
+                <td style="border-bottom:none;"><span class="env-path-str">overlays/production</span></td>
+                <td style="border-bottom:none;"><span class="env-date">20 Nov 2025</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div>
+
+</body>
+</html>

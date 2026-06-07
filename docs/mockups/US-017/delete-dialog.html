@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-017 · Delete Environment Dialog</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Force dialog open for static mockup */
+.backdrop { display: flex !important; }
+/* Dimmed page content behind the dialog */
+.main { pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ───────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="../kubegate/index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#f09030,#e04060);">SB</div>
+        <div>
+          <div class="user-name">Sara Bianchi</div>
+          <div class="user-role">Admin — platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN (blurred behind dialog) ─────────────────────────── -->
+  <div class="main">
+    <div class="page-top">
+      <div class="breadcrumb">
+        <a class="bc-link">Products</a>
+        <span class="bc-sep">/</span>
+        <a class="bc-link">platform-api</a>
+        <span class="bc-sep">/</span>
+        <span>Environments</span>
+      </div>
+      <div class="product-hero">
+        <div class="hero-icon">PL</div>
+        <div>
+          <div class="hero-name">Platform API</div>
+          <div class="hero-meta">
+            <span class="tag-chip">platform-api</span>
+          </div>
+        </div>
+      </div>
+      <nav class="page-subnav">
+        <a href="../US-014/index.html" class="subnav-link">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="2" width="12" height="10" rx="2"/>
+            <path d="M5 2v10M9 2v10M1 6h12M1 9h12"/>
+          </svg>
+          Components
+        </a>
+        <a href="index.html" class="subnav-link active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 3h10a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/>
+            <path d="M4 3V2M10 3V2M1 7h12"/>
+          </svg>
+          Environments
+        </a>
+      </nav>
+    </div>
+
+    <div class="page-body">
+      <div class="section-head">
+        <div>
+          <div class="section-label">Ambienti di deployment</div>
+          <div class="section-sub">Ogni ambiente definisce un target di deployment con un overlay Kustomize dedicato.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="opacity:.4;pointer-events:none;">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2v8M2 6h8"/>
+          </svg>
+          Add Environment
+        </button>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Environment</th>
+                <th>Type</th>
+                <th>Overlay Path</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding-left:18px;"><div style="font-size:13px;font-weight:500;color:var(--text-primary);">development</div></td>
+                <td><span class="badge badge-dev">dev</span></td>
+                <td><span class="env-path-str">overlays/dev</span></td>
+                <td><span class="env-date">14 Nov 2025</span></td>
+                <td style="text-align:right;padding-right:14px;">
+                  <button class="btn btn-danger btn-sm" style="opacity:.3;pointer-events:none;">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
+                    </svg>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+              <!-- production row — highlighted as the target -->
+              <tr style="background:rgba(224,85,85,.04);border:1px solid rgba(224,85,85,.18);">
+                <td style="padding-left:18px;"><div style="font-size:13px;font-weight:500;color:var(--text-primary);">production</div></td>
+                <td><span class="badge badge-prod">production</span></td>
+                <td><span class="env-path-str">overlays/production</span></td>
+                <td><span class="env-date">20 Nov 2025</span></td>
+                <td style="text-align:right;padding-right:14px;">
+                  <button class="btn btn-danger btn-sm" style="opacity:.3;pointer-events:none;">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
+                    </svg>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding-left:18px;"><div style="font-size:13px;font-weight:500;color:var(--text-primary);">integration</div></td>
+                <td><span class="badge badge-intg">integration</span></td>
+                <td><span class="env-path-str">overlays/integration</span></td>
+                <td><span class="env-date">14 Nov 2025</span></td>
+                <td style="text-align:right;padding-right:14px;border-bottom:none;">
+                  <button class="btn btn-danger btn-sm" style="opacity:.3;pointer-events:none;">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
+                    </svg>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- DELETE CONFIRM DIALOG (forced visible)                         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="backdrop" id="deleteBackdrop">
+  <div class="confirm-dialog">
+    <div class="confirm-head">
+      <div class="confirm-icon-wrap">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--danger)" stroke-width="1.8">
+          <path d="M2 4h11M5 4V2.5a.5.5 0 01.5-.5h4a.5.5 0 01.5.5V4M6 7v4M9 7v4M3.5 4l.5 8.5a1 1 0 001 .5h5a1 1 0 001-.5L12 4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="confirm-title">Remove Environment</div>
+        <div class="confirm-sub">This action cannot be undone.</div>
+      </div>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-target">
+        <div class="confirm-target-name">production</div>
+        <div class="confirm-target-type" style="margin-top:5px;">
+          <span class="badge badge-prod">production</span>
+        </div>
+        <div class="confirm-target-path">overlays/production</div>
+      </div>
+      <div class="confirm-warn">
+        You are about to permanently remove this environment. Once removed,
+        it will no longer be available as a deployment target.
+      </div>
+    </div>
+    <div class="confirm-foot">
+      <button class="btn btn-ghost btn-sm">Cancel</button>
+      <button class="btn-confirm-delete">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
+        </svg>
+        Delete Environment
+      </button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

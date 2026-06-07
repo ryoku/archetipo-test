@@ -1,0 +1,59 @@
+/* Type badge base — pill shape, mono font */
+.env-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Variant classes */
+.env-type-dev        { color: #ffffff; background: #1a6b40; border-color: #2a9a5c; }
+.env-type-integration{ color: #ffffff; background: #1e4b9e; border-color: #2d6acc; }
+.env-type-production { color: #ffffff; background: #a03010; border-color: #cc4422; }
+
+/* Overlay path cell — monospace, teal, truncated */
+.env-path-str {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #90d0c8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+  display: block;
+}
+
+/* Sub-nav strip (added to this file; ProductDetailPage.tsx and EnvironmentsPage.tsx both import it) */
+.pd-subnav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 22px;
+  border-bottom: 1px solid #16233a;
+  padding-bottom: 0;
+}
+.pd-subnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b859e;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 140ms ease, border-color 140ms ease;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+.pd-subnav-link:hover { color: #dde6f2; }
+.pd-subnav-link--active {
+  color: #00c3aa;
+  border-bottom-color: #00c3aa;
+}
