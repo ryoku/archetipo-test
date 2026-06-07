@@ -258,6 +258,7 @@ export default function EnvironmentsPage() {
           </div>
           {!showForm && canAdmin && (
             <button
+              type="button"
               className="pd-btn-primary"
               onClick={() => setShowForm(true)}
             >
@@ -341,6 +342,7 @@ export default function EnvironmentsPage() {
             </div>
             <div className="pd-form-actions">
               <button
+                type="button"
                 className="pd-btn-ghost"
                 onClick={handleCancelForm}
                 disabled={formSubmitting}
@@ -348,6 +350,7 @@ export default function EnvironmentsPage() {
                 Cancel
               </button>
               <button
+                type="button"
                 className="pd-btn-primary"
                 onClick={handleFormSubmit}
                 disabled={formSubmitting}
