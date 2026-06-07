@@ -198,8 +198,7 @@ describe('ProductSettingsPage — edit mode', () => {
       screen.getByRole('button', { name: /edit/i }).click()
     })
 
-    const input = screen.getByLabelText('Regex pattern') as HTMLInputElement
-    expect(input.value).toBe('^release-\\d+$')
+    expect(screen.getByLabelText<HTMLInputElement>('Regex pattern').value).toBe(String.raw`^release-\d+$`)
   })
 
   it('Cancel button hides edit form and restores read-only view', async () => {

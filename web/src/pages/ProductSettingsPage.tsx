@@ -35,6 +35,8 @@ export default function ProductSettingsPage() {
 
   useEffect(() => {
     if (!slug || !accessToken) return
+    // Intentional reset: slug/token changed, clear stale state and show loading before new fetch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     setError(null)
     getTagConvention(accessToken, slug)

@@ -138,9 +138,8 @@ export async function setTagConvention(
     body: JSON.stringify({ regex }),
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    const msg = (body as { error?: string } | null)?.error ?? `setTagConvention: ${res.status}`
-    throw new Error(msg)
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `setTagConvention: ${res.status}`)
   }
   return (await res.json()) as TagConvention
 }
