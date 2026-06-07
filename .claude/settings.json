@@ -11,7 +11,8 @@
       "Bash(pnpm exec *)",
       "Bash(pnpm lint *)",
       "Bash(go build *)",
-      "Bash(go test *)"
+      "Bash(go test *)",
+      "Bash(pnpm test *)"
     ]
   },
   "hooks": {
@@ -21,9 +22,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -r '.tool_input.file_path // \"\"'); case \"$f\" in *.go) cd /home/ryoku/repos/release-control-plane && golangci-lint run \"$f\" 2>&1 || true;; *.ts|*.tsx) npx eslint \"$f\" 2>&1 || true;; esac",
+            "command": "/home/ryoku/repos/archetipo-test/.claude/hooks/web-check.sh",
             "timeout": 60,
-            "statusMessage": "Linting…"
+            "statusMessage": "Checking web lint & types…"
+          },
+          {
+            "type": "command",
+            "command": "/home/ryoku/repos/archetipo-test/.claude/hooks/go-check.sh",
+            "timeout": 60,
+            "statusMessage": "Checking Go lint & build…"
           }
         ]
       }

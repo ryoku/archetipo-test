@@ -4,6 +4,9 @@ import {
   listComponents,
   createComponent,
   deleteComponent,
+  listEnvironments,
+  createEnvironment,
+  deleteEnvironment,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -172,5 +175,103 @@ describe('deleteComponent', () => {
     vi.stubGlobal('fetch', makeFetchStub(404))
 
     await expect(deleteComponent('tok', 'platform', 'api')).rejects.toThrow('deleteComponent: 404')
+  })
+})
+
+const mockEnv = {
+  id: 'env-uuid-1',
+  product_id: 'prod-uuid-1',
+  name: 'staging',
+  type: 'integration' as const,
+  overlay_path: 'overlays/staging',
+  created_at: '2025-11-14T10:00:00Z',
+}
+
+// ─── listEnvironments ──────────────────────────────────────────
+describe('listEnvironments', () => {
+  it('returns Environment[] on 200', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(200, [mockEnv]))
+
+    const result = await listEnvironments('tok', 'my-product')
+    expect(result).toEqual([mockEnv])
+  })
+
+  it('calls the correct URL with the product slug', async () => {
+    const fetchStub = makeFetchStub(200, [])
+    vi.stubGlobal('fetch', fetchStub)
+
+    await listEnvironments('tok', 'my-product')
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/environments')
+  })
+
+  it('throws on non-2xx response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(500))
+
+    await expect(listEnvironments('tok', 'my-product')).rejects.toThrow('listEnvironments: 500')
+  })
+})
+
+// ─── createEnvironment ─────────────────────────────────────────
+describe('createEnvironment', () => {
+  it('returns new Environment on 201', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(201, mockEnv))
+
+    const result = await createEnvironment('tok', 'my-product', {
+      name: 'staging',
+      type: 'integration',
+      overlay_path: 'overlays/staging',
+    })
+    expect(result).toEqual(mockEnv)
+  })
+
+  it('sends a POST request with correct URL, body and Content-Type', async () => {
+    const fetchStub = makeFetchStub(201, mockEnv)
+    vi.stubGlobal('fetch', fetchStub)
+
+    const data = { name: 'staging', type: 'integration' as const, overlay_path: 'overlays/staging' }
+    await createEnvironment('tok', 'my-product', data)
+
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/environments')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify(data))
+    const headers = new Headers(init.headers)
+    expect(headers.get('Content-Type')).toBe('application/json')
+  })
+
+  it('throws on non-2xx response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(422))
+
+    await expect(
+      createEnvironment('tok', 'my-product', { name: 'staging', type: 'integration', overlay_path: 'overlays/staging' }),
+    ).rejects.toThrow('createEnvironment: 422')
+  })
+})
+
+// ─── deleteEnvironment ─────────────────────────────────────────
+describe('deleteEnvironment', () => {
+  it('resolves void on 204', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(204))
+
+    await expect(deleteEnvironment('tok', 'my-product', 'env-uuid-1')).resolves.toBeUndefined()
+  })
+
+  it('sends a DELETE request to the correct URL', async () => {
+    const fetchStub = makeFetchStub(204)
+    vi.stubGlobal('fetch', fetchStub)
+
+    await deleteEnvironment('tok', 'my-product', 'env-uuid-1')
+
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/environments/env-uuid-1')
+    expect(init.method).toBe('DELETE')
+  })
+
+  it('throws on non-2xx response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(404))
+
+    await expect(deleteEnvironment('tok', 'my-product', 'env-uuid-1')).rejects.toThrow('deleteEnvironment: 404')
   })
 })
