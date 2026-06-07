@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-044 · Creazione prodotto da UI</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ─── INDEX PAGE ─────────────────────────────────────────────── */
+.index-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+  position: relative;
+  overflow: hidden;
+}
+.index-screen::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--border-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-faint) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.index-screen::after {
+  content: '';
+  position: absolute;
+  top: 40%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(0,195,170,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+.index-card {
+  position: relative; z-index: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-xl);
+  padding: 40px 44px;
+  width: 100%; max-width: 520px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.75);
+}
+.index-logo {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 28px;
+}
+.index-logo-mark {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent) 0%, #0080f0 100%);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+}
+.index-logo-name { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+.spec-tag {
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 600;
+  padding: 3px 8px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--r-sm);
+  color: var(--accent);
+  margin-left: auto;
+}
+.index-title { font-size: 18px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 6px; }
+.index-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 28px; }
+.screen-list { display: flex; flex-direction: column; gap: 8px; }
+.screen-link {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all var(--t);
+  text-decoration: none;
+}
+.screen-link:hover {
+  border-color: var(--accent);
+  background: var(--bg-overlay);
+  box-shadow: 0 0 0 1px var(--border-accent) inset;
+}
+.screen-num {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--text-secondary); flex-shrink: 0;
+}
+.screen-link:hover .screen-num { border-color: var(--border-accent); color: var(--accent); }
+.screen-info { flex: 1; }
+.screen-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.screen-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.screen-tag {
+  font-family: var(--font-mono); font-size: 9.5px;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.screen-arrow { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); transition: color var(--t); }
+.screen-link:hover .screen-arrow { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="index-screen">
+  <div class="index-card">
+    <div class="index-logo">
+      <div class="index-logo-mark">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="index-logo-name">KubeGate</div>
+      <span class="spec-tag">US-044</span>
+    </div>
+
+    <div class="index-title">Creazione di un prodotto da UI</div>
+    <div class="index-desc">
+      Mockup interattivi per l'aggiunta inline di un prodotto dalla product list.
+      Il pulsante "Add Product" è visibile solo agli utenti DevOps Admin.
+      Il form appare in-page senza navigare altrove; la validazione avviene lato client
+      e gli errori API (es. slug duplicato) sono mostrati inline.
+    </div>
+
+    <div class="screen-list">
+      <a href="home-admin.html" class="screen-link">
+        <div class="screen-num">01</div>
+        <div class="screen-info">
+          <div class="screen-name">Home — DevOps Admin</div>
+          <div class="screen-hint">Form inline Add Product visibile e interattivo</div>
+        </div>
+        <span class="screen-tag">admin</span>
+        <span class="screen-arrow">→</span>
+      </a>
+
+      <a href="home-viewer.html" class="screen-link">
+        <div class="screen-num">02</div>
+        <div class="screen-info">
+          <div class="screen-name">Home — Viewer</div>
+          <div class="screen-hint">Pulsante "Add Product" assente, solo lista prodotti</div>
+        </div>
+        <span class="screen-tag">viewer</span>
+        <span class="screen-arrow">→</span>
+      </a>
+
+      <a href="home-validation.html" class="screen-link">
+        <div class="screen-num">03</div>
+        <div class="screen-info">
+          <div class="screen-name">Errori di validazione</div>
+          <div class="screen-hint">Form con errori client-side su campi obbligatori + slug invalido</div>
+        </div>
+        <span class="screen-tag">admin</span>
+        <span class="screen-arrow">→</span>
+      </a>
+
+      <a href="home-api-error.html" class="screen-link">
+        <div class="screen-num">04</div>
+        <div class="screen-info">
+          <div class="screen-name">Errore API — slug duplicato</div>
+          <div class="screen-hint">Errore restituito dall'API mostrato inline senza navigare via</div>
+        </div>
+        <span class="screen-tag">admin</span>
+        <span class="screen-arrow">→</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -99,3 +99,16 @@ export async function deleteEnvironment(
   )
   if (!res.ok) throw new Error(`deleteEnvironment: ${res.status}`)
 }
+
+export async function createProduct(
+  token: string,
+  data: { name: string; slug: string; description: string }
+): Promise<Product> {
+  const res = await apiFetch('/api/v1/products', token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`createProduct: ${res.status}`)
+  return (await res.json()) as Product
+}

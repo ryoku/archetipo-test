@@ -12,7 +12,8 @@
       "Bash(pnpm lint *)",
       "Bash(go build *)",
       "Bash(go test *)",
-      "Bash(pnpm test *)"
+      "Bash(pnpm test *)",
+      "Bash(make web:test)"
     ]
   },
   "hooks": {
