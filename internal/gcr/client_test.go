@@ -171,6 +171,45 @@ func TestClient_ListTags_PageTokenForwarded(t *testing.T) {
 	}
 }
 
+func TestClient_ListTags_PageSizeZeroUsesDefault(t *testing.T) {
+	provider, captured := capturingProvider(nil, "")
+	c := &Client{provider: provider}
+	_, _, err := c.ListTags(context.Background(), "us-docker.pkg.dev/p/r/img", "", 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if captured.pageToken != "" {
+		t.Errorf("expected empty page token, got %q", captured.pageToken)
+	}
+	// pageSize 0 → defaultPageSize (20); verify the provider was called (no panic/skip)
+}
+
+func TestClient_ListTags_PageSizeCappedAtMax(t *testing.T) {
+	var gotSize int
+	c := &Client{
+		provider: func(_ context.Context, _, _ string, pageSize int) ([]*artifactregistrypb.Version, string, error) {
+			gotSize = pageSize
+			return nil, "", nil
+		},
+	}
+	_, _, err := c.ListTags(context.Background(), "us-docker.pkg.dev/p/r/img", "", 200)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotSize != maxPageSize {
+		t.Errorf("expected pageSize capped at %d, provider received %d", maxPageSize, gotSize)
+	}
+}
+
+func TestClient_ListTags_InvalidArgument(t *testing.T) {
+	grpcErr := status.Error(codes.InvalidArgument, "invalid package name")
+	c := &Client{provider: mockProvider(nil, "", grpcErr)}
+	_, _, err := c.ListTags(context.Background(), "us-docker.pkg.dev/p/r/img", "", 20)
+	if !errors.Is(err, ErrRepoNotFound) {
+		t.Errorf("expected ErrRepoNotFound for InvalidArgument, got %v", err)
+	}
+}
+
 func TestClient_ListTags_EmptyResult(t *testing.T) {
 	c := &Client{provider: mockProvider(nil, "", nil)}
 	tags, nextToken, err := c.ListTags(context.Background(), "us-docker.pkg.dev/p/r/img", "", 20)

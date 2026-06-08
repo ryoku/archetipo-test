@@ -250,6 +250,56 @@ func TestTagHandler_ListTags_GCRNetworkError(t *testing.T) {
 	}
 }
 
+func TestTagHandler_ListTags_EmptyGCRImagePath(t *testing.T) {
+	compStore := &mockComponentStore{
+		getBySlugFn: func(_ context.Context, _, _ string) (*domain.Component, error) {
+			return &domain.Component{ID: "comp-1", ProductID: "prod-1", GCRImagePath: ""}, nil
+		},
+	}
+	r := newTagRouter(tagProductStoreOK("my-product"), compStore, &mockLister{}, viewerIdentity("my-product"))
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/no-image/tags", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 for empty GCRImagePath, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_GCRRepoNotFound(t *testing.T) {
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+			return nil, "", fmt.Errorf("%w: repository not found", gcr.ErrRepoNotFound)
+		},
+	}
+	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for GCR ErrRepoNotFound, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_PageTokenForwarded(t *testing.T) {
+	var gotToken string
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, _, pageToken string, _ int) ([]gcr.Tag, string, error) {
+			gotToken = pageToken
+			return nil, "", nil
+		},
+	}
+	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags?page_token=abc123", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if gotToken != "abc123" {
+		t.Errorf("expected page_token %q forwarded to lister, got %q", "abc123", gotToken)
+	}
+}
+
 func TestTagHandler_ListTags_Unauthenticated(t *testing.T) {
 	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), &mockLister{}, nil)
 	w := httptest.NewRecorder()

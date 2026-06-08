@@ -59,7 +59,9 @@ func main() {
 
 	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
 
-	gcrClient, err := gcr.NewClient(context.Background())
+	gcrCtx, gcrCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer gcrCancel()
+	gcrClient, err := gcr.NewClient(gcrCtx)
 	if err != nil {
 		log.Fatalf("Artifact Registry client: %v", err)
 	}

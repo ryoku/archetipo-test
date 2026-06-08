@@ -60,6 +60,7 @@ func (h *TagHandlers) ListTags(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("GetBySlug product=%s component=%s: %v", productSlug, componentSlug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
@@ -101,13 +102,18 @@ func (h *TagHandlers) ListTags(c *gin.Context) {
 }
 
 // replyListerError maps a gcr.Lister error to an HTTP response.
-// Auth failures are returned as 502 to avoid leaking credential details to clients.
+// ErrRepoNotFound → 404, ErrRateLimit → 429.
+// Auth failures and network errors are logged server-side and both return 502
+// to avoid exposing internal failure details to clients.
 func (h *TagHandlers) replyListerError(c *gin.Context, productSlug, componentSlug string, err error) {
 	switch {
 	case errors.Is(err, gcr.ErrRepoNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "image repository not found"})
 	case errors.Is(err, gcr.ErrRateLimit):
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Artifact Registry rate limit exceeded"})
+	case errors.Is(err, gcr.ErrAuthFailure):
+		log.Printf("ListTags %s/%s: authentication failure: %v", productSlug, componentSlug, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "error contacting Artifact Registry"})
 	default:
 		log.Printf("ListTags %s/%s: %v", productSlug, componentSlug, err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "error contacting Artifact Registry"})

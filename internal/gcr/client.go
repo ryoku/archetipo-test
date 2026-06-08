@@ -142,7 +142,7 @@ func mapGRPCError(err error) error {
 	switch s.Code() {
 	case codes.Unauthenticated, codes.PermissionDenied:
 		return wrapSentinel(ErrAuthFailure, s.Message())
-	case codes.NotFound:
+	case codes.NotFound, codes.InvalidArgument:
 		return wrapSentinel(ErrRepoNotFound, s.Message())
 	case codes.ResourceExhausted:
 		return wrapSentinel(ErrRateLimit, s.Message())
