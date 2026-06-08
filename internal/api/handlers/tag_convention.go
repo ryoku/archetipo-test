@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 
@@ -45,6 +46,7 @@ func (h *TagConventionHandlers) GetTagConvention(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("GetTagConvention %s: %v", slug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
@@ -94,6 +96,7 @@ func (h *TagConventionHandlers) PutTagConvention(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("SetTagConvention %s: %v", slug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
@@ -115,6 +118,7 @@ func (h *TagConventionHandlers) DeleteTagConvention(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("ClearTagConvention %s: %v", slug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
