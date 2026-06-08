@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ryoku/kubegate/internal/api/router"
 	"github.com/ryoku/kubegate/internal/auth"
+	"github.com/ryoku/kubegate/internal/gcr"
 	"github.com/ryoku/kubegate/internal/store"
 )
 
@@ -58,6 +59,18 @@ func main() {
 
 	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
 
+	gcrCtx, gcrCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer gcrCancel()
+	gcrClient, err := gcr.NewClient(gcrCtx)
+	if err != nil {
+		log.Fatalf("Artifact Registry client: %v", err)
+	}
+	defer func() {
+		if err := gcrClient.Close(); err != nil {
+			log.Printf("gcr client close: %v", err)
+		}
+	}()
+
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8081"
@@ -69,6 +82,7 @@ func main() {
 		router.RegisterComponentRoutes(productStore, componentStore),
 		router.RegisterEnvironmentRoutes(productStore, environmentStore),
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
+		router.RegisterTagRoutes(productStore, componentStore, gcrClient),
 	)
 	registerSPA(r)
 

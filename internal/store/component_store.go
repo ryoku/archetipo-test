@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ryoku/kubegate/internal/domain"
@@ -23,6 +24,7 @@ var ErrComponentHasDeployments = errors.New("component has active deployment rec
 type ComponentStore interface {
 	Create(ctx context.Context, c *domain.Component) error
 	ListByProduct(ctx context.Context, productID string) ([]domain.Component, error)
+	GetBySlug(ctx context.Context, productID, slug string) (*domain.Component, error)
 	Delete(ctx context.Context, productID, slug string) error
 }
 
@@ -76,6 +78,23 @@ func (s *pgxComponentStore) ListByProduct(ctx context.Context, productID string)
 		return nil, fmt.Errorf("list components rows: %w", err)
 	}
 	return components, nil
+}
+
+func (s *pgxComponentStore) GetBySlug(ctx context.Context, productID, slug string) (*domain.Component, error) {
+	var c domain.Component
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, product_id, name, slug, gcr_image_path, created_at
+		 FROM components
+		 WHERE product_id = $1 AND slug = $2`,
+		productID, slug,
+	).Scan(&c.ID, &c.ProductID, &c.Name, &c.Slug, &c.GCRImagePath, &c.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrComponentNotFound
+		}
+		return nil, fmt.Errorf("get component by slug: %w", err)
+	}
+	return &c, nil
 }
 
 func (s *pgxComponentStore) Delete(ctx context.Context, productID, slug string) error {
