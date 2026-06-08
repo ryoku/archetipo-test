@@ -423,7 +423,13 @@ describe('clearTagConvention', () => {
     expect(init.method).toBe('DELETE')
   })
 
-  it('throws on non-ok response', async () => {
+  it('extracts error field from response body on failure', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(403, { error: 'access denied' }))
+
+    await expect(clearTagConvention('tok', 'my-product')).rejects.toThrow('access denied')
+  })
+
+  it('falls back to status code when error body has no error field', async () => {
     vi.stubGlobal('fetch', makeFetchStub(403))
 
     await expect(clearTagConvention('tok', 'my-product')).rejects.toThrow('clearTagConvention: 403')

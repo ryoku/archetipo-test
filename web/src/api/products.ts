@@ -148,5 +148,8 @@ export async function clearTagConvention(token: string, productSlug: string): Pr
   const res = await apiFetch(`/api/v1/products/${productSlug}/tag-convention`, token, {
     method: 'DELETE',
   })
-  if (!res.ok) throw new Error(`clearTagConvention: ${res.status}`)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `clearTagConvention: ${res.status}`)
+  }
 }
