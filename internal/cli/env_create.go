@@ -107,10 +107,11 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Environment name")
 	cmd.Flags().StringVar(&envType, "type", "", "Environment type (dev, integration, production)")
 	cmd.Flags().StringVar(&overlay, "overlay", "", "Gitops overlay path (relative)")
-	_ = cmd.MarkFlagRequired("product")
-	_ = cmd.MarkFlagRequired("name")
-	_ = cmd.MarkFlagRequired("type")
-	_ = cmd.MarkFlagRequired("overlay")
+	for _, flag := range []string{"product", "name", "type", "overlay"} {
+		if err := cmd.MarkFlagRequired(flag); err != nil {
+			panic(fmt.Sprintf("env create: MarkFlagRequired %s: %v", flag, err))
+		}
+	}
 
 	return cmd
 }

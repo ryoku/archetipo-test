@@ -96,7 +96,9 @@ func NewEnvListCmd(configDir string) *cobra.Command {
 	cmd.Flags().StringVar(&apiURL, "api-url", envOrDefault("KUBEGATE_API_URL", "http://localhost:8081"), "KubeGate API base URL")
 	cmd.Flags().StringVarP(&outputFmt, "output", "o", "", "Output format (json)")
 	cmd.Flags().StringVar(&productSlug, "product", "", "Product slug")
-	_ = cmd.MarkFlagRequired("product")
+	if err := cmd.MarkFlagRequired("product"); err != nil {
+		panic(fmt.Sprintf("env list: MarkFlagRequired product: %v", err))
+	}
 
 	return cmd
 }
