@@ -218,3 +218,50 @@ func TestComponentStore_Delete_NotFound(t *testing.T) {
 		t.Errorf("expected ErrComponentNotFound, got %v", err)
 	}
 }
+
+func TestComponentStore_GetBySlug_Found(t *testing.T) {
+	pool := newComponentTestPool(t)
+	cleanComponents(t, pool)
+	cleanProducts(t, pool)
+
+	prod := createTestProduct(t, pool, "getbyslug")
+	cs := store.NewComponentStore(pool)
+
+	created := &domain.Component{
+		ProductID:    prod.ID,
+		Name:         "My Service",
+		Slug:         "my-service",
+		GCRImagePath: "us-docker.pkg.dev/proj/repo/my-service",
+	}
+	if err := cs.Create(context.Background(), created); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := cs.GetBySlug(context.Background(), prod.ID, "my-service")
+	if err != nil {
+		t.Fatalf("GetBySlug: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("expected ID %s, got %s", created.ID, got.ID)
+	}
+	if got.GCRImagePath != created.GCRImagePath {
+		t.Errorf("expected GCRImagePath %s, got %s", created.GCRImagePath, got.GCRImagePath)
+	}
+}
+
+func TestComponentStore_GetBySlug_NotFound(t *testing.T) {
+	pool := newComponentTestPool(t)
+	cleanComponents(t, pool)
+	cleanProducts(t, pool)
+
+	prod := createTestProduct(t, pool, "getbyslug-miss")
+	cs := store.NewComponentStore(pool)
+
+	_, err := cs.GetBySlug(context.Background(), prod.ID, "nonexistent")
+	if err == nil {
+		t.Fatal("expected error for nonexistent slug, got nil")
+	}
+	if err != store.ErrComponentNotFound {
+		t.Errorf("expected ErrComponentNotFound, got %v", err)
+	}
+}

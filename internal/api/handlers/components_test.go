@@ -20,6 +20,7 @@ import (
 type mockComponentStore struct {
 	createFn        func(ctx context.Context, c *domain.Component) error
 	listByProductFn func(ctx context.Context, productID string) ([]domain.Component, error)
+	getBySlugFn     func(ctx context.Context, productID, slug string) (*domain.Component, error)
 	deleteFn        func(ctx context.Context, productID, slug string) error
 }
 
@@ -28,6 +29,12 @@ func (m *mockComponentStore) Create(ctx context.Context, c *domain.Component) er
 }
 func (m *mockComponentStore) ListByProduct(ctx context.Context, productID string) ([]domain.Component, error) {
 	return m.listByProductFn(ctx, productID)
+}
+func (m *mockComponentStore) GetBySlug(ctx context.Context, productID, slug string) (*domain.Component, error) {
+	if m.getBySlugFn != nil {
+		return m.getBySlugFn(ctx, productID, slug)
+	}
+	return nil, store.ErrComponentNotFound
 }
 func (m *mockComponentStore) Delete(ctx context.Context, productID, slug string) error {
 	return m.deleteFn(ctx, productID, slug)

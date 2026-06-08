@@ -11,6 +11,7 @@ import (
 	"github.com/ryoku/kubegate/internal/api/router"
 	"github.com/ryoku/kubegate/internal/auth"
 	"github.com/ryoku/kubegate/internal/domain"
+	"github.com/ryoku/kubegate/internal/gcr"
 	"github.com/ryoku/kubegate/internal/store"
 )
 
@@ -95,6 +96,9 @@ func TestRegisterProductRoutes_RoutesRegistered(t *testing.T) {
 type noopComponentStore struct{}
 
 func (noopComponentStore) Create(_ context.Context, _ *domain.Component) error { return nil }
+func (noopComponentStore) GetBySlug(_ context.Context, _, _ string) (*domain.Component, error) {
+	return nil, nil
+}
 func (noopComponentStore) ListByProduct(_ context.Context, _ string) ([]domain.Component, error) {
 	return nil, nil
 }
@@ -152,6 +156,27 @@ func TestRegisterTagConventionRoutes_RoutesRegistered(t *testing.T) {
 		{http.MethodGet, "/api/v1/products/some-slug/tag-convention"},
 		{http.MethodPut, "/api/v1/products/some-slug/tag-convention"},
 		{http.MethodDelete, "/api/v1/products/some-slug/tag-convention"},
+	})
+}
+
+// noopLister is a no-op implementation used to verify tag route registration.
+type noopLister struct{}
+
+func (noopLister) ListTags(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+	return nil, "", nil
+}
+
+var _ gcr.Lister = noopLister{}
+
+// TestRegisterTagRoutes_RoutesRegistered verifies that RegisterTagRoutes registers the
+// expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is
+// present, confirming the route exists (a missing route returns 404 instead).
+func TestRegisterTagRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterTagRoutes(noopProductStore{}, noopComponentStore{}, noopLister{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/products/some-slug/components/some-comp/tags"},
 	})
 }
 
