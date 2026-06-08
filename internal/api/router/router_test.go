@@ -29,6 +29,11 @@ func (noopProductStore) Update(_ context.Context, _, _, _ string) (*domain.Produ
 	return nil, nil
 }
 func (noopProductStore) Archive(_ context.Context, _ string) error { return nil }
+func (noopProductStore) GetTagConvention(_ context.Context, _ string) (*string, error) {
+	return nil, nil
+}
+func (noopProductStore) SetTagConvention(_ context.Context, _, _ string) error { return nil }
+func (noopProductStore) ClearTagConvention(_ context.Context, _ string) error  { return nil }
 
 var _ store.ProductStore = noopProductStore{}
 
@@ -133,6 +138,20 @@ func TestRegisterEnvironmentRoutes_RoutesRegistered(t *testing.T) {
 		{http.MethodPost, "/api/v1/products/some-slug/environments"},
 		{http.MethodGet, "/api/v1/products/some-slug/environments"},
 		{http.MethodDelete, "/api/v1/products/some-slug/environments/some-id"},
+	})
+}
+
+// TestRegisterTagConventionRoutes_RoutesRegistered verifies that RegisterTagConventionRoutes
+// registers the expected HTTP endpoints. All /api/v1/* requests return 401 when no valid token
+// is present, confirming the routes exist (a missing route returns 404 instead).
+func TestRegisterTagConventionRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterTagConventionRoutes(noopProductStore{}, `^v\d+\.\d+\.\d+$`))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/products/some-slug/tag-convention"},
+		{http.MethodPut, "/api/v1/products/some-slug/tag-convention"},
+		{http.MethodDelete, "/api/v1/products/some-slug/tag-convention"},
 	})
 }
 

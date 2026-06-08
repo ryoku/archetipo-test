@@ -112,3 +112,41 @@ export async function createProduct(
   if (!res.ok) throw new Error(`createProduct: ${res.status}`)
   return (await res.json()) as Product
 }
+
+export interface TagConvention {
+  regex: string
+  source: 'product' | 'default'
+}
+
+export async function getTagConvention(
+  token: string,
+  productSlug: string
+): Promise<TagConvention> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/tag-convention`, token)
+  if (!res.ok) throw new Error(`getTagConvention: ${res.status}`)
+  return (await res.json()) as TagConvention
+}
+
+export async function setTagConvention(
+  token: string,
+  productSlug: string,
+  regex: string
+): Promise<TagConvention> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/tag-convention`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ regex }),
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `setTagConvention: ${res.status}`)
+  }
+  return (await res.json()) as TagConvention
+}
+
+export async function clearTagConvention(token: string, productSlug: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/tag-convention`, token, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error(`clearTagConvention: ${res.status}`)
+}

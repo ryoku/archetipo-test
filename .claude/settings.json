@@ -14,7 +14,9 @@
       "Bash(go test *)",
       "Bash(pnpm test *)",
       "Bash(make web:test)",
-      "Read(//home/ryoku/.claude-work/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/requesting-code-review/**)"
+      "Read(//home/ryoku/.claude-work/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/requesting-code-review/**)",
+      "mcp__sonarqube__search_my_sonarqube_projects",
+      "mcp__sonarqube__show_rule"
     ]
   },
   "hooks": {

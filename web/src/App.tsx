@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import OidcCallbackPage from './pages/OidcCallbackPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import EnvironmentsPage from './pages/EnvironmentsPage'
+import ProductSettingsPage from './pages/ProductSettingsPage'
 
 export default function App() {
   return (
@@ -35,6 +36,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <EnvironmentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:slug/settings"
+            element={
+              <ProtectedRoute>
+                <ProductSettingsPage />
               </ProtectedRoute>
             }
           />
