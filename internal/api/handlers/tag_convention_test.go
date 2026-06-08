@@ -3,7 +3,9 @@ package handlers_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -265,4 +267,81 @@ func TestDeleteTagConvention_UnknownProduct_Returns404(t *testing.T) {
 		"/api/v1/products/ghost-product/tag-convention",
 	)
 	assertStatus(t, w, http.StatusNotFound)
+}
+
+func TestDeleteTagConvention_ViewerRole_Returns403(t *testing.T) {
+	ps := clearTagConventionStore(nil)
+	w := doPlain(
+		newTagConventionRouter(ps, viewerIdentity("my-product")),
+		http.MethodDelete,
+		"/api/v1/products/my-product/tag-convention",
+	)
+	assertStatus(t, w, http.StatusForbidden)
+}
+
+func TestPutTagConvention_MissingRegexKey_Returns422(t *testing.T) {
+	ps := tagConventionStore(nil, nil)
+	w := doJSON(
+		newTagConventionRouter(ps, editorIdentity("my-product")),
+		http.MethodPut,
+		"/api/v1/products/my-product/tag-convention",
+		jsonBody(map[string]any{}),
+	)
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+}
+
+func TestPutTagConvention_RegexTooLong_Returns422(t *testing.T) {
+	ps := tagConventionStore(nil, nil)
+	w := doJSON(
+		newTagConventionRouter(ps, editorIdentity("my-product")),
+		http.MethodPut,
+		"/api/v1/products/my-product/tag-convention",
+		jsonBody(map[string]string{"regex": strings.Repeat("a", 501)}),
+	)
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+}
+
+func TestGetTagConvention_StoreError_Returns500(t *testing.T) {
+	ps := tagConventionStore(
+		func(_ context.Context, _ string) (*string, error) {
+			return nil, fmt.Errorf("db timeout")
+		},
+		nil,
+	)
+	w := doPlain(
+		newTagConventionRouter(ps, viewerIdentity("my-product")),
+		http.MethodGet,
+		"/api/v1/products/my-product/tag-convention",
+	)
+	assertStatus(t, w, http.StatusInternalServerError)
+}
+
+func TestPutTagConvention_StoreError_Returns500(t *testing.T) {
+	ps := tagConventionStore(
+		nil,
+		func(_ context.Context, _, _ string) error {
+			return fmt.Errorf("db timeout")
+		},
+	)
+	w := doJSON(
+		newTagConventionRouter(ps, editorIdentity("my-product")),
+		http.MethodPut,
+		"/api/v1/products/my-product/tag-convention",
+		jsonBody(map[string]string{"regex": `^v\d+$`}),
+	)
+	assertStatus(t, w, http.StatusInternalServerError)
+}
+
+func TestDeleteTagConvention_StoreError_Returns500(t *testing.T) {
+	ps := clearTagConventionStore(
+		func(_ context.Context, _ string) error {
+			return fmt.Errorf("db timeout")
+		},
+	)
+	w := doPlain(
+		newTagConventionRouter(ps, editorIdentity("my-product")),
+		http.MethodDelete,
+		"/api/v1/products/my-product/tag-convention",
+	)
+	assertStatus(t, w, http.StatusInternalServerError)
 }

@@ -76,7 +76,7 @@ func (s *pgxProductStore) List(ctx context.Context, opts ListOptions) ([]domain.
 		args  []any
 	)
 
-	base := `SELECT id, name, slug, description, archived_at, created_at FROM products`
+	base := `SELECT id, name, slug, description, archived_at, created_at, tag_convention_regex FROM products`
 	var conditions []string
 
 	if !opts.IncludeArchived {
@@ -111,7 +111,7 @@ func (s *pgxProductStore) List(ctx context.Context, opts ListOptions) ([]domain.
 	var products []domain.Product
 	for rows.Next() {
 		var p domain.Product
-		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt, &p.TagConventionRegex); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
 		products = append(products, p)

@@ -8,6 +8,9 @@ import {
   createEnvironment,
   deleteEnvironment,
   createProduct,
+  getTagConvention,
+  setTagConvention,
+  clearTagConvention,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -321,5 +324,114 @@ describe('createProduct', () => {
     await expect(
       createProduct('tok', { name: 'Platform', slug: 'platform', description: 'A platform product' }),
     ).rejects.toThrow('createProduct: 409')
+  })
+})
+
+// ─── getTagConvention ──────────────────────────────────────────
+describe('getTagConvention', () => {
+  it('returns parsed TagConvention on success', async () => {
+    const tc = { regex: String.raw`^v\d+$`, source: 'product' }
+    vi.stubGlobal('fetch', makeFetchStub(200, tc))
+
+    const result = await getTagConvention('tok', 'my-product')
+    expect(result).toEqual(tc)
+  })
+
+  it('calls the correct URL with the product slug', async () => {
+    const fetchStub = makeFetchStub(200, { regex: String.raw`^v\d+$`, source: 'default' })
+    vi.stubGlobal('fetch', fetchStub)
+
+    await getTagConvention('tok', 'my-product')
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/tag-convention')
+  })
+
+  it('sets Authorization header', async () => {
+    const fetchStub = makeFetchStub(200, { regex: String.raw`^v\d+$`, source: 'default' })
+    vi.stubGlobal('fetch', fetchStub)
+
+    await getTagConvention('test-token', 'my-product')
+
+    const [, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    const headers = new Headers(init.headers)
+    expect(headers.get('Authorization')).toBe('Bearer test-token')
+  })
+
+  it('throws on non-ok response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(403))
+
+    await expect(getTagConvention('tok', 'my-product')).rejects.toThrow('getTagConvention: 403')
+  })
+})
+
+// ─── setTagConvention ──────────────────────────────────────────
+describe('setTagConvention', () => {
+  it('returns updated TagConvention on success', async () => {
+    const tc = { regex: String.raw`^v\d+$`, source: 'product' }
+    vi.stubGlobal('fetch', makeFetchStub(200, tc))
+
+    const result = await setTagConvention('tok', 'my-product', String.raw`^v\d+$`)
+    expect(result).toEqual(tc)
+  })
+
+  it('calls the correct URL and uses PUT with JSON body', async () => {
+    const fetchStub = makeFetchStub(200, { regex: String.raw`^v\d+$`, source: 'product' })
+    vi.stubGlobal('fetch', fetchStub)
+
+    await setTagConvention('tok', 'my-product', String.raw`^v\d+$`)
+
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/tag-convention')
+    expect(init.method).toBe('PUT')
+    expect(init.body).toBe(JSON.stringify({ regex: String.raw`^v\d+$` }))
+    const headers = new Headers(init.headers)
+    expect(headers.get('Content-Type')).toBe('application/json')
+  })
+
+  it('extracts error field from response body on failure', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(422, { error: 'regex must not be empty' }))
+
+    await expect(setTagConvention('tok', 'my-product', '')).rejects.toThrow('regex must not be empty')
+  })
+
+  it('falls back to status code when error body has no error field', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(500))
+
+    await expect(setTagConvention('tok', 'my-product', String.raw`^v\d+$`)).rejects.toThrow(
+      'setTagConvention: 500',
+    )
+  })
+})
+
+// ─── clearTagConvention ────────────────────────────────────────
+describe('clearTagConvention', () => {
+  it('resolves without error on 204', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(204))
+
+    await expect(clearTagConvention('tok', 'my-product')).resolves.toBeUndefined()
+  })
+
+  it('calls the correct URL and uses DELETE', async () => {
+    const fetchStub = makeFetchStub(204)
+    vi.stubGlobal('fetch', fetchStub)
+
+    await clearTagConvention('tok', 'my-product')
+
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/tag-convention')
+    expect(init.method).toBe('DELETE')
+  })
+
+  it('extracts error field from response body on failure', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(403, { error: 'access denied' }))
+
+    await expect(clearTagConvention('tok', 'my-product')).rejects.toThrow('access denied')
+  })
+
+  it('falls back to status code when error body has no error field', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(403))
+
+    await expect(clearTagConvention('tok', 'my-product')).rejects.toThrow('clearTagConvention: 403')
   })
 })

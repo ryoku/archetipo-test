@@ -67,6 +67,7 @@ export default function ProductSettingsPage() {
 
   async function handleResetToDefault() {
     if (!accessToken || !slug) return
+    setSaving(true)
     setError(null)
     try {
       await clearTagConvention(accessToken, slug)
@@ -74,6 +75,8 @@ export default function ProductSettingsPage() {
       setTagConventionData(updated)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to reset tag convention')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -172,6 +175,7 @@ export default function ProductSettingsPage() {
               type="button"
               className="pd-btn-ghost pd-btn-sm"
               onClick={handleResetToDefault}
+              disabled={saving}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2 6a4 4 0 1 1 1.2 2.8" />

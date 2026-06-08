@@ -6,8 +6,8 @@ export function isDevOpsAdmin(accessToken: string | null): boolean {
     if (parts.length !== 3) return false
 
     const payload = parts[1]
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
+      .replaceAll('-', '+')
+      .replaceAll('_', '/')
       .padEnd(Math.ceil(parts[1].length / 4) * 4, '=')
 
     const decoded: unknown = JSON.parse(atob(payload))

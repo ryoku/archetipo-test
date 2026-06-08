@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 
@@ -20,10 +21,15 @@ func NewTagConventionHandlers(s store.ProductStore, defaultRegex string) *TagCon
 	return &TagConventionHandlers{store: s, defaultRegex: defaultRegex}
 }
 
+const (
+	tagConventionSourceProduct = "product"
+	tagConventionSourceDefault = "default"
+)
+
 // tagConventionResponse is the API representation of a tag convention.
 type tagConventionResponse struct {
 	Regex  string `json:"regex"`
-	Source string `json:"source"` // "product" or "default"
+	Source string `json:"source"`
 }
 
 // putTagConventionRequest is the body for PUT .../tag-convention.
@@ -45,15 +51,16 @@ func (h *TagConventionHandlers) GetTagConvention(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("GetTagConvention %s: %v", slug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 
 	if override == nil {
-		c.JSON(http.StatusOK, tagConventionResponse{Regex: h.defaultRegex, Source: "default"})
+		c.JSON(http.StatusOK, tagConventionResponse{Regex: h.defaultRegex, Source: tagConventionSourceDefault})
 		return
 	}
-	c.JSON(http.StatusOK, tagConventionResponse{Regex: *override, Source: "product"})
+	c.JSON(http.StatusOK, tagConventionResponse{Regex: *override, Source: tagConventionSourceProduct})
 }
 
 // PutTagConvention handles PUT /api/v1/products/:productSlug/tag-convention.
@@ -94,10 +101,11 @@ func (h *TagConventionHandlers) PutTagConvention(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("SetTagConvention %s: %v", slug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
-	c.JSON(http.StatusOK, tagConventionResponse{Regex: *req.Regex, Source: "product"})
+	c.JSON(http.StatusOK, tagConventionResponse{Regex: *req.Regex, Source: tagConventionSourceProduct})
 }
 
 // DeleteTagConvention handles DELETE /api/v1/products/:productSlug/tag-convention.
@@ -115,6 +123,7 @@ func (h *TagConventionHandlers) DeleteTagConvention(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("ClearTagConvention %s: %v", slug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}

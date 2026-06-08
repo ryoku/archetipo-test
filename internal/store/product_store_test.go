@@ -323,3 +323,98 @@ func TestGetTagConvention_NotFound(t *testing.T) {
 		t.Errorf("expected ErrNotFound for nonexistent slug, got %v", err)
 	}
 }
+
+func TestGetTagConvention_ArchivedProduct_ReturnsNotFound(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	p := &domain.Product{Name: "Archived Product", Slug: "archived-get-conv"}
+	if err := s.Create(context.Background(), p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := s.Archive(context.Background(), "archived-get-conv"); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	_, err := s.GetTagConvention(context.Background(), "archived-get-conv")
+	if !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for archived product, got %v", err)
+	}
+}
+
+func TestSetTagConvention_ArchivedProduct_ReturnsNotFound(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	p := &domain.Product{Name: "Archived Product", Slug: "archived-set-conv"}
+	if err := s.Create(context.Background(), p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := s.Archive(context.Background(), "archived-set-conv"); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	err := s.SetTagConvention(context.Background(), "archived-set-conv", `^v\d+$`)
+	if !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for archived product, got %v", err)
+	}
+}
+
+func TestClearTagConvention_RoundTrip(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	p := &domain.Product{Name: "Clear Product", Slug: "clear-convention"}
+	if err := s.Create(context.Background(), p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := s.SetTagConvention(context.Background(), "clear-convention", `^v\d+$`); err != nil {
+		t.Fatalf("SetTagConvention: %v", err)
+	}
+
+	if err := s.ClearTagConvention(context.Background(), "clear-convention"); err != nil {
+		t.Fatalf("ClearTagConvention: %v", err)
+	}
+
+	got, err := s.GetTagConvention(context.Background(), "clear-convention")
+	if err != nil {
+		t.Fatalf("GetTagConvention after clear: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil after clear, got %q", *got)
+	}
+}
+
+func TestClearTagConvention_NotFound(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	err := s.ClearTagConvention(context.Background(), "nonexistent")
+	if !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for nonexistent slug, got %v", err)
+	}
+}
+
+func TestClearTagConvention_ArchivedProduct_ReturnsNotFound(t *testing.T) {
+	pool := newProductTestPool(t)
+	cleanProducts(t, pool)
+
+	s := store.NewProductStore(pool)
+	p := &domain.Product{Name: "Archived Product", Slug: "archived-clear-conv"}
+	if err := s.Create(context.Background(), p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := s.Archive(context.Background(), "archived-clear-conv"); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	err := s.ClearTagConvention(context.Background(), "archived-clear-conv")
+	if !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for archived product, got %v", err)
+	}
+}
