@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-013 · Lista prodotti</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ─── page-specific ─── */
+
+/* RBAC role pill in the page-top */
+.role-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.role-admin { background: rgba(240,192,66,.1); border: 1px solid rgba(240,192,66,.3); color: #f0c042; }
+.role-editor { background: var(--accent-dim); border: 1px solid var(--border-accent); color: var(--accent); }
+.role-viewer { background: var(--bg-elevated); border: 1px solid var(--border-default); color: var(--text-secondary); }
+
+/* State-switcher (mockup-only helper) */
+.demo-switcher {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 10px 14px;
+  z-index: 100;
+  display: flex; flex-direction: column; gap: 6px;
+  box-shadow: var(--shadow-lg);
+}
+.demo-switcher-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.demo-switcher .btn { font-size: 11px; padding: 4px 10px; }
+.demo-switcher .btn.active { background: var(--accent); color: var(--bg-base); border-color: var(--accent); }
+
+/* Role-switcher */
+.role-switcher { display: flex; gap: 5px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge" id="navBadge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/>
+          <circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/>
+          <path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin Dashboard
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" id="userAvatar">MA</div>
+        <div>
+          <div class="user-name" id="userName">Marco Andreoli</div>
+          <div class="user-role" id="userRoleLabel">Editor · platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="page-top">
+      <div>
+        <div class="page-title">Prodotti</div>
+        <div class="page-desc">I tuoi prodotti accessibili e il loro stato di deployment.</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="roleIndicator" class="role-pill role-editor">editor</span>
+        <button class="btn btn-primary" id="newProductBtn" onclick="alert('New product dialog — fuori scope US-013')">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 1v11M1 6.5h11"/></svg>
+          Nuovo prodotto
+        </button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Stats row — shown only when there are products -->
+      <div class="stats-row" id="statsRow">
+        <div class="stat-tile">
+          <div class="stat-val" id="statProducts">4</div>
+          <div class="stat-key">Prodotti</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">12</div>
+          <div class="stat-key">Ambienti</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">7</div>
+          <div class="stat-key">Deploy oggi</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val" style="color:var(--ok)">100%</div>
+          <div class="stat-key">Sincronizzati</div>
+        </div>
+      </div>
+
+      <!-- Search + filter -->
+      <div class="topbar" id="topbar">
+        <div class="input-wrap flex-1" style="max-width:320px;">
+          <svg class="input-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="6" cy="6" r="4"/>
+            <path d="M10 10l2.5 2.5"/>
+          </svg>
+          <input type="text" class="input has-icon" placeholder="Cerca prodotti…">
+        </div>
+        <div class="filter-row">
+          <button class="filter-chip on">Tutti</button>
+          <button class="filter-chip">Produzione</button>
+          <button class="filter-chip">Deploy recenti</button>
+        </div>
+      </div>
+
+      <!-- ── PRODUCTS FILLED STATE ─────────────────────────────── -->
+      <div id="productsGrid">
+        <div class="product-grid">
+
+          <!-- Card 1: Platform API -->
+          <a href="product.html" class="p-card">
+            <div class="p-card-top">
+              <div class="p-icon p-icon-a">PA</div>
+              <div style="flex:1;min-width:0;">
+                <div class="p-name">Platform API</div>
+                <div class="p-slug">platform-api</div>
+              </div>
+              <div class="badge badge-admin" style="font-size:9.5px;padding:1px 6px;">DevOps</div>
+            </div>
+            <div class="p-desc">Servizio REST centrale per la gestione delle risorse Kubernetes e delle regole di governance.</div>
+            <div class="p-env-row">
+              <span class="badge badge-dev">dev</span>
+              <span class="badge badge-intg">integration</span>
+              <span class="badge badge-prod">production</span>
+            </div>
+            <div class="p-footer">
+              <div class="p-meta">
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                  3 componenti
+                </div>
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                  3 env
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="dot dot-ok"></div>
+                <span class="p-last">2 min fa</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Card 2: Customer App -->
+          <a href="product.html" class="p-card">
+            <div class="p-card-top">
+              <div class="p-icon p-icon-b">CA</div>
+              <div style="flex:1;min-width:0;">
+                <div class="p-name">Customer App</div>
+                <div class="p-slug">customer-app</div>
+              </div>
+            </div>
+            <div class="p-desc">Applicazione front-end per clienti finali, con autenticazione OIDC e dashboard self-service.</div>
+            <div class="p-env-row">
+              <span class="badge badge-dev">dev</span>
+              <span class="badge badge-intg">integration</span>
+              <span class="badge badge-prod">production</span>
+            </div>
+            <div class="p-footer">
+              <div class="p-meta">
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                  2 componenti
+                </div>
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                  3 env
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="dot dot-ok"></div>
+                <span class="p-last">1 ora fa</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Card 3: Data Sync -->
+          <a href="product.html" class="p-card">
+            <div class="p-card-top">
+              <div class="p-icon p-icon-c">DS</div>
+              <div style="flex:1;min-width:0;">
+                <div class="p-name">Data Sync</div>
+                <div class="p-slug">data-sync</div>
+              </div>
+            </div>
+            <div class="p-desc">Pipeline di sincronizzazione batch tra sistemi data lake e database OLTP.</div>
+            <div class="p-env-row">
+              <span class="badge badge-dev">dev</span>
+              <span class="badge badge-intg">integration</span>
+            </div>
+            <div class="p-footer">
+              <div class="p-meta">
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                  2 componenti
+                </div>
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                  2 env
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="dot dot-warn"></div>
+                <span class="p-last">3 giorni fa</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Card 4: Nexus Gateway -->
+          <a href="product.html" class="p-card">
+            <div class="p-card-top">
+              <div class="p-icon p-icon-d">NX</div>
+              <div style="flex:1;min-width:0;">
+                <div class="p-name">Nexus Gateway</div>
+                <div class="p-slug">nexus-gateway</div>
+              </div>
+            </div>
+            <div class="p-desc">API gateway interno per il routing e la gestione delle policy di accesso tra micro-servizi.</div>
+            <div class="p-env-row">
+              <span class="badge badge-dev">dev</span>
+              <span class="badge badge-intg">integration</span>
+              <span class="badge badge-prod">production</span>
+            </div>
+            <div class="p-footer">
+              <div class="p-meta">
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                  4 componenti
+                </div>
+                <div class="p-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                  3 env
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="dot dot-ok"></div>
+                <span class="p-last">45 min fa</span>
+              </div>
+            </div>
+          </a>
+
+        </div><!-- /product-grid -->
+      </div><!-- /productsGrid -->
+
+      <!-- ── EMPTY STATE ─────────────────────────────────────────── -->
+      <div id="emptyState" style="display:none;">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="9" height="9" rx="2"/>
+              <rect x="16" y="3" width="9" height="9" rx="2"/>
+              <rect x="3" y="16" width="9" height="9" rx="2"/>
+              <rect x="16" y="16" width="9" height="9" rx="2" stroke-dasharray="2 2" opacity=".4"/>
+            </svg>
+          </div>
+          <div class="empty-title">Nessun prodotto accessibile</div>
+          <div class="empty-desc">Non hai ancora accesso a nessun prodotto. Chiedi a un DevOps Admin di assegnarti un ruolo su almeno un prodotto.</div>
+          <button class="btn btn-outline" style="margin-top:8px;" onclick="alert('Contatta un admin — fuori scope')">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="6.5" cy="6.5" r="5.5"/>
+              <path d="M6.5 4v3M6.5 9v.5"/>
+            </svg>
+            Come ottenere accesso
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ─── MOCKUP HELPER: state + role switcher ─── -->
+<div class="demo-switcher">
+  <div class="demo-switcher-label">Mockup · stato</div>
+  <div class="flex gap-2">
+    <button class="btn btn-sm active" id="btnFilled" onclick="setState('filled')">Con prodotti</button>
+    <button class="btn btn-sm btn-outline" id="btnEmpty" onclick="setState('empty')">Vuoto</button>
+  </div>
+  <div class="demo-switcher-label" style="margin-top:4px;">Ruolo</div>
+  <div class="role-switcher">
+    <button class="btn btn-sm active" id="roleAdmin" onclick="setRole('admin')">Admin</button>
+    <button class="btn btn-sm btn-outline" id="roleEditor" onclick="setRole('editor')">Editor</button>
+    <button class="btn btn-sm btn-outline" id="roleViewer" onclick="setRole('viewer')">Viewer</button>
+  </div>
+</div>
+
+<script>
+/* ─── State switcher ─────────────────────────────────────────── */
+function setState(state) {
+  const grid   = document.getElementById('productsGrid');
+  const empty  = document.getElementById('emptyState');
+  const stats  = document.getElementById('statsRow');
+  const topbar = document.getElementById('topbar');
+
+  if (state === 'filled') {
+    grid.style.display = '';
+    empty.style.display = 'none';
+    stats.style.display = '';
+    topbar.style.display = '';
+    document.getElementById('btnFilled').classList.add('active');
+    document.getElementById('btnFilled').classList.remove('btn-outline');
+    document.getElementById('btnEmpty').classList.remove('active');
+    document.getElementById('btnEmpty').classList.add('btn-outline');
+  } else {
+    grid.style.display = 'none';
+    empty.style.display = '';
+    stats.style.display = 'none';
+    topbar.style.display = 'none';
+    document.getElementById('btnEmpty').classList.add('active');
+    document.getElementById('btnEmpty').classList.remove('btn-outline');
+    document.getElementById('btnFilled').classList.remove('active');
+    document.getElementById('btnFilled').classList.add('btn-outline');
+  }
+}
+
+/* ─── Role switcher ──────────────────────────────────────────── */
+const ROLES = {
+  admin: {
+    label: 'DevOps Admin',
+    pilClass: 'role-admin',
+    pilText: 'devops-admin',
+    avatar: 'SA',
+    userName: 'Sara Bianchi',
+    userRole: 'DevOps Admin',
+    products: 4,
+    showNew: true,
+  },
+  editor: {
+    label: 'Editor',
+    pilClass: 'role-editor',
+    pilText: 'editor',
+    avatar: 'MA',
+    userName: 'Marco Andreoli',
+    userRole: 'Editor · platform-api',
+    products: 2,
+    showNew: false,
+  },
+  viewer: {
+    label: 'Viewer',
+    pilClass: 'role-viewer',
+    pilText: 'viewer',
+    avatar: 'LP',
+    userName: 'Lucia Parisi',
+    userRole: 'Viewer · customer-app',
+    products: 1,
+    showNew: false,
+  },
+};
+
+function setRole(role) {
+  const r = ROLES[role];
+
+  // Update role indicator
+  const pill = document.getElementById('roleIndicator');
+  pill.className = 'role-pill ' + r.pilClass;
+  pill.textContent = r.pilText;
+
+  // Update user in sidebar
+  document.getElementById('userAvatar').textContent = r.avatar;
+  document.getElementById('userName').textContent = r.userName;
+  document.getElementById('userRoleLabel').textContent = r.userRole;
+
+  // Update stat
+  document.getElementById('statProducts').textContent = r.products;
+  document.getElementById('navBadge').textContent = r.products;
+
+  // Show/hide new product button
+  document.getElementById('newProductBtn').style.display = r.showNew ? '' : 'none';
+
+  // For editor/viewer in filled state, slice visible cards
+  const cards = document.querySelectorAll('.product-grid .p-card');
+  cards.forEach((c, i) => {
+    c.style.display = i < r.products ? '' : 'none';
+  });
+
+  // Role buttons
+  ['admin','editor','viewer'].forEach(k => {
+    const btn = document.getElementById('role' + k.charAt(0).toUpperCase() + k.slice(1));
+    if (k === role) {
+      btn.classList.add('active');
+      btn.classList.remove('btn-outline');
+    } else {
+      btn.classList.remove('active');
+      btn.classList.add('btn-outline');
+    }
+  });
+}
+
+// Init: admin, filled
+setRole('admin');
+setState('filled');
+</script>
+</body>
+</html>
