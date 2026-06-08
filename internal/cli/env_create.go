@@ -18,11 +18,20 @@ type createEnvRequest struct {
 	OverlayPath string `json:"overlay_path"`
 }
 
-func createEnvironment(cmd *cobra.Command, configDir, apiURL, outputFmt, productSlug, name, envType, overlay string) error {
-	if outputFmt != "" && outputFmt != "json" {
-		return fmt.Errorf("unsupported output format %q: supported values: json", outputFmt)
+type createEnvOpts struct {
+	apiURL      string
+	outputFmt   string
+	productSlug string
+	name        string
+	envType     string
+	overlay     string
+}
+
+func createEnvironment(cmd *cobra.Command, configDir string, opts createEnvOpts) error {
+	if opts.outputFmt != "" && opts.outputFmt != "json" {
+		return fmt.Errorf("unsupported output format %q: supported values: json", opts.outputFmt)
 	}
-	if err := domain.ValidateEnvironmentType(envType); err != nil {
+	if err := domain.ValidateEnvironmentType(opts.envType); err != nil {
 		return err
 	}
 
@@ -31,13 +40,13 @@ func createEnvironment(cmd *cobra.Command, configDir, apiURL, outputFmt, product
 		return fmt.Errorf("reading stored token: %w", err)
 	}
 
-	payload, err := json.Marshal(createEnvRequest{Name: name, Type: envType, OverlayPath: overlay})
+	payload, err := json.Marshal(createEnvRequest{Name: opts.name, Type: opts.envType, OverlayPath: opts.overlay})
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
 	}
 
-	path := "/api/v1/products/" + url.PathEscape(productSlug) + "/environments"
-	client := NewAPIClient(apiURL, tok)
+	path := "/api/v1/products/" + url.PathEscape(opts.productSlug) + "/environments"
+	client := NewAPIClient(opts.apiURL, tok)
 	resp, err := client.Post(cmdContext(cmd), path, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("POST %s: %w", path, err)
@@ -61,9 +70,9 @@ func createEnvironment(cmd *cobra.Command, configDir, apiURL, outputFmt, product
 		}
 		return fmt.Errorf("validation error: %s", string(body))
 	case http.StatusConflict:
-		return fmt.Errorf("environment name already exists for product %q", productSlug)
+		return fmt.Errorf("environment name already exists for product %q", opts.productSlug)
 	case http.StatusNotFound:
-		return fmt.Errorf("product not found: %s", productSlug)
+		return fmt.Errorf("product not found: %s", opts.productSlug)
 	case http.StatusUnauthorized:
 		return fmt.Errorf("session expired, please run `kubegate login`")
 	case http.StatusForbidden:
@@ -72,12 +81,12 @@ func createEnvironment(cmd *cobra.Command, configDir, apiURL, outputFmt, product
 		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 	}
 
-	if outputFmt == "json" {
+	if opts.outputFmt == "json" {
 		_, err = fmt.Fprint(cmd.OutOrStdout(), string(body))
 		return err
 	}
 
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "environment %q created for product %q\n", name, productSlug)
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "environment %q created for product %q\n", opts.name, opts.productSlug)
 	return err
 }
 
@@ -97,7 +106,14 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 		Short:        "Create an environment for a product",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return createEnvironment(cmd, configDir, apiURL, outputFmt, productSlug, name, envType, overlay)
+			return createEnvironment(cmd, configDir, createEnvOpts{
+				apiURL:      apiURL,
+				outputFmt:   outputFmt,
+				productSlug: productSlug,
+				name:        name,
+				envType:     envType,
+				overlay:     overlay,
+			})
 		},
 	}
 

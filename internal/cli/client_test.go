@@ -188,7 +188,9 @@ func TestAPIClientPostBody(t *testing.T) {
 }
 
 func TestAPIClientPostUnreachableServer(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// never reached: server is closed immediately after creation
+	}))
 	baseURL := srv.URL
 	srv.Close()
 
