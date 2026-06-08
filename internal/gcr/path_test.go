@@ -98,21 +98,26 @@ func TestParseImagePath(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error for %q: %v", tc.input, err)
 			}
-			if got.project != tc.wantProj {
-				t.Errorf("project: got %q, want %q", got.project, tc.wantProj)
-			}
-			if got.location != tc.wantLoc {
-				t.Errorf("location: got %q, want %q", got.location, tc.wantLoc)
-			}
-			if got.repo != tc.wantRepo {
-				t.Errorf("repo: got %q, want %q", got.repo, tc.wantRepo)
-			}
-			if got.pkg != tc.wantPkg {
-				t.Errorf("pkg: got %q, want %q", got.pkg, tc.wantPkg)
-			}
-			if parent := got.resourceParent(); parent != tc.wantParent {
-				t.Errorf("resourceParent: got %q, want %q", parent, tc.wantParent)
-			}
+			assertParsedPath(t, got, tc.wantProj, tc.wantLoc, tc.wantRepo, tc.wantPkg, tc.wantParent)
 		})
+	}
+}
+
+func assertParsedPath(t *testing.T, got parsedPath, wantProj, wantLoc, wantRepo, wantPkg, wantParent string) {
+	t.Helper()
+	if got.project != wantProj {
+		t.Errorf("project: got %q, want %q", got.project, wantProj)
+	}
+	if got.location != wantLoc {
+		t.Errorf("location: got %q, want %q", got.location, wantLoc)
+	}
+	if got.repo != wantRepo {
+		t.Errorf("repo: got %q, want %q", got.repo, wantRepo)
+	}
+	if got.pkg != wantPkg {
+		t.Errorf("pkg: got %q, want %q", got.pkg, wantPkg)
+	}
+	if parent := got.resourceParent(); parent != wantParent {
+		t.Errorf("resourceParent: got %q, want %q", parent, wantParent)
 	}
 }
