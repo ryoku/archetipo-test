@@ -8,10 +8,12 @@ import ProductSettingsPage from './ProductSettingsPage'
 
 const mockGetTagConvention = vi.hoisted(() => vi.fn<() => Promise<TagConvention>>())
 const mockSetTagConvention = vi.hoisted(() => vi.fn<() => Promise<TagConvention>>())
+const mockClearTagConvention = vi.hoisted(() => vi.fn<() => Promise<void>>())
 
 vi.mock('../api/products', () => ({
   getTagConvention: mockGetTagConvention,
   setTagConvention: mockSetTagConvention,
+  clearTagConvention: mockClearTagConvention,
 }))
 
 const mockUseAuth = vi.fn()
@@ -80,6 +82,7 @@ beforeEach(() => {
   })
   mockGetTagConvention.mockResolvedValue(makeTagConvention())
   mockSetTagConvention.mockResolvedValue(makeTagConvention())
+  mockClearTagConvention.mockResolvedValue(undefined)
 })
 
 afterEach(cleanup)
@@ -357,6 +360,88 @@ describe('ProductSettingsPage — save error: API rejection', () => {
       expect(errorEl).toBeTruthy()
       expect(errorEl?.textContent).toContain('setTagConvention: 400')
     })
+  })
+})
+
+describe('ProductSettingsPage — reset to default', () => {
+  beforeEach(() => {
+    mockLocationState = makeProduct({ my_role: 'admin' })
+    mockGetTagConvention.mockResolvedValue(makeTagConvention({ source: 'product' }))
+  })
+
+  it('calls clearTagConvention then re-fetches when Reset to default is clicked', async () => {
+    mockGetTagConvention
+      .mockResolvedValueOnce(makeTagConvention({ source: 'product' }))
+      .mockResolvedValueOnce(makeTagConvention({ source: 'default' }))
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /reset to default/i }))
+
+    await act(async () => {
+      screen.getByRole('button', { name: /reset to default/i }).click()
+    })
+
+    await waitFor(() => {
+      expect(mockClearTagConvention).toHaveBeenCalledWith('test-token', 'platform-api')
+      expect(mockGetTagConvention).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('updates badge to "global default" after successful reset', async () => {
+    mockGetTagConvention
+      .mockResolvedValueOnce(makeTagConvention({ source: 'product' }))
+      .mockResolvedValueOnce(makeTagConvention({ source: 'default' }))
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /reset to default/i }))
+
+    await act(async () => {
+      screen.getByRole('button', { name: /reset to default/i }).click()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(/global default/i)).toBeTruthy()
+    })
+  })
+
+  it('shows error banner when clearTagConvention rejects', async () => {
+    mockClearTagConvention.mockRejectedValue(new Error('clearTagConvention: 403'))
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /reset to default/i }))
+
+    await act(async () => {
+      screen.getByRole('button', { name: /reset to default/i }).click()
+    })
+
+    await waitFor(() => {
+      const errorEl = document.querySelector('.pd-error')
+      expect(errorEl).toBeTruthy()
+      expect(errorEl?.textContent).toContain('clearTagConvention: 403')
+    })
+  })
+
+  it('Reset to default button is absent when source is "default"', async () => {
+    mockGetTagConvention.mockResolvedValue(makeTagConvention({ source: 'default' }))
+
+    renderPage()
+
+    await waitFor(() => screen.getByText(/global default/i))
+
+    expect(screen.queryByRole('button', { name: /reset to default/i })).toBeNull()
+  })
+
+  it('Reset to default button is absent for viewer role even when source is "product"', async () => {
+    mockLocationState = makeProduct({ my_role: 'viewer' })
+
+    renderPage()
+
+    await waitFor(() => screen.getByText(/product override/i))
+
+    expect(screen.queryByRole('button', { name: /reset to default/i })).toBeNull()
   })
 })
 
