@@ -10,13 +10,13 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 // Product represents a managed software product in KubeGate.
 type Product struct {
-	ID          string
-	Name        string
-	Slug        string
+	ID                 string
+	Name               string
+	Slug               string
 	Description        string
 	TagConventionRegex *string
 	ArchivedAt         *time.Time
-	CreatedAt   time.Time
+	CreatedAt          time.Time
 }
 
 // ValidateSlug returns an error if s does not match the slug pattern
