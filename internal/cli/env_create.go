@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/ryoku/kubegate/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +21,9 @@ type createEnvRequest struct {
 func createEnvironment(cmd *cobra.Command, configDir, apiURL, outputFmt, productSlug, name, envType, overlay string) error {
 	if outputFmt != "" && outputFmt != "json" {
 		return fmt.Errorf("unsupported output format %q: supported values: json", outputFmt)
+	}
+	if err := domain.ValidateEnvironmentType(envType); err != nil {
+		return err
 	}
 
 	tok, err := ReadToken(configDir)
