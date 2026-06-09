@@ -153,3 +153,31 @@ export async function clearTagConvention(token: string, productSlug: string): Pr
     throw new Error(body?.error ?? `clearTagConvention: ${res.status}`)
   }
 }
+
+export interface Tag {
+  name: string
+  digest: string
+  pushed_at: string
+}
+
+export interface ListTagsResponse {
+  tags: Tag[]
+  next_page_token?: string
+}
+
+export async function listTags(
+  token: string,
+  productSlug: string,
+  componentSlug: string,
+  options?: { pageToken?: string; pageSize?: number; filter?: string }
+): Promise<ListTagsResponse> {
+  const params = new URLSearchParams()
+  if (options?.pageToken !== undefined) params.set('page_token', options.pageToken)
+  if (options?.pageSize !== undefined) params.set('page_size', String(options.pageSize))
+  if (options?.filter !== undefined && options.filter !== '') params.set('filter', options.filter)
+  const qs = params.toString()
+  const url = `/api/v1/products/${productSlug}/components/${componentSlug}/tags${qs ? '?' + qs : ''}`
+  const res = await apiFetch(url, token)
+  if (!res.ok) throw new Error(`listTags: ${res.status}`)
+  return (await res.json()) as ListTagsResponse
+}

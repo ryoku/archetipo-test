@@ -11,6 +11,7 @@ import {
   getTagConvention,
   setTagConvention,
   clearTagConvention,
+  listTags,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -433,5 +434,55 @@ describe('clearTagConvention', () => {
     vi.stubGlobal('fetch', makeFetchStub(403))
 
     await expect(clearTagConvention('tok', 'my-product')).rejects.toThrow('clearTagConvention: 403')
+  })
+})
+
+// ─── listTags ──────────────────────────────────────────────────
+describe('listTags', () => {
+  it('returns parsed tags response on success', async () => {
+    const body = {
+      tags: [{ name: 'v1.0.0', digest: 'sha256:abc', pushed_at: '2026-06-01T10:00:00Z' }],
+      next_page_token: 'tok2',
+    }
+    vi.stubGlobal('fetch', makeFetchStub(200, body))
+
+    const result = await listTags('token', 'my-product', 'my-comp')
+    expect(result).toEqual(body)
+  })
+
+  it('builds correct URL with no options', async () => {
+    const fetchStub = makeFetchStub(200, { tags: [], next_page_token: '' })
+    vi.stubGlobal('fetch', fetchStub)
+
+    await listTags('token', 'my-product', 'my-comp')
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/components/my-comp/tags')
+  })
+
+  it('includes filter in URL query string', async () => {
+    const fetchStub = makeFetchStub(200, { tags: [], next_page_token: '' })
+    vi.stubGlobal('fetch', fetchStub)
+
+    await listTags('token', 'my-product', 'my-comp', { filter: 'v1' })
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('filter=v1')
+  })
+
+  it('includes page_token in URL query string', async () => {
+    const fetchStub = makeFetchStub(200, { tags: [], next_page_token: '' })
+    vi.stubGlobal('fetch', fetchStub)
+
+    await listTags('token', 'my-product', 'my-comp', { pageToken: 'tok2' })
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('page_token=tok2')
+  })
+
+  it('throws on non-ok response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(502))
+
+    await expect(listTags('token', 'my-product', 'my-comp')).rejects.toThrow('listTags: 502')
   })
 })

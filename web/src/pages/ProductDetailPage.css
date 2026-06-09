@@ -238,6 +238,34 @@
   background: rgba(224, 85, 85, 0.08);
 }
 
+.pd-btn-deploy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 195, 170, 0.3);
+  background: transparent;
+  color: #00c3aa;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 140ms ease;
+}
+
+.pd-btn-deploy:hover {
+  background: rgba(0, 195, 170, 0.08);
+  border-color: rgba(0, 195, 170, 0.5);
+}
+
+.pd-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 /* Inline add form */
 .pd-inline-form {
   background: #101626;
