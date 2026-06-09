@@ -2,14 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { listTags, type Tag } from '../api/products'
 import './DeployDialog.css'
 
-interface DeployDialogProps {
-  open: boolean
-  token: string | null
-  productSlug: string
-  component: { slug: string; name: string; gcr_image_path: string } | null
-  onClose: () => void
-  onDeploy?: (tag: string) => void
-}
+type ComponentRef = { slug: string; name: string; gcr_image_path: string }
+
+type DeployDialogProps =
+  | { open: false; token: string | null; productSlug: string; component: ComponentRef | null; onClose: () => void; onDeploy?: (tag: string) => void }
+  | { open: true;  token: string | null; productSlug: string; component: ComponentRef;        onClose: () => void; onDeploy?: (tag: string) => void }
 
 function formatPushedAt(iso: string): string {
   try {
@@ -55,7 +52,8 @@ export function DeployDialog({
         setTags(prev => (opts.append ? [...prev, ...result.tags] : result.tags))
         setNextPageToken(result.next_page_token)
         setError(false)
-      } catch {
+      } catch (err) {
+        console.error('DeployDialog: fetchTags failed', { productSlug, component: component.slug, opts, err })
         setError(true)
       } finally {
         setLoading(false)
@@ -117,7 +115,7 @@ export function DeployDialog({
 
   const deployEnabled = error ? manualTag.trim().length > 0 : selectedTag !== null
 
-  if (!open || !component) return null
+  if (!open) return null
 
   return (
     <div

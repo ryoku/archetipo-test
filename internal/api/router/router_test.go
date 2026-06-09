@@ -162,7 +162,7 @@ func TestRegisterTagConventionRoutes_RoutesRegistered(t *testing.T) {
 // noopLister is a no-op implementation used to verify tag route registration.
 type noopLister struct{}
 
-func (noopLister) ListTags(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+func (noopLister) ListTags(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
 	return nil, "", nil
 }
 

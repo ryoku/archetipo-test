@@ -402,13 +402,15 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Deploy dialog */}
-      <DeployDialog
-        open={deployComponent !== null}
-        token={accessToken}
-        productSlug={slug ?? ''}
-        component={deployComponent}
-        onClose={() => setDeployComponent(null)}
-      />
+      {deployComponent && (
+        <DeployDialog
+          open={true}
+          token={accessToken}
+          productSlug={slug ?? ''}
+          component={deployComponent}
+          onClose={() => setDeployComponent(null)}
+        />
+      )}
 
       {/* Delete confirm dialog */}
       {deleteTarget && (

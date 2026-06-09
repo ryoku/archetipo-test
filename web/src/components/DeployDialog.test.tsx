@@ -221,4 +221,87 @@ describe('DeployDialog', () => {
 
     vi.useRealTimers()
   })
+
+  it('load more appends tags and hides button when no next token', async () => {
+    vi.useFakeTimers()
+    mockListTags
+      .mockResolvedValueOnce({
+        tags: [{ name: 'v1.0.0', digest: 'd1', pushed_at: '2026-06-01T10:00:00Z' }],
+        next_page_token: 'page2',
+      })
+      .mockResolvedValueOnce({
+        tags: [{ name: 'v1.1.0', digest: 'd2', pushed_at: '2026-05-01T10:00:00Z' }],
+        next_page_token: '',
+      })
+
+    render(<DeployDialog {...defaultProps} />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('v1.0.0')).toBeInTheDocument()
+    const loadMore = screen.getByRole('button', { name: /Carica altri tag/i })
+    expect(loadMore).toBeInTheDocument()
+
+    fireEvent.click(loadMore)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('v1.0.0')).toBeInTheDocument()
+    expect(screen.getByText('v1.1.0')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Carica altri tag/i })).not.toBeInTheDocument()
+
+    vi.useRealTimers()
+  })
+
+  it('calls onDeploy with the selected tag name on Deploy click', async () => {
+    vi.useFakeTimers()
+    mockListTags.mockResolvedValue({
+      tags: [{ name: 'v1.0.0', digest: 'd', pushed_at: '2026-06-01T10:00:00Z' }],
+      next_page_token: '',
+    })
+
+    const onDeploy = vi.fn()
+    const onClose = vi.fn()
+    render(<DeployDialog {...defaultProps} onDeploy={onDeploy} onClose={onClose} />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    fireEvent.click(screen.getByText('v1.0.0'))
+    fireEvent.click(screen.getByRole('button', { name: /Deploy/i }))
+
+    expect(onDeploy).toHaveBeenCalledWith('v1.0.0')
+    expect(onClose).toHaveBeenCalled()
+
+    vi.useRealTimers()
+  })
+
+  it('calls onDeploy with manually entered tag in error state', async () => {
+    vi.useFakeTimers()
+    mockListTags.mockRejectedValue(new Error('network error'))
+
+    const onDeploy = vi.fn()
+    const onClose = vi.fn()
+    render(<DeployDialog {...defaultProps} onDeploy={onDeploy} onClose={onClose} />)
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText(/es\. v1\.14\.1-rc\.1/i), {
+      target: { value: 'v2.0.0-manual' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Deploy/i }))
+
+    expect(onDeploy).toHaveBeenCalledWith('v2.0.0-manual')
+    expect(onClose).toHaveBeenCalled()
+
+    vi.useRealTimers()
+  })
 })

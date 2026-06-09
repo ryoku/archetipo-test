@@ -15,7 +15,7 @@ type Tag struct {
 
 // Lister lists image tags for an Artifact Registry image path.
 type Lister interface {
-	ListTags(ctx context.Context, imagePath, pageToken string, pageSize int) (tags []Tag, nextPageToken string, err error)
+	ListTags(ctx context.Context, imagePath, pageToken, filter string, pageSize int) (tags []Tag, nextPageToken string, err error)
 }
 
 // Typed errors returned by the GCR adapter.
