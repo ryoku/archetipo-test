@@ -63,7 +63,7 @@ func newDeployRouter(
 ) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := handlers.NewDeploymentHandlers(ps, es, cs, ls, applier)
+	h := handlers.NewDeploymentHandlers(ps, es, cs, ls, applier, "")
 
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
@@ -449,4 +449,185 @@ func TestDeploymentLockTimeout_InvalidValueDefaultsTo5s(t *testing.T) {
 	})
 
 	assert.Equal(t, 5*time.Second, capturedTimeout)
+}
+
+// --- Tag convention enforcement tests ---
+
+const tagConventionTestDefault = `^v\d+\.\d+\.\d+$`
+
+var deployFixtureProdEnv = &domain.Environment{
+	ID:          "env-prod-1",
+	ProductID:   "prod-id-1",
+	Name:        "production",
+	Type:        "production",
+	OverlayPath: "apps/production/my-service/my-service-helmrelease.yaml",
+}
+
+func newDeployRouterWithConvention(
+	ps store.ProductStore,
+	es store.EnvironmentStore,
+	cs store.ComponentStore,
+	ls store.DeploymentLockStore,
+	applier handlers.GitOpsApplier,
+	identity *domain.UserIdentity,
+	defaultTagConvention string,
+) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := handlers.NewDeploymentHandlers(ps, es, cs, ls, applier, defaultTagConvention)
+	injectIdentity := func(c *gin.Context) {
+		if identity != nil {
+			c.Set(domain.IdentityContextKey, identity)
+		}
+		c.Next()
+	}
+	api := r.Group("/api/v1", injectIdentity)
+	api.POST("/products/:productSlug/environments/:environmentID/deployments",
+		middleware.RequireRole(domain.RoleEditor), h.Deploy)
+	return r
+}
+
+func TestDeploy_ProductionEnv_NonConformingTag_Returns422(t *testing.T) {
+	r := newDeployRouterWithConvention(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureProdEnv),
+		compStoreWithComp(deployFixtureComp),
+		&mockDeploymentLockStore{}, // nil tryAcquireFn — panics if reached
+		&mockGitOpsApplier{},       // nil applyFn — panics if reached
+		editorIdentityForDeploy("my-service"),
+		tagConventionTestDefault,
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "latest",
+	})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "latest", resp["rejected_tag"])
+	assert.Equal(t, tagConventionTestDefault, resp["applied_regex"])
+	assert.NotEmpty(t, resp["message"])
+}
+
+func TestDeploy_ProductionEnv_ConformingTag_Returns200(t *testing.T) {
+	r := newDeployRouterWithConvention(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureProdEnv),
+		compStoreWithComp(deployFixtureComp),
+		acquiringLockStore(),
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+		tagConventionTestDefault,
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "v1.2.3",
+	})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestDeploy_DevEnv_NonConformingTag_NotValidated_Returns200(t *testing.T) {
+	r := newDeployRouterWithConvention(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv), // dev env
+		compStoreWithComp(deployFixtureComp),
+		acquiringLockStore(),
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+		tagConventionTestDefault,
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "latest",
+	})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestDeploy_ProductionEnv_ProductRegex_OverridesDefault_Returns422(t *testing.T) {
+	productRegex := `^release-\d+$`
+	productWithRegex := &domain.Product{
+		ID:                 "prod-id-1",
+		Name:               "My Service",
+		Slug:               "my-service",
+		TagConventionRegex: &productRegex,
+	}
+	r := newDeployRouterWithConvention(
+		productStoreWithProduct(productWithRegex),
+		envStoreWithEnv(deployFixtureProdEnv),
+		compStoreWithComp(deployFixtureComp),
+		&mockDeploymentLockStore{}, // panics if reached
+		&mockGitOpsApplier{},       // panics if reached
+		editorIdentityForDeploy("my-service"),
+		tagConventionTestDefault,
+	)
+
+	// v1.2.3 matches the default but NOT the product-level regex
+	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "v1.2.3",
+	})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, productRegex, resp["applied_regex"])
+	assert.Equal(t, "v1.2.3", resp["rejected_tag"])
+}
+
+func TestDeploy_ProductionEnv_InvalidStoredRegex_Returns500(t *testing.T) {
+	invalidRegex := `[invalid(`
+	productWithBadRegex := &domain.Product{
+		ID:                 "prod-id-1",
+		Name:               "My Service",
+		Slug:               "my-service",
+		TagConventionRegex: &invalidRegex,
+	}
+	r := newDeployRouterWithConvention(
+		productStoreWithProduct(productWithBadRegex),
+		envStoreWithEnv(deployFixtureProdEnv),
+		compStoreWithComp(deployFixtureComp),
+		&mockDeploymentLockStore{}, // panics if reached
+		&mockGitOpsApplier{},       // panics if reached
+		editorIdentityForDeploy("my-service"),
+		tagConventionTestDefault,
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "v1.2.3",
+	})
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns200(t *testing.T) {
+	productRegex := `^release-\d+$`
+	productWithRegex := &domain.Product{
+		ID:                 "prod-id-1",
+		Name:               "My Service",
+		Slug:               "my-service",
+		TagConventionRegex: &productRegex,
+	}
+	r := newDeployRouterWithConvention(
+		productStoreWithProduct(productWithRegex),
+		envStoreWithEnv(deployFixtureProdEnv),
+		compStoreWithComp(deployFixtureComp),
+		acquiringLockStore(),
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+		tagConventionTestDefault,
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "release-42",
+	})
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }

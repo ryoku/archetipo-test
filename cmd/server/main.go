@@ -72,7 +72,7 @@ func main() {
 		router.RegisterEnvironmentRoutes(productStore, environmentStore),
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
 		router.RegisterTagRoutes(productStore, componentStore, gcrLister),
-		router.RegisterDeploymentRoutes(productStore, environmentStore, componentStore, lockStore, gitopsApplier),
+		router.RegisterDeploymentRoutes(productStore, environmentStore, componentStore, lockStore, gitopsApplier, tagConventionDefault),
 	)
 	registerSPA(r)
 

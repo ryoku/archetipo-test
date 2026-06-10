@@ -22,12 +22,13 @@ type GitOpsApplier interface {
 }
 
 type DeploymentHandlers struct {
-	productStore store.ProductStore
-	envStore     store.EnvironmentStore
-	compStore    store.ComponentStore
-	lockStore    store.DeploymentLockStore
-	applier      GitOpsApplier
-	lockTimeout  time.Duration
+	productStore         store.ProductStore
+	envStore             store.EnvironmentStore
+	compStore            store.ComponentStore
+	lockStore            store.DeploymentLockStore
+	applier              GitOpsApplier
+	lockTimeout          time.Duration
+	defaultTagConvention string
 }
 
 func NewDeploymentHandlers(
@@ -36,14 +37,16 @@ func NewDeploymentHandlers(
 	compStore store.ComponentStore,
 	lockStore store.DeploymentLockStore,
 	applier GitOpsApplier,
+	defaultTagConvention string,
 ) *DeploymentHandlers {
 	return &DeploymentHandlers{
-		productStore: productStore,
-		envStore:     envStore,
-		compStore:    compStore,
-		lockStore:    lockStore,
-		applier:      applier,
-		lockTimeout:  deploymentLockTimeout(),
+		productStore:         productStore,
+		envStore:             envStore,
+		compStore:            compStore,
+		lockStore:            lockStore,
+		applier:              applier,
+		lockTimeout:          deploymentLockTimeout(),
+		defaultTagConvention: defaultTagConvention,
 	}
 }
 
@@ -64,6 +67,12 @@ type deploymentLockResponse struct {
 	Error       string `json:"error"`
 	LockHolder  string `json:"lock_holder"`
 	LockedSince string `json:"locked_since"`
+}
+
+type tagConventionRejectionResponse struct {
+	RejectedTag  string `json:"rejected_tag"`
+	AppliedRegex string `json:"applied_regex"`
+	Message      string `json:"message"`
 }
 
 func (h *DeploymentHandlers) Deploy(c *gin.Context) {
@@ -87,6 +96,10 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 
 	product, env, comp, ok := h.resolveDeployTargets(c, productSlug, environmentID, req.ComponentSlug)
 	if !ok {
+		return
+	}
+
+	if !h.checkTagConvention(c, product, env, req.Tag) {
 		return
 	}
 
@@ -197,6 +210,24 @@ func (h *DeploymentHandlers) applyGitOps(c *gin.Context, productSlug string, env
 	log.Printf("applyGitOps product=%s component=%s env=%s tag=%s: %v", productSlug, comp.Slug, env.Name, tag, err)
 	c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 	return false
+}
+
+func (h *DeploymentHandlers) checkTagConvention(c *gin.Context, product *domain.Product, env *domain.Environment, tag string) bool {
+	violation, err := domain.CheckTagConvention(tag, env.Type, product.TagConventionRegex, h.defaultTagConvention)
+	if err != nil {
+		log.Printf("checkTagConvention product=%s env=%s tag=%s: %v", product.Slug, env.Name, tag, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return false
+	}
+	if violation != nil {
+		c.JSON(http.StatusUnprocessableEntity, tagConventionRejectionResponse{
+			RejectedTag:  violation.RejectedTag,
+			AppliedRegex: violation.AppliedRegex,
+			Message:      fmt.Sprintf("tag '%s' does not match the required production tag convention (%s)", violation.RejectedTag, violation.AppliedRegex),
+		})
+		return false
+	}
+	return true
 }
 
 func actorName(identity *domain.UserIdentity) string {
