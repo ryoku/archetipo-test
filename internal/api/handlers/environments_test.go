@@ -20,6 +20,7 @@ import (
 type mockEnvironmentStore struct {
 	createFn        func(ctx context.Context, e *domain.Environment) error
 	listByProductFn func(ctx context.Context, productID string) ([]domain.Environment, error)
+	getByIDFn       func(ctx context.Context, productID, environmentID string) (*domain.Environment, error)
 	deleteFn        func(ctx context.Context, productID, environmentID string) error
 }
 
@@ -28,6 +29,12 @@ func (m *mockEnvironmentStore) Create(ctx context.Context, e *domain.Environment
 }
 func (m *mockEnvironmentStore) ListByProduct(ctx context.Context, productID string) ([]domain.Environment, error) {
 	return m.listByProductFn(ctx, productID)
+}
+func (m *mockEnvironmentStore) GetByID(ctx context.Context, productID, environmentID string) (*domain.Environment, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, productID, environmentID)
+	}
+	return nil, store.ErrEnvironmentNotFound
 }
 func (m *mockEnvironmentStore) Delete(ctx context.Context, productID, environmentID string) error {
 	return m.deleteFn(ctx, productID, environmentID)

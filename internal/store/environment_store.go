@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ryoku/kubegate/internal/domain"
@@ -23,6 +24,7 @@ var ErrEnvironmentHasDeployments = errors.New("environment has active deployment
 type EnvironmentStore interface {
 	Create(ctx context.Context, e *domain.Environment) error
 	ListByProduct(ctx context.Context, productID string) ([]domain.Environment, error)
+	GetByID(ctx context.Context, productID, environmentID string) (*domain.Environment, error)
 	Delete(ctx context.Context, productID, environmentID string) error
 }
 
@@ -76,6 +78,23 @@ func (s *pgxEnvironmentStore) ListByProduct(ctx context.Context, productID strin
 		return nil, fmt.Errorf("list environments rows: %w", err)
 	}
 	return environments, nil
+}
+
+func (s *pgxEnvironmentStore) GetByID(ctx context.Context, productID, environmentID string) (*domain.Environment, error) {
+	var e domain.Environment
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, product_id, name, type, overlay_path, created_at
+		 FROM environments
+		 WHERE product_id = $1 AND id = $2`,
+		productID, environmentID,
+	).Scan(&e.ID, &e.ProductID, &e.Name, &e.Type, &e.OverlayPath, &e.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrEnvironmentNotFound
+		}
+		return nil, fmt.Errorf("get environment by id: %w", err)
+	}
+	return &e, nil
 }
 
 func (s *pgxEnvironmentStore) Delete(ctx context.Context, productID, environmentID string) error {
