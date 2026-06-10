@@ -296,6 +296,7 @@ func TestSetAndGetTagConvention(t *testing.T) {
 	}
 	if got == nil {
 		t.Fatal("expected non-nil pointer after SetTagConvention, got nil")
+		return
 	}
 	if *got != regex {
 		t.Errorf("expected regex %q, got %q", regex, *got)

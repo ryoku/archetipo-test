@@ -14,9 +14,10 @@ type PatchInputField string
 const (
 	FieldImageName PatchInputField = "imageName"
 	FieldNewTag    PatchInputField = "newTag"
+	FieldWorkload  PatchInputField = "workload"
 )
 
-// PatchInputError is returned when PatchImage receives invalid input.
+// PatchInputError is returned when a patch function receives invalid input.
 type PatchInputError struct {
 	Field  PatchInputField
 	Reason string
