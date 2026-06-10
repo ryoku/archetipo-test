@@ -13,6 +13,7 @@ import ProductHero from '../components/ProductHero'
 import ProductSubNav from '../components/ProductSubNav'
 import ProductNotFound from '../components/ProductNotFound'
 import ConfirmDeleteFooter from '../components/ConfirmDeleteFooter'
+import { DeployDialog } from '../components/DeployDialog'
 
 interface FormState {
   name: string
@@ -43,9 +44,10 @@ interface ComponentsContentProps {
   readonly components: Component[]
   readonly canWrite: boolean
   readonly onDelete: (comp: Component) => void
+  readonly onDeploy: (comp: Component) => void
 }
 
-function ComponentsContent({ loading, components, canWrite, onDelete }: ComponentsContentProps) {
+function ComponentsContent({ loading, components, canWrite, onDelete, onDeploy }: ComponentsContentProps) {
   if (loading) {
     return (
       <div className="pd-loading">
@@ -89,18 +91,32 @@ function ComponentsContent({ loading, components, canWrite, onDelete }: Componen
               <td><span className="pd-comp-path-str">{comp.gcr_image_path}</span></td>
               <td><span className="pd-comp-date">{formatDate(comp.created_at)}</span></td>
               <td>
-                {canWrite && (
-                  <button
-                    className="pd-btn-danger"
-                    onClick={() => onDelete(comp)}
-                    aria-label={`Delete ${comp.name}`}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5l.5-7" />
-                    </svg>
-                    Delete
-                  </button>
-                )}
+                <div className="pd-row-actions">
+                  {canWrite && (
+                    <button
+                      className="pd-btn-deploy"
+                      onClick={() => onDeploy(comp)}
+                      aria-label={`Deploy ${comp.name}`}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M6 1L10 5H7.5V10H4.5V5H2L6 1Z" />
+                      </svg>
+                      Deploy
+                    </button>
+                  )}
+                  {canWrite && (
+                    <button
+                      className="pd-btn-danger"
+                      onClick={() => onDelete(comp)}
+                      aria-label={`Delete ${comp.name}`}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5l.5-7" />
+                      </svg>
+                      Delete
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -136,6 +152,9 @@ export default function ProductDetailPage() {
   // Delete confirm dialog state
   const [deleteTarget, setDeleteTarget] = useState<Component | null>(null)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
+
+  // Deploy dialog state
+  const [deployComponent, setDeployComponent] = useState<Component | null>(null)
 
   useEffect(() => {
     if (!slug || !accessToken) return
@@ -377,9 +396,21 @@ export default function ProductDetailPage() {
             components={components}
             canWrite={canWrite}
             onDelete={(comp) => setDeleteTarget(comp)}
+            onDeploy={(comp) => setDeployComponent(comp)}
           />
         </div>
       </div>
+
+      {/* Deploy dialog */}
+      {deployComponent && (
+        <DeployDialog
+          open={true}
+          token={accessToken}
+          productSlug={slug ?? ''}
+          component={deployComponent}
+          onClose={() => setDeployComponent(null)}
+        />
+      )}
 
       {/* Delete confirm dialog */}
       {deleteTarget && (

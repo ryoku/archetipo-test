@@ -64,7 +64,7 @@ func newRealProvider(ar *artifactregistry.Client) versionsProvider {
 // ListTags returns image tags for the given Artifact Registry image path,
 // sorted by push timestamp descending. pageSize is clamped to [1, 100];
 // a zero value uses the default of 20.
-func (c *Client) ListTags(ctx context.Context, imagePath, pageToken string, pageSize int) ([]Tag, string, error) {
+func (c *Client) ListTags(ctx context.Context, imagePath, pageToken, filter string, pageSize int) ([]Tag, string, error) {
 	if pageSize <= 0 {
 		pageSize = defaultPageSize
 	}
@@ -86,6 +86,21 @@ func (c *Client) ListTags(ctx context.Context, imagePath, pageToken string, page
 	sort.SliceStable(tags, func(i, j int) bool {
 		return tags[i].PushedAt.After(tags[j].PushedAt)
 	})
+
+	if filter != "" {
+		filtered := tags[:0]
+		for _, t := range tags {
+			if strings.HasPrefix(t.Name, filter) {
+				filtered = append(filtered, t)
+			}
+		}
+		tags = filtered
+		// Pagination is disabled when a filter is active: the next AR page token
+		// was produced from a page that may have mostly unmatched items, so
+		// returning it would cause "load more" to loop over mostly-empty pages.
+		nextToken = ""
+	}
+
 	return tags, nextToken, nil
 }
 

@@ -81,7 +81,12 @@ func (h *TagHandlers) ListTags(c *gin.Context) {
 		pageSize = n
 	}
 
-	tags, nextToken, err := h.lister.ListTags(c.Request.Context(), comp.GCRImagePath, pageToken, pageSize)
+	filter := c.Query("filter")
+	if len(filter) > 200 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "filter must be 200 characters or fewer"})
+		return
+	}
+	tags, nextToken, err := h.lister.ListTags(c.Request.Context(), comp.GCRImagePath, pageToken, filter, pageSize)
 	if err != nil {
 		h.replyListerError(c, productSlug, componentSlug, err)
 		return
@@ -110,6 +115,7 @@ func (h *TagHandlers) replyListerError(c *gin.Context, productSlug, componentSlu
 	case errors.Is(err, gcr.ErrRepoNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "image repository not found"})
 	case errors.Is(err, gcr.ErrRateLimit):
+		log.Printf("ListTags %s/%s: Artifact Registry rate limit: %v", productSlug, componentSlug, err)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Artifact Registry rate limit exceeded"})
 	case errors.Is(err, gcr.ErrAuthFailure):
 		log.Printf("ListTags %s/%s: authentication failure: %v", productSlug, componentSlug, err)

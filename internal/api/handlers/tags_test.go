@@ -20,12 +20,12 @@ import (
 // --- mock Lister ---
 
 type mockLister struct {
-	listTagsFn func(ctx context.Context, imagePath, pageToken string, pageSize int) ([]gcr.Tag, string, error)
+	listTagsFn func(ctx context.Context, imagePath, pageToken, filter string, pageSize int) ([]gcr.Tag, string, error)
 }
 
-func (m *mockLister) ListTags(ctx context.Context, imagePath, pageToken string, pageSize int) ([]gcr.Tag, string, error) {
+func (m *mockLister) ListTags(ctx context.Context, imagePath, pageToken, filter string, pageSize int) ([]gcr.Tag, string, error) {
 	if m.listTagsFn != nil {
-		return m.listTagsFn(ctx, imagePath, pageToken, pageSize)
+		return m.listTagsFn(ctx, imagePath, pageToken, filter, pageSize)
 	}
 	return nil, "", nil
 }
@@ -96,7 +96,7 @@ func tagCompStoreNotFound() store.ComponentStore {
 func TestTagHandler_ListTags_OK(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
 			return []gcr.Tag{
 				{Name: "v1.0.0", Digest: "sha256:aaa", PushedAt: now},
 				{Name: "latest", Digest: "sha256:aaa", PushedAt: now},
@@ -155,7 +155,7 @@ func TestTagHandler_ListTags_EmptyResult(t *testing.T) {
 func TestTagHandler_ListTags_PageSizeForwarded(t *testing.T) {
 	var got int
 	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _ string, pageSize int) ([]gcr.Tag, string, error) {
+		listTagsFn: func(_ context.Context, _, _, _ string, pageSize int) ([]gcr.Tag, string, error) {
 			got = pageSize
 			return nil, "", nil
 		},
@@ -207,7 +207,7 @@ func TestTagHandler_ListTags_ComponentNotFound(t *testing.T) {
 
 func TestTagHandler_ListTags_GCRRateLimit(t *testing.T) {
 	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
 			return nil, "", fmt.Errorf("%w: quota exceeded", gcr.ErrRateLimit)
 		},
 	}
@@ -222,7 +222,7 @@ func TestTagHandler_ListTags_GCRRateLimit(t *testing.T) {
 
 func TestTagHandler_ListTags_GCRAuthFailure(t *testing.T) {
 	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
 			return nil, "", fmt.Errorf("%w: invalid credentials", gcr.ErrAuthFailure)
 		},
 	}
@@ -237,7 +237,7 @@ func TestTagHandler_ListTags_GCRAuthFailure(t *testing.T) {
 
 func TestTagHandler_ListTags_GCRNetworkError(t *testing.T) {
 	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
 			return nil, "", fmt.Errorf("%w: connection refused", gcr.ErrNetwork)
 		},
 	}
@@ -267,7 +267,7 @@ func TestTagHandler_ListTags_EmptyGCRImagePath(t *testing.T) {
 
 func TestTagHandler_ListTags_GCRRepoNotFound(t *testing.T) {
 	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _ string, _ int) ([]gcr.Tag, string, error) {
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
 			return nil, "", fmt.Errorf("%w: repository not found", gcr.ErrRepoNotFound)
 		},
 	}
@@ -283,7 +283,7 @@ func TestTagHandler_ListTags_GCRRepoNotFound(t *testing.T) {
 func TestTagHandler_ListTags_PageTokenForwarded(t *testing.T) {
 	var gotToken string
 	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, pageToken string, _ int) ([]gcr.Tag, string, error) {
+		listTagsFn: func(_ context.Context, _, pageToken, _ string, _ int) ([]gcr.Tag, string, error) {
 			gotToken = pageToken
 			return nil, "", nil
 		},
@@ -308,5 +308,26 @@ func TestTagHandler_ListTags_Unauthenticated(t *testing.T) {
 	// No identity → RequireRole middleware aborts with 401
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_FilterForwarded(t *testing.T) {
+	var gotFilter string
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, _, _, filter string, _ int) ([]gcr.Tag, string, error) {
+			gotFilter = filter
+			return nil, "", nil
+		},
+	}
+	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags?filter=v1", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if gotFilter != "v1" {
+		t.Errorf("expected filter %q forwarded to lister, got %q", "v1", gotFilter)
 	}
 }
