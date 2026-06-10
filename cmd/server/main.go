@@ -61,15 +61,19 @@ func main() {
 
 	gcrCtx, gcrCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer gcrCancel()
+	var gcrLister gcr.Lister
 	gcrClient, err := gcr.NewClient(gcrCtx)
 	if err != nil {
-		log.Fatalf("Artifact Registry client: %v", err)
+		log.Printf("Artifact Registry client unavailable (tag listing disabled): %v", err)
+		gcrLister = gcr.Disabled()
+	} else {
+		defer func() {
+			if err := gcrClient.Close(); err != nil {
+				log.Printf("gcr client close: %v", err)
+			}
+		}()
+		gcrLister = gcrClient
 	}
-	defer func() {
-		if err := gcrClient.Close(); err != nil {
-			log.Printf("gcr client close: %v", err)
-		}
-	}()
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -82,7 +86,7 @@ func main() {
 		router.RegisterComponentRoutes(productStore, componentStore),
 		router.RegisterEnvironmentRoutes(productStore, environmentStore),
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
-		router.RegisterTagRoutes(productStore, componentStore, gcrClient),
+		router.RegisterTagRoutes(productStore, componentStore, gcrLister),
 	)
 	registerSPA(r)
 

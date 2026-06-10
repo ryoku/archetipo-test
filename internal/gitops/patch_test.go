@@ -19,11 +19,11 @@ func TestPatchImage_InvalidInput(t *testing.T) {
 		name      string
 		imageName string
 		newTag    string
-		field     string
+		field     PatchInputField
 		reason    string
 	}{
-		{"empty imageName", "", "v1.0.0", "imageName", "must not be empty"},
-		{"empty newTag", "gcr.io/proj/svc", "", "newTag", "must not be empty"},
+		{"empty imageName", "", "v1.0.0", FieldImageName, "must not be empty"},
+		{"empty newTag", "gcr.io/proj/svc", "", FieldNewTag, "must not be empty"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestPatchImage_InvalidInput(t *testing.T) {
 			if pe.Reason != tt.reason {
 				t.Errorf("Reason = %q, want %q", pe.Reason, tt.reason)
 			}
-			if got := pe.Error(); !strings.Contains(got, tt.field) {
+			if got := pe.Error(); !strings.Contains(got, string(tt.field)) {
 				t.Errorf("Error() = %q, want it to contain %q", got, tt.field)
 			}
 		})
@@ -195,6 +195,45 @@ func TestPatchImage_NonMappingRoot(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for non-mapping YAML root, got nil")
 	}
+}
+
+func TestPatchImage_NewNamePreservedOnTargetEntry(t *testing.T) {
+	input := []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+  - name: gcr.io/proj/svc
+    newName: private.registry.io/proj/svc
+    newTag: v1.0.0
+`)
+	out, err := PatchImage(input, "gcr.io/proj/svc", "v1.2.0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	k := parseKustomization(t, out)
+	if len(k.Images) != 1 {
+		t.Fatalf("len(images) = %d, want 1", len(k.Images))
+	}
+	assertImage(t, k.Images[0], "gcr.io/proj/svc", "v1.2.0")
+	if k.Images[0].NewName != "private.registry.io/proj/svc" {
+		t.Errorf("newName = %q, want %q", k.Images[0].NewName, "private.registry.io/proj/svc")
+	}
+}
+
+func TestPatchImage_NullImagesValue(t *testing.T) {
+	// Kustomization with an explicit null images key should append a new entry.
+	input := []byte(`apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+`)
+	out, err := PatchImage(input, "gcr.io/proj/svc", "v1.0.0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	k := parseKustomization(t, out)
+	if len(k.Images) != 1 {
+		t.Fatalf("len(images) = %d, want 1", len(k.Images))
+	}
+	assertImage(t, k.Images[0], "gcr.io/proj/svc", "v1.0.0")
 }
 
 func parseKustomization(t *testing.T, data []byte) testKustomization {

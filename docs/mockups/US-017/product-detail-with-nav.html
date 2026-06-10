@@ -91,65 +91,43 @@
         </div>
       </div>
 
-      <!--
-        ┌──────────────────────────────────────────────────────────────┐
-        │  NEW in US-017: Sub-navigation between Components and         │
-        │  Environments. "Components" tab is currently active.          │
-        │  The "Environments" tab links to /products/:slug/environments │
-        └──────────────────────────────────────────────────────────────┘
-      -->
+      <!-- Sub-navigation: Environments only (Components removed — workloads discovered from HelmRelease) -->
       <nav class="page-subnav">
-        <!-- Components (active) -->
-        <a href="../US-014/index.html" class="subnav-link active">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="12" height="10" rx="2"/>
-            <path d="M5 2v10M9 2v10M1 6h12M1 9h12"/>
-          </svg>
-          Components
-          <span class="nav-badge" style="margin-left:2px;font-size:9px;">3</span>
-        </a>
-
-        <!-- Environments (new link — US-017) -->
-        <a href="index.html" class="subnav-link" id="envNavLink"
-           style="position:relative;">
+        <a href="index.html" class="subnav-link active">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M2 3h10a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/>
             <path d="M4 3V2M10 3V2M1 7h12"/>
           </svg>
           Environments
           <span class="nav-badge" style="margin-left:2px;font-size:9px;">3</span>
-
-          <!-- Annotation callout -->
-          <span style="
-            position:absolute;
-            top:-36px; left:0;
-            background:var(--accent);
-            color:var(--bg-base);
-            font-size:10px; font-weight:600;
-            padding:3px 8px;
-            border-radius:6px;
-            white-space:nowrap;
-            pointer-events:none;
-            box-shadow:0 4px 12px rgba(0,195,170,.4);
-          ">← NEW in US-017</span>
         </a>
       </nav>
     </div><!-- /page-top -->
 
-    <!-- Body: Components section (existing, unmodified) -->
+    <!-- Body: Workloads (read-only, discovered from HelmRelease) -->
     <div class="page-body">
+
+      <!-- Discovery notice -->
+      <div style="display:flex;align-items:flex-start;gap:9px;background:rgba(123,156,232,.07);border:1px solid rgba(123,156,232,.2);border-radius:var(--r-md);padding:9px 13px;font-size:12px;color:var(--env-intg);margin-bottom:16px;">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px">
+          <circle cx="7" cy="7" r="6"/><path d="M7 5v3M7 9.5v.5"/>
+        </svg>
+        I workload non sono registrati in KubeGate. Vengono scoperti automaticamente dalla HelmRelease
+        (<span style="font-family:var(--font-mono);font-size:10px;">spec.values.[workload].image</span>)
+        al momento del deploy.
+      </div>
 
       <div class="section-head">
         <div>
-          <div class="section-label">Registered Components</div>
-          <div class="section-sub">Each component maps to a Google Artifact Registry image repository.</div>
+          <div class="section-label">Workload scoperti</div>
+          <div class="section-sub" style="font-size:11px;color:var(--text-muted);">
+            Da <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-code);">apps/dev/platform-api/platform-api-helmrelease.yaml</span>
+          </div>
         </div>
-        <button class="btn btn-primary btn-sm">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 2v8M2 6h8"/>
-          </svg>
-          Add Component
-        </button>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+          <div class="dot dot-ok"></div>
+          HelmRelease sincronizzata
+        </div>
       </div>
 
       <div class="card">
@@ -157,60 +135,32 @@
           <table>
             <thead>
               <tr>
-                <th>Component</th>
-                <th>GCR Image Path</th>
-                <th>Added</th>
-                <th></th>
+                <th>Workload</th>
+                <th>Repository GCR <span style="font-weight:400;color:var(--text-muted);font-family:var(--font-body);">(da HelmRelease)</span></th>
+                <th>Sezione HelmRelease</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td style="padding-left:18px;">
-                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">api</div>
-                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:2px;">api</div>
+                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">main</div>
                 </td>
-                <td><span class="env-path-str">europe-west1-docker.pkg.dev/acme/platform/api</span></td>
-                <td><span class="env-date">14 Nov 2025</span></td>
-                <td style="text-align:right;padding-right:14px;">
-                  <button class="btn btn-danger btn-sm">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
-                    </svg>
-                    Delete
-                  </button>
-                </td>
+                <td><span class="env-path-str" style="font-size:10px;">europe-west4-docker.pkg.dev/mms-mit-infra-service-registry/release-candidates/platform-api-be</span></td>
+                <td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">spec.values.main</span></td>
               </tr>
               <tr>
                 <td style="padding-left:18px;">
-                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">worker</div>
-                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:2px;">worker</div>
+                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">cron</div>
                 </td>
-                <td><span class="env-path-str">europe-west1-docker.pkg.dev/acme/platform/worker</span></td>
-                <td><span class="env-date">14 Nov 2025</span></td>
-                <td style="text-align:right;padding-right:14px;">
-                  <button class="btn btn-danger btn-sm">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
-                    </svg>
-                    Delete
-                  </button>
-                </td>
+                <td><span class="env-path-str" style="font-size:10px;">europe-west4-docker.pkg.dev/mms-mit-infra-service-registry/release-candidates/platform-api-be</span></td>
+                <td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">spec.values.cron</span></td>
               </tr>
               <tr>
                 <td style="padding-left:18px;border-bottom:none;">
-                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">frontend</div>
-                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:2px;">frontend</div>
+                  <div style="font-size:13px;font-weight:500;color:var(--text-primary);">ui</div>
                 </td>
-                <td style="border-bottom:none;"><span class="env-path-str">europe-west1-docker.pkg.dev/acme/platform/frontend</span></td>
-                <td style="border-bottom:none;"><span class="env-date">20 Nov 2025</span></td>
-                <td style="text-align:right;padding-right:14px;border-bottom:none;">
-                  <button class="btn btn-danger btn-sm">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/>
-                    </svg>
-                    Delete
-                  </button>
-                </td>
+                <td style="border-bottom:none;"><span class="env-path-str" style="font-size:10px;">europe-west4-docker.pkg.dev/mms-mit-infra-service-registry/release-candidates/platform-api-fe</span></td>
+                <td style="border-bottom:none;"><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">spec.values.ui</span></td>
               </tr>
             </tbody>
           </table>

@@ -25,3 +25,13 @@ var (
 	ErrRateLimit    = errors.New("API rate limit exceeded")
 	ErrNetwork      = errors.New("network error")
 )
+
+type disabledLister struct{}
+
+func (disabledLister) ListTags(_ context.Context, _, _, _ string, _ int) ([]Tag, string, error) {
+	return nil, "", ErrAuthFailure
+}
+
+// Disabled returns a Lister that always returns ErrAuthFailure.
+// Use it when GCP credentials are not available (e.g. local dev without ADC).
+func Disabled() Lister { return disabledLister{} }

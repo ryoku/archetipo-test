@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KubeGate — US-014 · Components CRUD</title>
+<title>KubeGate — US-014 · Workloads (discovery)</title>
 <link rel="stylesheet" href="../kubegate/shared.css">
 <style>
 /* ─── US-014 specific overrides ─────────────────────────────── */
@@ -381,89 +381,44 @@
 
       <!-- Tabs -->
       <div class="tabs mb-4">
-        <button class="tab-btn active" data-tab="components">Components</button>
+        <button class="tab-btn active" data-tab="components">Workloads</button>
         <button class="tab-btn" data-tab="matrix">Deployment Matrix</button>
         <button class="tab-btn" data-tab="history">History</button>
         <button class="tab-btn" data-tab="team">Team</button>
       </div>
 
-      <!-- ══ COMPONENTS TAB ════════════════════════════════════ -->
+      <!-- ══ WORKLOADS TAB (discovery, read-only) ════════════════ -->
       <div id="tab-components" class="tab-panel active">
 
-        <!-- Viewer notice (hidden when editor) -->
-        <div class="viewer-notice hidden" id="viewerNotice">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0">
+        <!-- Discovery notice -->
+        <div class="viewer-notice" style="display:flex;margin-bottom:14px;">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;margin-top:1px">
             <circle cx="7" cy="7" r="6"/><path d="M7 5v3M7 9.5v.5"/>
           </svg>
-          Hai accesso in sola lettura a questo prodotto. Contatta un Editor o un DevOps Admin per aggiungere o rimuovere component.
+          I workload non sono registrati in KubeGate. Vengono scoperti automaticamente dalla HelmRelease del prodotto nel repo gitops al momento del deploy.
         </div>
 
         <!-- Section header -->
         <div class="section-head">
           <div>
-            <div class="section-label">Component registrati</div>
-            <div class="text-xs text-muted mt-1">Ogni component è collegato al proprio repository immagine su Google Artifact Registry</div>
+            <div class="section-label">Workload scoperti</div>
+            <div class="text-xs text-muted mt-1">Repository GCR letti da <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-code);">spec.values.[workload].image.repository</span> nella HelmRelease</div>
           </div>
-          <button class="btn btn-primary btn-sm editor-only" id="addComponentBtn" onclick="openInlineForm()">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M6 2v8M2 6h8"/>
-            </svg>
-            Aggiungi component
-          </button>
-        </div>
-
-        <!-- Inline add form (hidden by default) -->
-        <div class="inline-form hidden" id="inlineForm">
-          <div class="inline-form-title">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M6.5 1L11 5.5H8V11H5V5.5H2L6.5 1Z"/>
-            </svg>
-            Nuovo component
-          </div>
-          <div class="form-row">
-            <div class="field" style="margin-bottom:0">
-              <label class="field-label" for="compName">Nome *</label>
-              <input class="input" id="compName" type="text" placeholder="es. api-gateway"
-                     oninput="syncSlug(this.value)" autocomplete="off">
-              <div class="field-hint" id="nameHint">display name del component</div>
-            </div>
-            <div class="field" style="margin-bottom:0">
-              <label class="field-label" for="compSlug">Slug *</label>
-              <input class="input text-mono" id="compSlug" type="text"
-                     placeholder="es. api-gateway" autocomplete="off"
-                     style="font-family:var(--font-mono);font-size:12px;">
-              <div class="field-hint" id="slugHint">identificatore URL-safe</div>
-            </div>
-            <div class="field" style="margin-bottom:0">
-              <label class="field-label" for="compGcr">GCR Image Path *</label>
-              <input class="input text-mono" id="compGcr" type="text"
-                     placeholder="europe-west1-docker.pkg.dev/project/repo/image"
-                     autocomplete="off"
-                     style="font-family:var(--font-mono);font-size:11px;">
-              <div class="field-hint" id="gcrHint">percorso completo Artifact Registry</div>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-ghost btn-sm" onclick="closeInlineForm()">Annulla</button>
-            <button class="btn btn-primary btn-sm" onclick="saveComponent()">
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M1.5 5.5l3 3L9.5 2.5"/>
-              </svg>
-              Salva component
-            </button>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+            <div class="dot dot-ok"></div>
+            HelmRelease sincronizzata
           </div>
         </div>
 
-        <!-- Component table -->
+        <!-- Workload table (read-only) -->
         <div class="card" style="padding:0;overflow:hidden;">
           <div class="tbl-wrap">
             <table class="comp-table" id="compTable">
               <thead>
                 <tr>
-                  <th style="padding-left:18px;">Component</th>
-                  <th>GCR Image Path</th>
-                  <th>Aggiunto il</th>
-                  <th class="editor-only" style="text-align:right;padding-right:18px;"></th>
+                  <th style="padding-left:18px;">Workload</th>
+                  <th>Repository GCR <span style="font-weight:400;color:var(--text-muted);font-family:var(--font-body);">(da HelmRelease)</span></th>
+                  <th>Sezione HelmRelease</th>
                 </tr>
               </thead>
               <tbody id="compTbody">
@@ -471,22 +426,9 @@
               </tbody>
             </table>
           </div>
-
-          <!-- Empty state (shown when no components) -->
-          <div class="empty-state hidden" id="emptyState">
-            <div class="empty-icon">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-muted)">
-                <rect x="2" y="3" width="14" height="12" rx="2"/>
-                <path d="M6 3v12M12 3v12M2 7h14M2 11h14"/>
-              </svg>
-            </div>
-            <div class="empty-title">Nessun component registrato</div>
-            <div class="empty-sub editor-only">Aggiungi il primo component con il pulsante in alto</div>
-            <div class="empty-sub viewer-only hidden">Contatta un Editor per aggiungere component</div>
-          </div>
         </div>
 
-      </div><!-- /components tab -->
+      </div><!-- /workloads tab -->
 
       <!-- ══ DEPLOYMENT MATRIX TAB ═════════════════════════════ -->
       <div id="tab-matrix" class="tab-panel">
@@ -495,7 +437,7 @@
             <table class="matrix">
               <thead>
                 <tr>
-                  <th class="component-th">Component</th>
+                  <th class="component-th">Workload</th>
                   <th><div class="env-header"><div class="env-dot dev"></div><span>development</span></div></th>
                   <th><div class="env-header"><div class="env-dot intg"></div><span>integration</span></div></th>
                   <th><div class="env-header"><div class="env-dot prod"></div><span>production</span></div></th>
@@ -541,7 +483,7 @@
           <table>
             <thead>
               <tr>
-                <th>Utente</th><th>Component</th><th>Ambiente</th>
+                <th>Utente</th><th>Workload</th><th>Ambiente</th>
                 <th>Tag</th><th>Data</th><th>Commit</th><th>Stato</th>
               </tr>
             </thead>
@@ -649,34 +591,12 @@
 let currentRole = 'editor'; // 'editor' | 'viewer'
 let deleteTarget = null;
 
-let components = [
-  {
-    id: 1,
-    name: 'api',
-    slug: 'api',
-    gcr: 'europe-west1-docker.pkg.dev/acme/platform/api',
-    createdAt: '2025-11-14',
-    hasDeployments: true,
-  },
-  {
-    id: 2,
-    name: 'worker',
-    slug: 'worker',
-    gcr: 'europe-west1-docker.pkg.dev/acme/platform/worker',
-    createdAt: '2025-11-14',
-    hasDeployments: true,
-  },
-  {
-    id: 3,
-    name: 'frontend',
-    slug: 'frontend',
-    gcr: 'europe-west1-docker.pkg.dev/acme/platform/frontend',
-    createdAt: '2025-11-20',
-    hasDeployments: false,
-  },
+// Workloads are discovered from the HelmRelease at runtime — not registered in KubeGate
+const workloads = [
+  { name: 'main',     gcr: 'europe-west4-docker.pkg.dev/mms-mit-infra-service-registry/release-candidates/platform-api-be',  section: 'spec.values.main' },
+  { name: 'cron',     gcr: 'europe-west4-docker.pkg.dev/mms-mit-infra-service-registry/release-candidates/platform-api-be',  section: 'spec.values.cron' },
+  { name: 'ui',       gcr: 'europe-west4-docker.pkg.dev/mms-mit-infra-service-registry/release-candidates/platform-api-fe',  section: 'spec.values.ui' },
 ];
-
-let nextId = 4;
 
 // ─── Role switching ───────────────────────────────────────────
 function setRole(role) {
@@ -731,158 +651,18 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-// ─── Render component rows ────────────────────────────────────
-function renderComponents(newId) {
+// ─── Render workload rows (read-only, discovered from HelmRelease) ──
+function renderComponents() {
   const tbody = document.getElementById('compTbody');
-  const empty = document.getElementById('emptyState');
-  const isEditor = currentRole === 'editor';
-
-  if (components.length === 0) {
-    tbody.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
-  }
-
-  empty.classList.add('hidden');
-
-  tbody.innerHTML = components.map(c => {
-    const isNew = c.id === newId;
-    const actionsCell = isEditor ? `
-      <td class="comp-actions editor-only" style="padding-right:14px;">
-        ${c.hasDeployments
-          ? `<button class="btn btn-sm btn-ghost" title="Blocked: ha deployment attivi" style="opacity:.4;cursor:not-allowed;" disabled>
-               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/></svg>
-             </button>
-             <span class="badge badge-warn badge-blocked" style="margin-left:4px;">ha deployment</span>`
-          : `<button class="btn btn-danger btn-sm" onclick="openDeleteModal(${c.id})" title="Rimuovi ${c.name}">
-               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h6a.5.5 0 00.5-.5l.5-7"/></svg>
-               Rimuovi
-             </button>`
-        }
+  tbody.innerHTML = workloads.map(w => `
+    <tr>
+      <td class="comp-name-cell" style="padding-left:18px;">
+        <div class="comp-name-str">${w.name}</div>
       </td>
-    ` : '';
-
-    return `
-      <tr class="${isNew ? 'comp-row-new' : ''}">
-        <td class="comp-name-cell" style="padding-left:18px;">
-          <div class="comp-name-str">${c.name}</div>
-          <div class="comp-slug-str">${c.slug}</div>
-        </td>
-        <td>
-          <span class="comp-path-str">${c.gcr}</span>
-        </td>
-        <td>
-          <span class="comp-date">${c.createdAt}</span>
-        </td>
-        ${actionsCell}
-      </tr>
-    `;
-  }).join('');
-}
-
-// ─── Inline form ──────────────────────────────────────────────
-function openInlineForm() {
-  document.getElementById('inlineForm').classList.remove('hidden');
-  document.getElementById('compName').value = '';
-  document.getElementById('compSlug').value = '';
-  document.getElementById('compGcr').value = '';
-  clearFieldErrors();
-  document.getElementById('compName').focus();
-  document.getElementById('addComponentBtn').classList.add('hidden');
-}
-
-function closeInlineForm() {
-  document.getElementById('inlineForm').classList.add('hidden');
-  clearFieldErrors();
-  if (currentRole === 'editor') {
-    document.getElementById('addComponentBtn').classList.remove('hidden');
-  }
-}
-
-function clearFieldErrors() {
-  ['nameHint','slugHint','gcrHint'].forEach(id => {
-    const el = document.getElementById(id);
-    el.className = 'field-hint';
-  });
-  ['compName','compSlug','compGcr'].forEach(id => {
-    document.getElementById(id).style.borderColor = '';
-  });
-}
-
-function syncSlug(val) {
-  const slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  document.getElementById('compSlug').value = slug;
-}
-
-function showFieldError(inputId, hintId, msg) {
-  const input = document.getElementById(inputId);
-  const hint  = document.getElementById(hintId);
-  input.style.borderColor = 'var(--danger)';
-  hint.className = 'field-error';
-  hint.textContent = msg;
-}
-
-function saveComponent() {
-  const name = document.getElementById('compName').value.trim();
-  const slug = document.getElementById('compSlug').value.trim();
-  const gcr  = document.getElementById('compGcr').value.trim();
-
-  clearFieldErrors();
-
-  let valid = true;
-  if (!name) { showFieldError('compName','nameHint','Il nome è obbligatorio'); valid = false; }
-  if (!slug) { showFieldError('compSlug','slugHint','Lo slug è obbligatorio'); valid = false; }
-  else if (!/^[a-z0-9][a-z0-9\-]*[a-z0-9]$/.test(slug) && slug.length > 1) {
-    showFieldError('compSlug','slugHint','Solo lettere minuscole, cifre e trattini'); valid = false;
-  }
-  if (!gcr)  { showFieldError('compGcr','gcrHint','Il percorso GCR è obbligatorio'); valid = false; }
-
-  if (!valid) return;
-
-  const id = nextId++;
-  const today = new Date().toISOString().slice(0,10);
-  components.unshift({ id, name, slug, gcr, createdAt: today, hasDeployments: false });
-
-  closeInlineForm();
-  renderComponents(id);
-  showToast(`Component <strong>${name}</strong> aggiunto`, 'ok');
-}
-
-// ─── Delete modal ─────────────────────────────────────────────
-function openDeleteModal(id) {
-  const comp = components.find(c => c.id === id);
-  if (!comp) return;
-  deleteTarget = comp;
-
-  document.getElementById('deleteName').textContent = comp.name;
-  document.getElementById('deleteSlug').textContent = comp.slug;
-  document.getElementById('deleteGcr').textContent  = comp.gcr;
-
-  const blocked = comp.hasDeployments;
-  document.getElementById('blockedWarn').classList.toggle('hidden', !blocked);
-  document.getElementById('deleteWarn').classList.toggle('hidden', blocked);
-  document.getElementById('confirmDeleteBtn').disabled = blocked;
-  document.getElementById('confirmDeleteBtn').style.opacity = blocked ? '0.38' : '1';
-
-  document.getElementById('deleteBackdrop').classList.remove('hidden');
-}
-
-function closeDeleteModal() {
-  document.getElementById('deleteBackdrop').classList.add('hidden');
-  deleteTarget = null;
-}
-
-function closeDeleteIfOutside(e) {
-  if (e.target === document.getElementById('deleteBackdrop')) closeDeleteModal();
-}
-
-function confirmDelete() {
-  if (!deleteTarget) return;
-  const name = deleteTarget.name;
-  components = components.filter(c => c.id !== deleteTarget.id);
-  closeDeleteModal();
-  renderComponents();
-  showToast(`Component <strong>${name}</strong> rimosso`, 'ok');
+      <td><span class="comp-path-str">${w.gcr}</span></td>
+      <td><span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">${w.section}</span></td>
+    </tr>
+  `).join('');
 }
 
 // ─── Toast ────────────────────────────────────────────────────
@@ -903,6 +683,9 @@ function showToast(html, type) {
 // ─── Init ─────────────────────────────────────────────────────
 renderComponents();
 setRole('editor');
+
+// The delete modal and CRUD code have been removed.
+// Workloads are read-only — discovered from the HelmRelease at runtime.
 </script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 # KubeGate - Product Requirements Document
 
 **Author:** ARchetipo
-**Date:** 2026-05-31
-**Version:** 1.0
+**Date:** 2026-06-10
+**Version:** 1.1
 
 ---
 
@@ -89,10 +89,10 @@ Terminal and CLI-first. Writes Go/Python scripts, shell scripts, and K8s manifes
 | Phase | Action | Thought | Emotion | Opportunity |
 |---|---|---|---|---|
 | Awareness | Called in to evaluate KubeGate as the platform owner | "I need to understand exactly how it touches the gitops repo before I trust it" | Skeptical, investigative | Transparent gitops integration docs; Sara can inspect every commit KubeGate makes |
-| Consideration | Reviews architecture: Kustomize patch strategy, locking, tag convention enforcement | "The overlay path is configurable, locking is per product-env, regex is server-side. OK." | Cautiously satisfied | ADRs and architecture docs address her specific concerns |
-| First Use | Onboards the first product: configures environments, overlay paths, tag convention | "CLI is clean. Config is explicit. I can see exactly what it will commit." | In control | Preview diff before commit builds immediate trust |
+| Consideration | Reviews architecture: HelmRelease patch strategy, locking, tag convention enforcement | "The patch target is `spec.values.[workload].image.tag`, locking is per product-env, regex is server-side. OK." | Cautiously satisfied | ADRs and architecture docs address her specific concerns |
+| First Use | Onboards the first product: registers product slug and environment, sets tag convention | "CLI is clean. Config is explicit. I can see exactly what it will commit." | In control | Preview diff before commit builds immediate trust |
 | Regular Use | Manages RBAC, monitors deployment history, stops processing deployment tickets | "Zero deployment tickets this week. History log has everything audit needs." | Relieved, productive | Admin dashboard gives Sara full cross-product visibility |
-| Advocacy | Defines KubeGate as the standard deployment interface for all new products | "Every new product gets onboarded here on day one — no exceptions." | Confident, authoritative | Product onboarding templates and CLI reduce Sara's onboarding effort |
+| Advocacy | Defines KubeGate as the standard deployment interface for all new products | "Every new product gets onboarded here on day one — no exceptions." | Confident, authoritative | Product onboarding via CLI reduces Sara's onboarding effort |
 
 ---
 
@@ -107,11 +107,17 @@ Terminal and CLI-first. Writes Go/Python scripts, shell scripts, and K8s manifes
 
 **Implication for design:** The trust mechanism — tag conventions, RBAC, deployment locking, audit log — is the core of the product, not an add-on. The UX must make these constraints visible and legible, not invisible.
 
+**Assumption:** "Components need to be registered in KubeGate alongside the product."
+**Challenge:** Registering workloads in KubeGate duplicates the gitops repo as source of truth and creates drift risk. Since KubeGate already depends on the gitops repo for writes, reading workload structure from the HelmRelease at runtime costs nothing extra and eliminates duplication.
+
+**Implication for design:** KubeGate's domain model is leaner: products and environments are registered; workloads are discovered on-demand. The gitops repo remains the single source of truth for workload configuration.
+
 ### New Directions Discovered
 
 - **Regional governance policies:** Different regions may require different production tag conventions or approval flows. Filed as a growth-phase feature: per-region environment configuration.
 - **Approval workflows:** For organizations requiring 2-eyes-on-production, a PR-based deploy flow maps naturally onto the gitops model. Filed as post-MVP.
 - **Automated promotion pipelines:** In the vision phase, successful CI signals could automatically promote from dev to integration to production, removing humans from the happy path while preserving override capability.
+- **Background gitops sync:** Decoupling read operations from real-time git availability via periodic polling sync is viable as a growth-phase optimization, removing the runtime git read dependency for status display.
 
 ---
 
@@ -121,13 +127,13 @@ Terminal and CLI-first. Writes Go/Python scripts, shell scripts, and K8s manifes
 
 The MVP goal is to eliminate the DevOps bottleneck for the most common deployment scenarios while establishing the governance layer that makes self-service safe.
 
-- Product, component, and environment definition (CRUD via UI and API)
-- GCR image tag enumeration (list available tags per component, paginated)
-- Triggered deployment: apply a Kustomize `images:` patch to the gitops repo
+- Product and environment definition (CRUD via UI and API); workload discovery on-demand from the gitops repo (no workload registration required in KubeGate)
+- GCR image tag enumeration (list available tags per workload, reading the image repository from the HelmRelease, paginated)
+- Triggered deployment: patch `spec.values.[workload].image.tag` in the product HelmRelease in the gitops repo
 - Per-product-environment deployment lock (prevent concurrent conflict on the gitops repo)
 - Tag naming convention enforcement for production environments (configurable regex, global default with per-product override)
-- Current deployment state display (what tag is deployed per component per environment)
-- Deployment history log (actor, component, tag, environment, timestamp, gitops commit SHA, outcome)
+- Current deployment state display (what tag is deployed per workload per environment, read from HelmRelease at runtime)
+- Deployment history log (actor, workload, tag, environment, timestamp, gitops commit SHA, outcome)
 - OIDC authentication via Keycloak
 - Product-scoped RBAC: DevOps Admin, Editor, Viewer
 - Web UI covering all operations (primary interface for product owners)
@@ -144,6 +150,7 @@ The MVP goal is to eliminate the DevOps bottleneck for the most common deploymen
 - Slack / Teams webhook notifications on deployment events
 - Deployment approval workflows (2-eyes for production: requires a second authorized user)
 - Per-region environment configuration with region-specific tag conventions
+- Background gitops sync: periodic `git pull` to cache workload structure and deployed tag state in PostgreSQL, decoupling read operations from real-time git availability
 - Product onboarding templates to accelerate platform engineer setup for new products
 
 ### Vision (Future)
@@ -153,7 +160,7 @@ The MVP goal is to eliminate the DevOps bottleneck for the most common deploymen
 - SLO / SLA tracking per product and environment
 - Integration with change management systems (ServiceNow, Jira Service Management)
 - Cost attribution reporting per product and environment
-- Self-service product onboarding: product teams register their own products and gitops paths, subject to DevOps Admin approval
+- Self-service product onboarding: product teams register their own products, subject to DevOps Admin approval
 
 ---
 
@@ -172,10 +179,10 @@ KubeGate follows a layered monolith pattern: a single Go-based backend exposes b
 1. **API Server** — Go HTTP server (Gin). Handles REST routing, JWT validation, RBAC enforcement, request/response serialization.
 2. **CLI** (`kubegate`) — Go binary using Cobra. Shares domain types with the server. Authenticates via OIDC device flow or stored token.
 3. **Web Frontend** — React + TypeScript SPA. Consumes the REST API. Embedded in the server binary at build time via `embed`.
-4. **Domain Core** — Go packages for Product, Component, Environment, Deployment, and RBAC domain models and business rules.
-5. **GitOps Writer** — Go package using `go-git`. Handles clone/pull, Kustomize image block patch, commit, and push to the gitops repo. Uses PostgreSQL advisory locks for concurrency control.
-6. **GCR Adapter** — Google Artifact Registry API client for tag enumeration per component image repository.
-7. **PostgreSQL** — Persistent store for all domain data: products, components, environments, RBAC assignments, tag convention rules, deployment history, and deployment locks.
+4. **Domain Core** — Go packages for Product, Environment, Deployment, and RBAC domain models and business rules. Workloads are not domain entities — they are discovered at runtime from the gitops repo.
+5. **GitOps Writer** — Go package using `go-git`. Handles clone/pull, patching `spec.values.[workload].image.tag` in the product HelmRelease at `apps/[env-slug]/[product-slug]/[product-slug]-helmrelease.yaml`, commit, and push. Also reads the HelmRelease at runtime to discover available workloads and current deployed tags. Uses PostgreSQL advisory locks for concurrency control.
+6. **GCR Adapter** — Google Artifact Registry API client for tag enumeration. The image repository path is read from `spec.values.[workload].image.repository` in the HelmRelease at runtime.
+7. **PostgreSQL** — Persistent store for all domain data: products, environments, RBAC assignments, tag convention rules, deployment history, and deployment locks.
 8. **OIDC Middleware** — Validates Keycloak-issued JWTs, extracts user identity and groups, maps to KubeGate roles.
 
 ### Technology Stack
@@ -202,12 +209,12 @@ kubegate/
     server/           ← API server entrypoint
     kubegate/         ← CLI entrypoint
   internal/
-    domain/           ← Product, Component, Environment, Deployment, RBAC models
+    domain/           ← Product, Environment, Deployment, RBAC models
     api/
       handlers/       ← HTTP handler functions per resource
       middleware/     ← JWT validation, RBAC enforcement, request logging
       router/         ← Route registration
-    gitops/           ← Kustomize patch writer, go-git integration, locking
+    gitops/           ← HelmRelease patch writer, go-git integration, locking
     gcr/              ← Google Artifact Registry tag enumeration adapter
     auth/             ← OIDC token validation, claims extraction, role mapping
     store/            ← PostgreSQL repository implementations
@@ -244,42 +251,43 @@ Local development uses Docker Compose to provide PostgreSQL, a Keycloak instance
 | # | Decision | Rationale |
 |---|---|---|
 | ADR-01 | Go for backend and CLI | Single language across server and CLI; shared domain types; fits K8s ecosystem conventions |
-| ADR-02 | Kustomize `images:` block patch only | Mutate only the images array; never overwrite full manifests; preserves manual overlay customizations |
+| ADR-02 | HelmRelease values patch only | Mutate only `image.tag` within the target workload's `spec.values` section; never overwrite the full HelmRelease manifest; preserves all other Helm configuration |
 | ADR-03 | PostgreSQL advisory locks for deployment serialization | Prevents concurrent gitops repo conflicts; no external lock service needed; locks released on connection drop |
 | ADR-04 | Tag convention as server-side configurable regex | Global default with per-product override; enforcement at API layer — not bypassable via CLI or API |
 | ADR-05 | Rollback = redeploy previous tag from history | Explicit, auditable, idempotent; avoids silent git reverts that could hide intentional state |
 | ADR-06 | Frontend embedded in server binary | One binary, one image, no separate static asset server |
 | ADR-07 | OIDC issuer as configuration, not code | Keycloak and Azure AD are both OIDC-compliant; switching providers is a config change, not a code change |
+| ADR-08 | Workload discovery at runtime from HelmRelease | KubeGate does not maintain a workload registry; workloads and image repository paths are discovered on-demand by reading `spec.values` from the HelmRelease; the runtime git read dependency is accepted for MVP; background sync is deferred to the growth phase |
 
 ---
 
 ## Functional Requirements
 
-### Product & Component Management
+### Product & Environment Management
 
 | ID | Requirement |
 |---|---|
 | FR-01 | Create, update, and archive digital products with name, slug, description, and team ownership |
-| FR-02 | Add and remove components within a product; each component has a name, slug, and full GCR image repository path |
-| FR-03 | Define environments per product with name, type (dev / integration / production), and gitops overlay path (relative path within the gitops repo) |
+| FR-02 | Workloads within a product are not registered in KubeGate; they are discovered on-demand by reading `spec.values` sections that contain an `image` block in the product's HelmRelease; the image repository path is read from `spec.values.[workload].image.repository` |
+| FR-03 | Environments are global platform entities (name, slug, type: dev / integration / production); the gitops path for any product in any environment is derived automatically as `apps/[env-slug]/[product-slug]/[product-slug]-helmrelease.yaml` and is not configurable per product |
 
 ### Deployment
 
 | ID | Requirement |
 |---|---|
-| FR-04 | List available image tags for a component by querying GCR, with pagination and optional prefix/regex filtering |
-| FR-05 | Trigger deployment of a specific image tag for a component to a target environment, subject to RBAC authorization checks |
+| FR-04 | List available image tags for a workload by reading the image repository from the HelmRelease and querying GCR, with pagination and optional prefix/regex filtering |
+| FR-05 | Trigger deployment of a specific image tag for a workload to a target environment, subject to RBAC authorization checks |
 | FR-06 | Enforce a configurable tag naming convention (regex) for production-type environments; validate before any gitops mutation; reject non-conforming tags with a clear error message |
-| FR-07 | Apply the deployment by committing a Kustomize `images:` patch to the gitops repo; acquire a per-product-environment advisory lock before writing; release the lock after commit or on failure |
+| FR-07 | Apply the deployment by patching `spec.values.[workload-name].image.tag` in the HelmRelease at `apps/[env-slug]/[product-slug]/[product-slug]-helmrelease.yaml` and committing the change; acquire a per-product-environment advisory lock before writing; release the lock after commit or on failure |
 | FR-08 | (Post-MVP) Support PR-based deployment flow as an optional per-environment configuration: create a PR in the gitops repo instead of a direct commit |
-| FR-09 | (Post-MVP) Display a preview diff of the Kustomize patch that will be committed before the user confirms the deployment |
+| FR-09 | (Post-MVP) Display a preview diff of the HelmRelease patch that will be committed before the user confirms the deployment |
 
 ### Visibility & Audit
 
 | ID | Requirement |
 |---|---|
-| FR-10 | Show the currently deployed image tag per component per environment, derived from reading the gitops repo overlay state |
-| FR-11 | Maintain an immutable deployment history log: actor, component, tag, environment, timestamp, gitops commit SHA, and outcome (success / failure with error message) |
+| FR-10 | Show the currently deployed image tag per workload per environment, derived from reading `spec.values.[workload].image.tag` in the HelmRelease for that product/environment from the gitops repo at runtime |
+| FR-11 | Maintain an immutable deployment history log: actor, workload, tag, environment, timestamp, gitops commit SHA, and outcome (success / failure with error message) |
 | FR-12 | (Post-MVP) Expose FluxCD reconciliation state per environment (pending / synced / failed) by reading Flux Kustomization status from the Kubernetes API |
 
 ### Access Control
@@ -315,10 +323,10 @@ Local development uses Docker Compose to provide PostgreSQL, a Keycloak instance
 
 | Integration | Purpose | Notes |
 |---|---|---|
-| Google Artifact Registry API | Enumerate available image tags per component | Authenticated via GCP service account or Workload Identity |
+| Google Artifact Registry API | Enumerate available image tags per workload | Authenticated via GCP service account or Workload Identity; repository path read from HelmRelease at runtime |
 | Keycloak (OIDC) | User authentication and group/role claim extraction | Primary auth provider for MVP |
 | Azure AD (OIDC) | User authentication | Post-MVP; same OIDC interface, different issuer config |
-| Git (gitops repo) | Read current overlay state; write Kustomize image patches | HTTPS with token or SSH with deploy key; configurable per installation |
+| Git (gitops repo) | Read HelmRelease to discover workloads and current state; write image tag patches | HTTPS with token or SSH with deploy key; configurable per installation; runtime read dependency accepted for MVP |
 | FluxCD / Kubernetes API | Read reconciliation status per environment | Post-MVP; requires in-cluster service account or kubeconfig |
 
 ---
@@ -328,7 +336,6 @@ Local development uses Docker Compose to provide PostgreSQL, a Keycloak instance
 | # | Question | Default Assumption |
 |---|---|---|
 | OQ-01 | How should concurrent deployments to the same product-environment be surfaced to the user — queue, reject, or show lock holder? | Reject with a clear error message identifying the lock holder and timestamp |
-| OQ-02 | Should the gitops repo be a single monorepo for all products, or one repo per product? | Single monorepo; overlay path per product-component-environment is configurable |
 | OQ-03 | Should deployment history be retained indefinitely or subject to a retention policy? | Indefinite retention in MVP; configurable retention policy in growth phase |
 | OQ-04 | Is a global default tag convention regex sufficient for MVP, or do multiple products already use different conventions? | Global default regex with per-product override is the MVP model |
 
@@ -342,5 +349,5 @@ Local development uses Docker Compose to provide PostgreSQL, a Keycloak instance
 
 ---
 
-_PRD generated via ARchetipo Product Inception - 2026-05-31_
-_Session conducted by: riccardo.ianniello@gmail.com with the ARchetipo team_
+_PRD generato via ARchetipo Product Inception - 2026-06-10_
+_Sessione condotta da: ianniellor@mediaworld.it con il team ARchetipo_

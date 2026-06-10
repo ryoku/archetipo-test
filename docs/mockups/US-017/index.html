@@ -101,15 +101,8 @@
         </div>
       </div>
 
-      <!-- Sub-navigation: Components | Environments -->
+      <!-- Sub-navigation: Environments only (Components removed — workloads are discovered from HelmRelease) -->
       <nav class="page-subnav">
-        <a href="../US-014/index.html" class="subnav-link">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="1" y="2" width="12" height="10" rx="2"/>
-            <path d="M5 2v10M9 2v10M1 6h12M1 9h12"/>
-          </svg>
-          Components
-        </a>
         <a href="#" class="subnav-link active">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M2 3h10a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/>
@@ -136,7 +129,7 @@
       <div class="section-head">
         <div>
           <div class="section-label">Ambienti di deployment</div>
-          <div class="section-sub">Ogni ambiente definisce un target di deployment con un overlay Kustomize dedicato.</div>
+          <div class="section-sub">Gli ambienti sono entità globali di piattaforma. Il path gitops è derivato automaticamente: <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-code);">apps/[env-slug]/[product-slug]/[product-slug]-helmrelease.yaml</span></div>
         </div>
         <button class="btn btn-primary btn-sm admin-only" id="addEnvBtn" onclick="openInlineForm()">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
@@ -154,15 +147,15 @@
           </svg>
           New Environment
         </div>
-        <div class="form-row">
-          <!-- Name -->
+        <div class="form-row" style="grid-template-columns:1fr 1fr;">
+          <!-- Name/Slug -->
           <div class="field">
-            <label class="field-label" for="envName">Name *</label>
+            <label class="field-label" for="envName">Name (slug) *</label>
             <input class="input" id="envName" type="text"
                    placeholder="e.g. staging"
-                   oninput="clearFieldError('envName','nameHint','display name')"
+                   oninput="clearFieldError('envName','nameHint','slug usato nel path gitops: apps/[slug]/...'); document.getElementById('derivedPathPreview').textContent = derivedPath(this.value.trim() || '[slug]')"
                    autocomplete="off">
-            <span class="field-hint" id="nameHint">display name</span>
+            <span class="field-hint" id="nameHint">slug usato nel path gitops: apps/[slug]/...</span>
           </div>
           <!-- Type -->
           <div class="field">
@@ -176,15 +169,10 @@
             </select>
             <span class="field-hint" id="typeHint">dev / integration / production</span>
           </div>
-          <!-- Overlay path -->
-          <div class="field">
-            <label class="field-label" for="envOverlay">Overlay Path *</label>
-            <input class="input input-mono" id="envOverlay" type="text"
-                   placeholder="overlays/staging"
-                   oninput="clearFieldError('envOverlay','overlayHint','relative path')"
-                   autocomplete="off">
-            <span class="field-hint" id="overlayHint">relative path</span>
-          </div>
+        </div>
+        <!-- Derived path preview (read-only) -->
+        <div style="margin-bottom:12px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--r-md);font-size:11px;color:var(--text-muted);">
+          Path gitops derivato: <span id="derivedPathPreview" style="font-family:var(--font-mono);color:var(--text-code);">apps/[slug]/[product]/[product]-helmrelease.yaml</span>
         </div>
         <div class="form-actions">
           <button class="btn btn-ghost btn-sm" onclick="closeInlineForm()">Cancel</button>
@@ -205,7 +193,7 @@
               <tr>
                 <th>Environment</th>
                 <th>Type</th>
-                <th>Overlay Path</th>
+                <th>Gitops Path <span style="font-weight:400;color:var(--text-muted);">(derivato)</span></th>
                 <th>Created</th>
                 <th class="admin-only"></th>
               </tr>
@@ -289,10 +277,16 @@ const TYPE_BADGE = {
   production:  '<span class="badge badge-prod">production</span>',
 };
 
+const PRODUCT_SLUG = 'platform-api';
+
+function derivedPath(envSlug) {
+  return `apps/${envSlug}/${PRODUCT_SLUG}/${PRODUCT_SLUG}-helmrelease.yaml`;
+}
+
 let environments = [
-  { id: 1, name: 'development',  type: 'dev',         overlay: 'overlays/dev',         createdAt: '14 Nov 2025' },
-  { id: 2, name: 'integration',  type: 'integration', overlay: 'overlays/integration',  createdAt: '14 Nov 2025' },
-  { id: 3, name: 'production',   type: 'production',  overlay: 'overlays/production',   createdAt: '20 Nov 2025' },
+  { id: 1, name: 'dev',         type: 'dev',         createdAt: '14 Nov 2025' },
+  { id: 2, name: 'integration', type: 'integration', createdAt: '14 Nov 2025' },
+  { id: 3, name: 'prod',        type: 'production',  createdAt: '20 Nov 2025' },
 ];
 
 // ─── Role switching ────────────────────────────────────────────────
@@ -357,7 +351,7 @@ function renderEnvironments(newId) {
           <div class="env-name-str">${env.name}</div>
         </td>
         <td>${TYPE_BADGE[env.type] ?? env.type}</td>
-        <td><span class="env-path-str">${env.overlay}</span></td>
+        <td><span class="env-path-str" style="font-size:10px;">${derivedPath(env.name)}</span></td>
         <td><span class="env-date">${env.createdAt}</span></td>
         ${actionCell}
       </tr>`;
@@ -370,7 +364,7 @@ function openInlineForm() {
   form.classList.remove('hidden');
   document.getElementById('envName').value = '';
   document.getElementById('envType').value = '';
-  document.getElementById('envOverlay').value = '';
+  document.getElementById('derivedPathPreview').textContent = 'apps/[slug]/platform-api/platform-api-helmrelease.yaml';
   clearAllErrors();
   document.getElementById('addEnvBtn').classList.add('hidden');
   document.getElementById('envName').focus();
@@ -385,9 +379,8 @@ function closeInlineForm() {
 }
 
 function clearAllErrors() {
-  setFieldHint('envName',    'nameHint',    'display name');
-  setFieldHint('envType',    'typeHint',    'dev / integration / production');
-  setFieldHint('envOverlay', 'overlayHint', 'relative path');
+  setFieldHint('envName', 'nameHint', 'slug usato nel path gitops: apps/[slug]/...');
+  setFieldHint('envType', 'typeHint', 'dev / integration / production');
 }
 
 function setFieldHint(inputId, hintId, text) {
@@ -411,32 +404,26 @@ function showFieldError(inputId, hintId, msg) {
 }
 
 function saveEnvironment() {
-  const name    = document.getElementById('envName').value.trim();
-  const type    = document.getElementById('envType').value;
-  const overlay = document.getElementById('envOverlay').value.trim();
+  const name = document.getElementById('envName').value.trim();
+  const type = document.getElementById('envType').value;
   clearAllErrors();
   let valid = true;
 
-  if (!name) { showFieldError('envName','nameHint','Name is required'); valid = false; }
-
-  // Simulate duplicate name check
-  if (name && environments.some(e => e.name.toLowerCase() === name.toLowerCase())) {
-    showFieldError('envName','nameHint','An environment with this name already exists'); valid = false;
+  if (!name) {
+    showFieldError('envName', 'nameHint', 'Name is required'); valid = false;
+  } else if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(name) && name.length > 1) {
+    showFieldError('envName', 'nameHint', 'Lowercase letters, digits and hyphens only'); valid = false;
+  } else if (environments.some(e => e.name.toLowerCase() === name.toLowerCase())) {
+    showFieldError('envName', 'nameHint', 'An environment with this name already exists'); valid = false;
   }
 
-  if (!type) { showFieldError('envType','typeHint','Type is required'); valid = false; }
-
-  if (!overlay) {
-    showFieldError('envOverlay','overlayHint','Overlay path is required'); valid = false;
-  } else if (!/^[a-z0-9/_-]+$/.test(overlay)) {
-    showFieldError('envOverlay','overlayHint','Only lowercase letters, digits, / _ and -'); valid = false;
-  }
+  if (!type) { showFieldError('envType', 'typeHint', 'Type is required'); valid = false; }
 
   if (!valid) return;
 
-  const id      = nextId++;
-  const today   = new Date().toLocaleDateString('en-GB', { year:'numeric', month:'short', day:'numeric' });
-  environments.unshift({ id, name, type, overlay, createdAt: today });
+  const id    = nextId++;
+  const today = new Date().toLocaleDateString('en-GB', { year:'numeric', month:'short', day:'numeric' });
+  environments.unshift({ id, name, type, createdAt: today });
   closeInlineForm();
   renderEnvironments(id);
   showToast(`Environment <strong>${name}</strong> added`, 'ok');
@@ -449,7 +436,7 @@ function openDeleteModal(id) {
   deleteTarget = env;
   document.getElementById('deleteName').textContent = env.name;
   document.getElementById('deleteType').innerHTML   = TYPE_BADGE[env.type] ?? env.type;
-  document.getElementById('deletePath').textContent = env.overlay;
+  document.getElementById('deletePath').textContent = derivedPath(env.name);
   document.getElementById('deleteBackdrop').classList.remove('hidden');
 }
 function closeDeleteModal() {
