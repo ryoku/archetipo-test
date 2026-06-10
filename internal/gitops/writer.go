@@ -86,7 +86,7 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
 	if err != nil {
 		return fmt.Errorf("gitops writer: create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort cleanup of temp clone; errors here are non-actionable
 
 	auth, err := w.buildAuth()
 	if err != nil {
