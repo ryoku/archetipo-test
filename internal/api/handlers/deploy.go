@@ -17,12 +17,10 @@ import (
 	"github.com/ryoku/kubegate/internal/store"
 )
 
-// GitOpsApplier is the minimal interface for a gitops write operation.
 type GitOpsApplier interface {
 	Apply(ctx context.Context, p gitops.ApplyParams) error
 }
 
-// DeploymentHandlers bundles HTTP handlers for deployment operations.
 type DeploymentHandlers struct {
 	productStore store.ProductStore
 	envStore     store.EnvironmentStore
@@ -32,8 +30,6 @@ type DeploymentHandlers struct {
 	lockTimeout  time.Duration
 }
 
-// NewDeploymentHandlers returns a DeploymentHandlers wired to the given dependencies.
-// Lock acquisition timeout is read from DEPLOYMENT_LOCK_TIMEOUT_SECONDS (default 5 s).
 func NewDeploymentHandlers(
 	productStore store.ProductStore,
 	envStore store.EnvironmentStore,
@@ -51,8 +47,6 @@ func NewDeploymentHandlers(
 	}
 }
 
-// deploymentLockTimeout reads DEPLOYMENT_LOCK_TIMEOUT_SECONDS from the environment.
-// Returns 5 s when the variable is absent or invalid.
 func deploymentLockTimeout() time.Duration {
 	n, err := strconv.Atoi(os.Getenv("DEPLOYMENT_LOCK_TIMEOUT_SECONDS"))
 	if err != nil || n <= 0 {
@@ -72,7 +66,6 @@ type deploymentLockResponse struct {
 	LockedSince string `json:"locked_since"`
 }
 
-// Deploy handles POST /api/v1/products/:productSlug/environments/:environmentID/deployments.
 func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 	productSlug := c.Param("productSlug")
 	environmentID := c.Param("environmentID")
@@ -121,7 +114,6 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 	})
 }
 
-// bindDeployRequest parses and validates the deploy request body.
 func bindDeployRequest(c *gin.Context) (deployRequest, bool) {
 	var req deployRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -139,7 +131,6 @@ func bindDeployRequest(c *gin.Context) (deployRequest, bool) {
 	return req, true
 }
 
-// resolveDeployTargets looks up product, environment, and component; writes error responses on failure.
 func (h *DeploymentHandlers) resolveDeployTargets(c *gin.Context, productSlug, environmentID, componentSlug string) (*domain.Product, *domain.Environment, *domain.Component, bool) {
 	product, ok := resolveProduct(c, h.productStore, productSlug)
 	if !ok {
@@ -166,10 +157,10 @@ func (h *DeploymentHandlers) resolveDeployTargets(c *gin.Context, productSlug, e
 	return product, env, comp, true
 }
 
-// acquireLock tries to acquire the deployment advisory lock; writes 409 on contention.
 func (h *DeploymentHandlers) acquireLock(c *gin.Context, productID, envID, actor string) (store.AcquiredLock, bool) {
 	lock, holder, err := h.lockStore.TryAcquire(c.Request.Context(), productID, envID, actor, h.lockTimeout)
 	if err != nil {
+		log.Printf("acquireLock product=%s env=%s: %v", productID, envID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return nil, false
 	}
@@ -185,7 +176,6 @@ func (h *DeploymentHandlers) acquireLock(c *gin.Context, productID, envID, actor
 	return lock, true
 }
 
-// applyGitOps calls the gitops writer and maps errors to HTTP responses.
 func (h *DeploymentHandlers) applyGitOps(c *gin.Context, productSlug string, env *domain.Environment, comp *domain.Component, tag, actor string) bool {
 	err := h.applier.Apply(c.Request.Context(), gitops.ApplyParams{
 		OverlayPath:   env.OverlayPath,
@@ -204,11 +194,11 @@ func (h *DeploymentHandlers) applyGitOps(c *gin.Context, productSlug string, env
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("overlay not found: %s", notFound.Path)})
 		return false
 	}
+	log.Printf("applyGitOps product=%s component=%s env=%s tag=%s: %v", productSlug, comp.Slug, env.Name, tag, err)
 	c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 	return false
 }
 
-// actorName returns the best display name for the authenticated user.
 func actorName(identity *domain.UserIdentity) string {
 	if identity.Name != "" {
 		return identity.Name

@@ -8,7 +8,6 @@ import (
 	"github.com/ryoku/kubegate/internal/store"
 )
 
-// RegisterDeploymentRoutes returns a route registration function for the deploy endpoint.
 func RegisterDeploymentRoutes(
 	ps store.ProductStore,
 	es store.EnvironmentStore,

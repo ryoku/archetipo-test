@@ -17,17 +17,14 @@ type AcquiredLock interface {
 	Release(ctx context.Context) error
 }
 
-// DeploymentLockStore serializes deployments per product-environment pair via PostgreSQL
-// session-level advisory locks backed by a metadata table.
+// DeploymentLockStore ensures at-most-one in-flight deployment per product-environment pair.
 type DeploymentLockStore interface {
-	// TryAcquire attempts to acquire the advisory lock for the given product-environment pair.
-	// It polls pg_try_advisory_lock every 100 ms until the lock is acquired or the timeout elapses.
-	// Returns (non-nil AcquiredLock, nil, nil) on success.
+	// TryAcquire returns (non-nil AcquiredLock, nil, nil) on success.
 	// Returns (nil, holderInfo, nil) on contention after timeout.
 	// Returns (nil, nil, err) on a technical error.
 	TryAcquire(ctx context.Context, productID, envID, actor string, timeout time.Duration) (AcquiredLock, *domain.DeploymentLock, error)
 
-	// GetLockInfo returns current lock metadata. Returns (nil, nil) when no lock is held.
+	// Returns (nil, nil) when no lock is held.
 	GetLockInfo(ctx context.Context, productID, envID string) (*domain.DeploymentLock, error)
 }
 
@@ -35,12 +32,10 @@ type pgxDeploymentLockStore struct {
 	pool *pgxpool.Pool
 }
 
-// NewDeploymentLockStore returns a DeploymentLockStore backed by the given pgxpool.
 func NewDeploymentLockStore(pool *pgxpool.Pool) DeploymentLockStore {
 	return &pgxDeploymentLockStore{pool: pool}
 }
 
-// lockKeys derives two int32 advisory lock arguments from product and environment UUIDs using FNV-1a.
 func lockKeys(productID, envID string) (int32, int32) {
 	h1 := fnv.New32a()
 	h1.Write([]byte(productID)) //nolint:errcheck // hash.Hash.Write never returns an error
@@ -65,16 +60,16 @@ func (s *pgxDeploymentLockStore) TryAcquire(ctx context.Context, productID, envI
 			return nil, nil, fmt.Errorf("advisory lock attempt: %w", err)
 		}
 		if acquired {
-			if _, err := conn.Exec(ctx,
+			if _, insertErr := conn.Exec(ctx,
 				`INSERT INTO deployment_locks (product_id, env_id, lock_holder, locked_since)
 				 VALUES ($1, $2, $3, NOW())
 				 ON CONFLICT (product_id, env_id) DO UPDATE
 				     SET lock_holder = EXCLUDED.lock_holder, locked_since = NOW()`,
 				productID, envID, actor,
-			); err != nil {
-				_, _ = conn.Exec(ctx, "SELECT pg_advisory_unlock($1, $2)", k1, k2)
+			); insertErr != nil {
+				_, unlockErr := conn.Exec(context.Background(), "SELECT pg_advisory_unlock($1, $2)", k1, k2)
 				conn.Release()
-				return nil, nil, fmt.Errorf("insert lock metadata: %w", err)
+				return nil, nil, errors.Join(fmt.Errorf("insert lock metadata: %w", insertErr), unlockErr)
 			}
 			return &pgxAcquiredLock{conn: conn, productID: productID, envID: envID}, nil, nil
 		}
@@ -113,7 +108,8 @@ func (s *pgxDeploymentLockStore) GetLockInfo(ctx context.Context, productID, env
 	return &lock, nil
 }
 
-// pgxAcquiredLock holds the dedicated connection that owns the session-level advisory lock.
+// pgxAcquiredLock holds the connection that acquired the advisory lock; the lock is
+// session-scoped and must be released on the same connection.
 type pgxAcquiredLock struct {
 	conn      *pgxpool.Conn
 	productID string

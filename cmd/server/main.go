@@ -83,7 +83,6 @@ func main() {
 	}
 }
 
-// resolveIssuerURL returns the OIDC issuer URL from env vars.
 func resolveIssuerURL() (string, error) {
 	if url := os.Getenv("OIDC_ISSUER_URL"); url != "" {
 		return url, nil
@@ -97,7 +96,7 @@ func resolveIssuerURL() (string, error) {
 }
 
 // initGCRLister creates a GCR tag lister, falling back to a disabled stub on error.
-// The returned closer must be called on server shutdown; it is nil when the fallback is used.
+// The returned closer is always non-nil; it is a no-op when the fallback is used.
 func initGCRLister() (gcr.Lister, func()) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -113,7 +112,7 @@ func initGCRLister() (gcr.Lister, func()) {
 	}
 }
 
-// initGitOpsApplier creates a gitops writer, falling back to a disabled stub when GITOPS_REPO_URL is unset.
+// GITOPS_REPO_URL is optional; all deploy requests fail with a clear error when absent.
 func initGitOpsApplier() handlers.GitOpsApplier {
 	w, err := gitops.NewWriterFromEnv()
 	if err != nil {
@@ -123,7 +122,6 @@ func initGitOpsApplier() handlers.GitOpsApplier {
 	return w
 }
 
-// disabledGitOpsApplier is used when GITOPS_REPO_URL is not configured.
 type disabledGitOpsApplier struct{}
 
 func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) error {

@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ryoku/kubegate/internal/api/handlers"
 	"github.com/ryoku/kubegate/internal/api/router"
 	"github.com/ryoku/kubegate/internal/auth"
 	"github.com/ryoku/kubegate/internal/domain"
 	"github.com/ryoku/kubegate/internal/gcr"
+	"github.com/ryoku/kubegate/internal/gitops"
 	"github.com/ryoku/kubegate/internal/store"
 )
 
@@ -180,6 +183,38 @@ func TestRegisterTagRoutes_RoutesRegistered(t *testing.T) {
 		router.RegisterTagRoutes(noopProductStore{}, noopComponentStore{}, noopLister{}))
 	assertRoutesReturn401(t, r, [][2]string{
 		{http.MethodGet, "/api/v1/products/some-slug/components/some-comp/tags"},
+	})
+}
+
+type noopDeploymentLockStore struct{}
+
+func (noopDeploymentLockStore) TryAcquire(_ context.Context, _, _, _ string, _ time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
+	return nil, nil, nil
+}
+func (noopDeploymentLockStore) GetLockInfo(_ context.Context, _, _ string) (*domain.DeploymentLock, error) {
+	return nil, nil
+}
+
+var _ store.DeploymentLockStore = noopDeploymentLockStore{}
+
+type noopDeployApplier struct{}
+
+func (noopDeployApplier) Apply(_ context.Context, _ gitops.ApplyParams) error { return nil }
+
+var _ handlers.GitOpsApplier = noopDeployApplier{}
+
+// TestRegisterDeploymentRoutes_RoutesRegistered verifies that RegisterDeploymentRoutes registers
+// the expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is
+// present, confirming the route exists (a missing route returns 404 instead).
+func TestRegisterDeploymentRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterDeploymentRoutes(
+			noopProductStore{}, noopEnvironmentStore{}, noopComponentStore{},
+			noopDeploymentLockStore{}, noopDeployApplier{},
+		))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodPost, "/api/v1/products/some-slug/environments/some-id/deployments"},
 	})
 }
 

@@ -20,15 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- mock AcquiredLock ---
-
 type mockAcquiredLock struct{}
 
 func (m *mockAcquiredLock) Release(_ context.Context) error { return nil }
 
 var _ store.AcquiredLock = (*mockAcquiredLock)(nil)
-
-// --- mock DeploymentLockStore ---
 
 type mockDeploymentLockStore struct {
 	tryAcquireFn  func(ctx context.Context, productID, envID, actor string, timeout time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error)
@@ -47,8 +43,6 @@ func (m *mockDeploymentLockStore) GetLockInfo(ctx context.Context, productID, en
 
 var _ store.DeploymentLockStore = (*mockDeploymentLockStore)(nil)
 
-// --- mock GitOpsApplier ---
-
 type mockGitOpsApplier struct {
 	applyFn func(ctx context.Context, p gitops.ApplyParams) error
 }
@@ -58,8 +52,6 @@ func (m *mockGitOpsApplier) Apply(ctx context.Context, p gitops.ApplyParams) err
 }
 
 var _ handlers.GitOpsApplier = (*mockGitOpsApplier)(nil)
-
-// --- test router helper ---
 
 func newDeployRouter(
 	ps store.ProductStore,
@@ -85,8 +77,6 @@ func newDeployRouter(
 		middleware.RequireRole(domain.RoleEditor), h.Deploy)
 	return r
 }
-
-// --- fixtures ---
 
 var deployFixtureProduct = &domain.Product{
 	ID:   "prod-id-1",
@@ -187,8 +177,6 @@ func doDeployRequest(t *testing.T, r *gin.Engine, productSlug, envID string, bod
 	return w
 }
 
-// --- tests ---
-
 func TestDeploy_Success(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
@@ -240,6 +228,28 @@ func TestDeploy_LockHeld_Returns409WithHolderInfo(t *testing.T) {
 	assert.Equal(t, "deployment in progress", resp["error"])
 	assert.Equal(t, "Marco Tech Lead", resp["lock_holder"])
 	assert.Equal(t, "2026-06-10T09:00:00Z", resp["locked_since"])
+}
+
+func TestDeploy_LockStoreError_Returns500(t *testing.T) {
+	r := newDeployRouter(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		compStoreWithComp(deployFixtureComp),
+		&mockDeploymentLockStore{
+			tryAcquireFn: func(_ context.Context, _, _, _ string, _ time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
+				return nil, nil, errors.New("db connection lost")
+			},
+		},
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "v1.0.0",
+	})
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestDeploy_MissingComponentSlug_Returns422(t *testing.T) {
@@ -364,4 +374,79 @@ func TestDeploy_ViewerRole_Returns403(t *testing.T) {
 	})
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestDeploymentLockTimeout_UsesEnvVar(t *testing.T) {
+	t.Setenv("DEPLOYMENT_LOCK_TIMEOUT_SECONDS", "10")
+	var capturedTimeout time.Duration
+	r := newDeployRouter(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		compStoreWithComp(deployFixtureComp),
+		&mockDeploymentLockStore{
+			tryAcquireFn: func(_ context.Context, _, _, _ string, timeout time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
+				capturedTimeout = timeout
+				return &mockAcquiredLock{}, nil, nil
+			},
+		},
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+	)
+
+	doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "v1.0.0",
+	})
+
+	assert.Equal(t, 10*time.Second, capturedTimeout)
+}
+
+func TestDeploymentLockTimeout_UnsetDefaultsTo5s(t *testing.T) {
+	t.Setenv("DEPLOYMENT_LOCK_TIMEOUT_SECONDS", "")
+	var capturedTimeout time.Duration
+	r := newDeployRouter(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		compStoreWithComp(deployFixtureComp),
+		&mockDeploymentLockStore{
+			tryAcquireFn: func(_ context.Context, _, _, _ string, timeout time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
+				capturedTimeout = timeout
+				return &mockAcquiredLock{}, nil, nil
+			},
+		},
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+	)
+
+	doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "v1.0.0",
+	})
+
+	assert.Equal(t, 5*time.Second, capturedTimeout)
+}
+
+func TestDeploymentLockTimeout_InvalidValueDefaultsTo5s(t *testing.T) {
+	t.Setenv("DEPLOYMENT_LOCK_TIMEOUT_SECONDS", "banana")
+	var capturedTimeout time.Duration
+	r := newDeployRouter(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		compStoreWithComp(deployFixtureComp),
+		&mockDeploymentLockStore{
+			tryAcquireFn: func(_ context.Context, _, _, _ string, timeout time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
+				capturedTimeout = timeout
+				return &mockAcquiredLock{}, nil, nil
+			},
+		},
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+	)
+
+	doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"component_slug": "my-service",
+		"tag":            "v1.0.0",
+	})
+
+	assert.Equal(t, 5*time.Second, capturedTimeout)
 }
