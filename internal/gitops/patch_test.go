@@ -10,8 +10,8 @@ import (
 
 // testKustomization mirrors the Kustomize root mapping for assertion purposes.
 type testKustomization struct {
-	Images []imageEntry       `yaml:"images"`
-	Extra  map[string]any     `yaml:",inline"`
+	Images []imageEntry   `yaml:"images"`
+	Extra  map[string]any `yaml:",inline"`
 }
 
 func TestPatchImage_InvalidInput(t *testing.T) {
@@ -96,7 +96,7 @@ images:
 	kindPos := strings.Index(outStr, "kind:")
 	resPos := strings.Index(outStr, "resources:")
 	imgPos := strings.Index(outStr, "images:")
-	if !(apiPos < kindPos && kindPos < resPos && resPos < imgPos) {
+	if apiPos >= kindPos || kindPos >= resPos || resPos >= imgPos {
 		t.Errorf("key order not preserved:\n%s", outStr)
 	}
 }
