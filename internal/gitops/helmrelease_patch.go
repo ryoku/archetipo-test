@@ -6,11 +6,13 @@ import (
 
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
+	"github.com/goccy/go-yaml/token"
 )
 
 const specValuesPrefix = "spec.values."
 
-// HelmReleasePathError is returned when a required field is absent from the HelmRelease document.
+// HelmReleasePathError is returned when traversal of the HelmRelease document fails —
+// a required key is missing, its value is null, or the value is not the expected type.
 type HelmReleasePathError struct {
 	Path   string
 	Reason string
@@ -29,6 +31,9 @@ func PatchHelmRelease(data []byte, workload, newTag string) ([]byte, error) {
 	}
 	if newTag == "" {
 		return nil, &PatchInputError{Field: FieldNewTag, Reason: "must not be empty"}
+	}
+	if !isValidOCITag(newTag) {
+		return nil, &PatchInputError{Field: FieldNewTag, Reason: "must be a valid OCI image tag"}
 	}
 	if len(data) == 0 {
 		return nil, fmt.Errorf("helmrelease patch: input data is empty")
@@ -52,15 +57,18 @@ func PatchHelmRelease(data []byte, workload, newTag string) ([]byte, error) {
 		return nil, err
 	}
 
+	tagPath := specValuesPrefix + workload + ".image.tag"
 	sn, ok := tagMV.Value.(*ast.StringNode)
 	if !ok {
-		return nil, &HelmReleasePathError{
-			Path:   specValuesPrefix + workload + ".image.tag",
-			Reason: "value is not a scalar string",
+		if _, isNull := tagMV.Value.(*ast.NullNode); isNull {
+			return nil, &HelmReleasePathError{Path: tagPath, Reason: "value is null"}
 		}
+		return nil, &HelmReleasePathError{Path: tagPath, Reason: "value is not a scalar string"}
 	}
 
-	patchStringNode(sn, newTag)
+	if err := patchStringNode(sn, newTag); err != nil {
+		return nil, err
+	}
 	return []byte(file.String()), nil
 }
 
@@ -95,12 +103,13 @@ func walkHelmReleasePath(root *ast.MappingNode, workload string) (*ast.MappingVa
 }
 
 // childMapping finds key in m and returns its value as a *ast.MappingNode.
+// Returns HelmReleasePathError if the key is absent, its value is null, or it is not a mapping.
 func childMapping(m *ast.MappingNode, key, path string) (*ast.MappingNode, error) {
 	mv := findMappingValue(m, key)
 	if mv == nil {
 		return nil, &HelmReleasePathError{Path: path, Reason: "key not found"}
 	}
-	if mv.Value == nil {
+	if _, ok := mv.Value.(*ast.NullNode); ok {
 		return nil, &HelmReleasePathError{Path: path, Reason: "value is null"}
 	}
 	child, ok := mv.Value.(*ast.MappingNode)
@@ -113,7 +122,7 @@ func childMapping(m *ast.MappingNode, key, path string) (*ast.MappingNode, error
 // findMappingValue returns the first MappingValueNode in m whose key matches name, or nil.
 func findMappingValue(m *ast.MappingNode, name string) *ast.MappingValueNode {
 	for _, mv := range m.Values {
-		if mv.Key.GetToken().Value == name {
+		if mv.Key.String() == name {
 			return mv
 		}
 	}
@@ -121,8 +130,15 @@ func findMappingValue(m *ast.MappingNode, name string) *ast.MappingValueNode {
 }
 
 // patchStringNode updates n's value while preserving the original quote style.
-func patchStringNode(n *ast.StringNode, newValue string) {
-	origin := strings.TrimLeft(n.GetToken().Origin, " \t")
+// All three fields must be updated: n.Value is the Go string, Token.Value is used by the
+// serialiser, and Token.Origin is the raw bytes written to output. Unquoted originals are
+// re-serialised as single-quoted to prevent YAML scalar type inference (e.g. "1.10" → float 1.1).
+func patchStringNode(n *ast.StringNode, newValue string) error {
+	tok := n.GetToken()
+	if tok == nil {
+		return fmt.Errorf("helmrelease patch: internal error: string node has no token")
+	}
+	origin := strings.TrimLeft(tok.Origin, " \t")
 	var newOrigin string
 	switch {
 	case strings.HasPrefix(origin, "'"):
@@ -130,9 +146,35 @@ func patchStringNode(n *ast.StringNode, newValue string) {
 	case strings.HasPrefix(origin, "\""):
 		newOrigin = "\"" + newValue + "\""
 	default:
-		newOrigin = newValue
+		// Re-serialise unquoted values as single-quoted to prevent YAML scalar type
+		// inference on re-parse (e.g. an unquoted "1.10" would reparse as float 1.1).
+		// StringNode.String() dispatches on tok.Type, so the type must change too.
+		// Callers guarantee newValue is a valid OCI tag (no single quotes).
+		newOrigin = "'" + newValue + "'"
+		tok.Type = token.SingleQuoteType
 	}
 	n.Value = newValue
-	n.GetToken().Value = newValue
-	n.GetToken().Origin = newOrigin
+	tok.Value = newValue
+	tok.Origin = newOrigin
+	return nil
+}
+
+// isValidOCITag reports whether tag is a valid OCI image tag:
+// non-empty, at most 128 characters, starting with [a-zA-Z0-9_] and
+// containing only [a-zA-Z0-9_.\-].
+func isValidOCITag(tag string) bool {
+	if len(tag) == 0 || len(tag) > 128 {
+		return false
+	}
+	for i, c := range tag {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_':
+			// valid in all positions
+		case (c == '.' || c == '-') && i > 0:
+			// valid after first character
+		default:
+			return false
+		}
+	}
+	return true
 }

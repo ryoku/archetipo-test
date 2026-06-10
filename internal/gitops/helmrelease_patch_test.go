@@ -77,6 +77,11 @@ func TestPatchHelmRelease_InvalidInput(t *testing.T) {
 	}{
 		{"empty workload", "", "v1.0.0", FieldWorkload, "must not be empty"},
 		{"empty newTag", "main", "", FieldNewTag, "must not be empty"},
+		{"tag starting with dot", "main", ".v1.0", FieldNewTag, "must be a valid OCI image tag"},
+		{"tag with space", "main", "v1.0 patch", FieldNewTag, "must be a valid OCI image tag"},
+		{"tag with single quote", "main", "v1.0'", FieldNewTag, "must be a valid OCI image tag"},
+		{"tag with double quote", "main", `v1.0"`, FieldNewTag, "must be a valid OCI image tag"},
+		{"tag with colon", "main", "v1.0:latest", FieldNewTag, "must be a valid OCI image tag"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -102,6 +107,40 @@ func TestPatchHelmRelease_EmptyInput(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "empty") {
 		t.Errorf("error message = %q, want it to contain \"empty\"", err.Error())
+	}
+}
+
+func TestPatchHelmRelease_NonMappingRoot(t *testing.T) {
+	_, err := PatchHelmRelease([]byte("- foo\n- bar\n"), "main", "v1.0.0")
+	if err == nil {
+		t.Fatal("expected error for non-mapping root, got nil")
+	}
+	if !strings.Contains(err.Error(), "document root must be a YAML mapping") {
+		t.Errorf("error = %q, want it to contain \"document root must be a YAML mapping\"", err.Error())
+	}
+}
+
+func TestPatchHelmRelease_SpecKeyMissing(t *testing.T) {
+	input := []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n")
+	_, err := PatchHelmRelease(input, "main", "v1.0.0")
+	var pe *HelmReleasePathError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *HelmReleasePathError, got %T: %v", err, err)
+	}
+	if pe.Path != "spec" || pe.Reason != "key not found" {
+		t.Errorf("Path=%q Reason=%q, want spec/key not found", pe.Path, pe.Reason)
+	}
+}
+
+func TestPatchHelmRelease_ValuesKeyMissing(t *testing.T) {
+	input := []byte("apiVersion: helm.toolkit.fluxcd.io/v2\nkind: HelmRelease\nspec:\n  interval: 10m\n")
+	_, err := PatchHelmRelease(input, "main", "v1.0.0")
+	var pe *HelmReleasePathError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *HelmReleasePathError, got %T: %v", err, err)
+	}
+	if pe.Path != "spec.values" {
+		t.Errorf("Path=%q, want spec.values", pe.Path)
 	}
 }
 
@@ -177,6 +216,59 @@ spec:
 	}
 }
 
+func TestPatchHelmRelease_TagKeyMissing(t *testing.T) {
+	fixture := `apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: test
+  namespace: flux-system
+spec:
+  interval: 10m
+  values:
+    main:
+      image:
+        repository: gcr.io/proj/app
+`
+	_, err := PatchHelmRelease([]byte(fixture), "main", "v1.0.0")
+	var pe *HelmReleasePathError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *HelmReleasePathError, got %T: %v", err, err)
+	}
+	if !strings.Contains(pe.Path, "tag") {
+		t.Errorf("Path = %q, want it to reference the missing \"tag\" key", pe.Path)
+	}
+	if pe.Reason != "key not found" {
+		t.Errorf("Reason = %q, want \"key not found\"", pe.Reason)
+	}
+}
+
+func TestPatchHelmRelease_NullTagValue(t *testing.T) {
+	fixture := `apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: test
+  namespace: flux-system
+spec:
+  interval: 10m
+  values:
+    main:
+      image:
+        repository: gcr.io/proj/app
+        tag:
+`
+	_, err := PatchHelmRelease([]byte(fixture), "main", "v1.0.0")
+	var pe *HelmReleasePathError
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected *HelmReleasePathError, got %T: %v", err, err)
+	}
+	if pe.Reason != "value is null" {
+		t.Errorf("Reason = %q, want \"value is null\"", pe.Reason)
+	}
+	if !strings.Contains(pe.Path, "tag") {
+		t.Errorf("Path = %q, want it to reference \"tag\"", pe.Path)
+	}
+}
+
 func TestPatchHelmRelease_NullWorkloadValue(t *testing.T) {
 	fixture := `apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -193,8 +285,8 @@ spec:
 	if !errors.As(err, &pe) {
 		t.Fatalf("expected *HelmReleasePathError, got %T: %v", err, err)
 	}
-	if !strings.Contains(pe.Reason, "null") && !strings.Contains(pe.Reason, "mapping") {
-		t.Errorf("Reason = %q, want it to mention null value or mapping expectation", pe.Reason)
+	if pe.Reason != "value is null" {
+		t.Errorf("Reason = %q, want \"value is null\"", pe.Reason)
 	}
 }
 
@@ -251,14 +343,15 @@ func TestPatchHelmRelease_DoubleQuoteStylePreserved(t *testing.T) {
 	}
 }
 
-func TestPatchHelmRelease_UnquotedTagPreserved(t *testing.T) {
+func TestPatchHelmRelease_UnquotedOriginalSafelyQuoted(t *testing.T) {
 	out, err := PatchHelmRelease([]byte(helmReleaseUnquoted), "main", "v9.9.9")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// unquoted: must NOT have 'v9.9.9' or "v9.9.9"
-	if strings.Contains(string(out), "'v9.9.9'") || strings.Contains(string(out), `"v9.9.9"`) {
-		t.Errorf("expected unquoted tag but found quoted in output:\n%s", out)
+	// Unquoted originals are written as single-quoted to prevent YAML scalar type
+	// inference on re-parse (e.g. an unquoted "1.10" would reparse as float 1.1).
+	if !strings.Contains(string(out), "'v9.9.9'") {
+		t.Errorf("expected single-quoted output for unquoted original:\n%s", out)
 	}
 	assertHelmTag(t, out, "main", "v9.9.9")
 }
