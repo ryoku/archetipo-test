@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -12,9 +13,11 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/ryoku/kubegate/internal/api/handlers"
 	"github.com/ryoku/kubegate/internal/api/router"
 	"github.com/ryoku/kubegate/internal/auth"
 	"github.com/ryoku/kubegate/internal/gcr"
+	"github.com/ryoku/kubegate/internal/gitops"
 	"github.com/ryoku/kubegate/internal/store"
 )
 
@@ -24,21 +27,16 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
-	issuerURL := os.Getenv("OIDC_ISSUER_URL")
-	if issuerURL == "" {
-		kcURL := strings.TrimRight(os.Getenv("KEYCLOAK_URL"), "/")
-		kcRealm := strings.Trim(os.Getenv("KEYCLOAK_REALM"), "/")
-		if kcURL == "" || kcRealm == "" {
-			log.Fatal("set OIDC_ISSUER_URL, or both KEYCLOAK_URL and KEYCLOAK_REALM")
-		}
-		issuerURL = kcURL + "/realms/" + kcRealm
+	issuerURL, err := resolveIssuerURL()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	if err := runMigrations(dsn); err != nil {
 		log.Fatalf("Database migration failed: %v", err)
 	}
 
-	clientID := os.Getenv("OIDC_CLIENT_ID") // optional; enables aud claim validation when set
+	clientID := os.Getenv("OIDC_CLIENT_ID")
 
 	oidcCtx, oidcCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer oidcCancel()
@@ -56,30 +54,17 @@ func main() {
 	productStore := store.NewProductStore(pool)
 	componentStore := store.NewComponentStore(pool)
 	environmentStore := store.NewEnvironmentStore(pool)
-
+	lockStore := store.NewDeploymentLockStore(pool)
 	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
 
-	gcrCtx, gcrCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer gcrCancel()
-	var gcrLister gcr.Lister
-	gcrClient, err := gcr.NewClient(gcrCtx)
-	if err != nil {
-		log.Printf("Artifact Registry client unavailable (tag listing disabled): %v", err)
-		gcrLister = gcr.Disabled()
-	} else {
-		defer func() {
-			if err := gcrClient.Close(); err != nil {
-				log.Printf("gcr client close: %v", err)
-			}
-		}()
-		gcrLister = gcrClient
-	}
+	gcrLister, closeGCR := initGCRLister()
+	defer closeGCR()
+	gitopsApplier := initGitOpsApplier()
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8081"
 	}
-	addr := ":" + port
 
 	r := router.New(verifier,
 		router.RegisterProductRoutes(productStore),
@@ -87,13 +72,62 @@ func main() {
 		router.RegisterEnvironmentRoutes(productStore, environmentStore),
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
 		router.RegisterTagRoutes(productStore, componentStore, gcrLister),
+		router.RegisterDeploymentRoutes(productStore, environmentStore, componentStore, lockStore, gitopsApplier),
 	)
 	registerSPA(r)
 
+	addr := ":" + port
 	log.Printf("Server listening on %s", addr)
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
+}
+
+// resolveIssuerURL returns the OIDC issuer URL from env vars.
+func resolveIssuerURL() (string, error) {
+	if url := os.Getenv("OIDC_ISSUER_URL"); url != "" {
+		return url, nil
+	}
+	kcURL := strings.TrimRight(os.Getenv("KEYCLOAK_URL"), "/")
+	kcRealm := strings.Trim(os.Getenv("KEYCLOAK_REALM"), "/")
+	if kcURL == "" || kcRealm == "" {
+		return "", fmt.Errorf("set OIDC_ISSUER_URL, or both KEYCLOAK_URL and KEYCLOAK_REALM")
+	}
+	return kcURL + "/realms/" + kcRealm, nil
+}
+
+// initGCRLister creates a GCR tag lister, falling back to a disabled stub on error.
+// The returned closer must be called on server shutdown; it is nil when the fallback is used.
+func initGCRLister() (gcr.Lister, func()) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client, err := gcr.NewClient(ctx)
+	if err != nil {
+		log.Printf("Artifact Registry client unavailable (tag listing disabled): %v", err)
+		return gcr.Disabled(), func() { /* no-op: disabled lister has no connection to close */ }
+	}
+	return client, func() {
+		if err := client.Close(); err != nil {
+			log.Printf("gcr client close: %v", err)
+		}
+	}
+}
+
+// initGitOpsApplier creates a gitops writer, falling back to a disabled stub when GITOPS_REPO_URL is unset.
+func initGitOpsApplier() handlers.GitOpsApplier {
+	w, err := gitops.NewWriterFromEnv()
+	if err != nil {
+		log.Printf("GitOps writer unavailable (deployments disabled): %v", err)
+		return &disabledGitOpsApplier{}
+	}
+	return w
+}
+
+// disabledGitOpsApplier is used when GITOPS_REPO_URL is not configured.
+type disabledGitOpsApplier struct{}
+
+func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) error {
+	return fmt.Errorf("gitops writer not configured: set GITOPS_REPO_URL")
 }
 
 // pgx5DSN converts a standard postgresql:// or postgres:// URL to the pgx5://

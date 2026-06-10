@@ -127,6 +127,9 @@ func (noopEnvironmentStore) Create(_ context.Context, _ *domain.Environment) err
 func (noopEnvironmentStore) ListByProduct(_ context.Context, _ string) ([]domain.Environment, error) {
 	return nil, nil
 }
+func (noopEnvironmentStore) GetByID(_ context.Context, _, _ string) (*domain.Environment, error) {
+	return nil, nil
+}
 func (noopEnvironmentStore) Delete(_ context.Context, _, _ string) error { return nil }
 
 var _ store.EnvironmentStore = noopEnvironmentStore{}
