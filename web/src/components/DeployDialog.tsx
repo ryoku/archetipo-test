@@ -52,8 +52,7 @@ export function DeployDialog({
         setTags(prev => (opts.append ? [...prev, ...result.tags] : result.tags))
         setNextPageToken(result.next_page_token)
         setError(false)
-      } catch (err) {
-        console.error('DeployDialog: fetchTags failed', { productSlug, component: component.slug, opts, err })
+      } catch {
         setError(true)
       } finally {
         setLoading(false)
@@ -117,14 +116,64 @@ export function DeployDialog({
 
   if (!open) return null
 
+  function renderTagListBody() {
+    if (loading && tags.length === 0) {
+      return (
+        <div className="dd-loading">
+          <div className="dd-spinner" />
+          Caricamento tag…
+        </div>
+      )
+    }
+    if (error) {
+      return (
+        <div className="dd-empty">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.28">
+            <path d="M18 5L31 12V24L18 31L5 24V12L18 5Z" />
+            <path d="M18 14v6" />
+            <circle cx="18" cy="24" r="1" fill="currentColor" />
+          </svg>
+          <div className="dd-empty-title">Tag non disponibili</div>
+          <div>Artifact Registry non raggiungibile. Usa il campo manuale per inserire il tag da deployare.</div>
+        </div>
+      )
+    }
+    if (tags.length === 0) {
+      return (
+        <div className="dd-empty">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.35">
+            <circle cx="14" cy="14" r="11" />
+            <path d="M23 23l6 6" />
+          </svg>
+          <div>Nessun tag corrisponde al filtro</div>
+        </div>
+      )
+    }
+    return tags.map(tag => (
+      <button
+        key={tag.name}
+        type="button"
+        className={`dd-tag-row${selectedTag === tag.name ? ' dd-tag-row--selected' : ''}`}
+        onClick={() => setSelectedTag(tag.name)}
+      >
+        <svg className="dd-tag-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M2.5 7L5.5 10L11.5 4" />
+        </svg>
+        <span className="dd-tag-name">{tag.name}</span>
+        <span className="dd-tag-date">{formatPushedAt(tag.pushed_at)}</span>
+      </button>
+    ))
+  }
+
   return (
-    <div
-      className="dd-backdrop"
-      onClick={e => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="dd-modal" role="dialog" aria-modal="true" aria-labelledby="dd-dialog-title">
+    <div className="dd-backdrop">
+      <button
+        type="button"
+        className="dd-backdrop-dismiss"
+        aria-label="Close dialog"
+        onClick={onClose}
+      />
+      <dialog className="dd-modal" open aria-labelledby="dd-dialog-title">
         {/* Header */}
         <div className="dd-header">
           <div className="dd-comp-icon">
@@ -141,7 +190,7 @@ export function DeployDialog({
               <path d="M8 2v14" />
             </svg>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="dd-header-info">
             <div id="dd-dialog-title" className="dd-title">Seleziona tag — {component.name}</div>
             <div className="dd-subtitle">{component.gcr_image_path}</div>
           </div>
@@ -241,68 +290,7 @@ export function DeployDialog({
 
         {/* Tag list */}
         <div className="dd-tag-list">
-          {loading && tags.length === 0 ? (
-            <div className="dd-loading">
-              <div className="dd-spinner" />
-              Caricamento tag…
-            </div>
-          ) : error ? (
-            <div className="dd-empty">
-              <svg
-                width="36"
-                height="36"
-                viewBox="0 0 36 36"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                opacity="0.28"
-              >
-                <path d="M18 5L31 12V24L18 31L5 24V12L18 5Z" />
-                <path d="M18 14v6" />
-                <circle cx="18" cy="24" r="1" fill="currentColor" />
-              </svg>
-              <div className="dd-empty-title">Tag non disponibili</div>
-              <div>Artifact Registry non raggiungibile. Usa il campo manuale per inserire il tag da deployare.</div>
-            </div>
-          ) : tags.length === 0 ? (
-            <div className="dd-empty">
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 32 32"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                opacity="0.35"
-              >
-                <circle cx="14" cy="14" r="11" />
-                <path d="M23 23l6 6" />
-              </svg>
-              <div>Nessun tag corrisponde al filtro</div>
-            </div>
-          ) : (
-            tags.map(tag => (
-              <div
-                key={tag.name}
-                className={`dd-tag-row${selectedTag === tag.name ? ' dd-tag-row--selected' : ''}`}
-                onClick={() => setSelectedTag(tag.name)}
-              >
-                <svg
-                  className="dd-tag-check"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M2.5 7L5.5 10L11.5 4" />
-                </svg>
-                <span className="dd-tag-name">{tag.name}</span>
-                <span className="dd-tag-date">{formatPushedAt(tag.pushed_at)}</span>
-              </div>
-            ))
-          )}
+          {renderTagListBody()}
         </div>
 
         {/* Load more */}
@@ -365,7 +353,7 @@ export function DeployDialog({
             Deploy
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   )
 }

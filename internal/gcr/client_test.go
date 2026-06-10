@@ -225,10 +225,34 @@ func TestClient_ListTags_EmptyResult(t *testing.T) {
 	}
 }
 
+func assertTagNameSet(t *testing.T, tags []Tag, wantNames []string) {
+	t.Helper()
+	got := make(map[string]bool, len(tags))
+	for _, tg := range tags {
+		got[tg.Name] = true
+	}
+	for _, name := range wantNames {
+		if !got[name] {
+			t.Errorf("expected tag %q in result but it was absent", name)
+		}
+	}
+}
+
+func assertFilterCompliance(t *testing.T, tags []Tag, filter string) {
+	t.Helper()
+	if filter == "" {
+		return
+	}
+	for _, tg := range tags {
+		if !strings.HasPrefix(tg.Name, filter) {
+			t.Errorf("tag %q does not match filter prefix %q", tg.Name, filter)
+		}
+	}
+}
+
 func TestListTags_FilterPrefix(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 
-	// Versions with tags: v1.0.0, v1.2.3, v2.0.0, latest
 	versions := []*artifactregistrypb.Version{
 		makeVersion("projects/p/locations/l/repositories/r/packages/img/versions/sha256:aaa", []string{"v1.0.0", "v1.2.3"}, now),
 		makeVersion("projects/p/locations/l/repositories/r/packages/img/versions/sha256:bbb", []string{"v2.0.0", "latest"}, now),
@@ -237,7 +261,7 @@ func TestListTags_FilterPrefix(t *testing.T) {
 	tests := []struct {
 		name          string
 		filter        string
-		providerToken string // token returned by the mock provider
+		providerToken string
 		wantCount     int
 		wantTagNames  []string
 		wantNextToken string
@@ -281,24 +305,8 @@ func TestListTags_FilterPrefix(t *testing.T) {
 			if nextToken != tc.wantNextToken {
 				t.Errorf("nextToken: got %q, want %q", nextToken, tc.wantNextToken)
 			}
-			// Build a set of returned tag names for assertion
-			got := make(map[string]bool, len(tags))
-			for _, tg := range tags {
-				got[tg.Name] = true
-			}
-			for _, name := range tc.wantTagNames {
-				if !got[name] {
-					t.Errorf("expected tag %q in result but it was absent", name)
-				}
-			}
-			// Ensure no unexpected tags are present when filter is applied
-			if tc.filter != "" {
-				for _, tg := range tags {
-					if !strings.HasPrefix(tg.Name, tc.filter) {
-						t.Errorf("tag %q does not match filter prefix %q", tg.Name, tc.filter)
-					}
-				}
-			}
+			assertTagNameSet(t, tags, tc.wantTagNames)
+			assertFilterCompliance(t, tags, tc.filter)
 		})
 	}
 }

@@ -193,11 +193,8 @@ describe('DeployDialog', () => {
       await Promise.resolve()
     })
 
-    // The backdrop is the dd-backdrop div which is the parent of dd-modal (role="dialog")
-    const dialog = screen.getByRole('dialog')
-    const backdrop = dialog.parentElement
-    if (!backdrop) throw new Error('backdrop not found')
-    fireEvent.click(backdrop)
+    const dismissBtn = screen.getByRole('button', { name: 'Close dialog' })
+    fireEvent.click(dismissBtn)
 
     expect(onClose).toHaveBeenCalled()
 
