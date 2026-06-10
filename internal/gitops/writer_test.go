@@ -259,6 +259,40 @@ func TestWriter_IdempotentRedeployNoError(t *testing.T) {
 	}
 }
 
+func TestOverlayNotFoundError_Message(t *testing.T) {
+	err := &OverlayNotFoundError{Path: "overlays/prod/kustomization.yaml"}
+	want := "gitops writer: overlay file not found: overlays/prod/kustomization.yaml"
+	if err.Error() != want {
+		t.Errorf("Error() = %q, want %q", err.Error(), want)
+	}
+}
+
+func TestNew_SSHKeyPathNotFound(t *testing.T) {
+	w, err := New(WriterConfig{
+		RepoURL:       "git@example.com:org/repo.git",
+		DeployKeyPath: "/nonexistent/key",
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	// buildAuth is called inside Apply; trigger it directly via Apply to cover the error path.
+	err = w.Apply(context.Background(), ApplyParams{
+		OverlayPath:   "overlays/kustomization.yaml",
+		ImageName:     "gcr.io/p/s",
+		NewTag:        "v1",
+		ProductSlug:   "p",
+		ComponentSlug: "s",
+		EnvName:       "e",
+		Actor:         "user",
+	})
+	if err == nil {
+		t.Fatal("expected error loading nonexistent SSH key")
+	}
+	if !strings.Contains(err.Error(), "load SSH key") {
+		t.Errorf("error = %q, want it to contain 'load SSH key'", err.Error())
+	}
+}
+
 func TestNew_MutuallyExclusiveAuth(t *testing.T) {
 	_, err := New(WriterConfig{
 		RepoURL:       "https://example.com/repo.git",

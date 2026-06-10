@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -72,7 +73,15 @@ func NewWriterFromEnv() (*Writer, error) {
 // Apply clones the gitops repo into a temp directory, patches the Kustomize overlay file,
 // commits with a structured message, pushes, and removes the temp directory.
 // The temp directory is always removed, even on error.
+// Each call performs a fresh clone rather than reusing a cached local copy; this avoids
+// stale-state bugs at the cost of a full clone per deployment, which is acceptable for
+// the current usage pattern (one deploy at a time, advisory locking handled by callers).
+// Concurrent calls targeting the same branch are not retried on non-fast-forward push
+// failures — callers are expected to serialise access via a deployment lock.
 func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
+	if p.OverlayPath == "" {
+		return fmt.Errorf("gitops writer: OverlayPath must not be empty")
+	}
 	tmpDir, err := os.MkdirTemp("", "kubegate-gitops-*")
 	if err != nil {
 		return fmt.Errorf("gitops writer: create temp dir: %w", err)
@@ -97,7 +106,22 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
 		return fmt.Errorf("gitops writer: get worktree: %w", err)
 	}
 
-	overlayAbs := filepath.Join(tmpDir, filepath.FromSlash(p.OverlayPath))
+	if err := patchAndStage(tmpDir, worktree, p); err != nil {
+		return err
+	}
+
+	msg := fmt.Sprintf("deploy(%s/%s/%s): %s by %s",
+		p.ProductSlug, p.ComponentSlug, p.EnvName, p.NewTag, p.Actor)
+
+	return commitAndPush(ctx, repo, worktree, auth, msg)
+}
+
+// patchAndStage reads the overlay file, applies the image patch, writes it back, and stages it.
+func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
+	overlayAbs, err := securejoin.SecureJoin(tmpDir, p.OverlayPath)
+	if err != nil {
+		return fmt.Errorf("gitops writer: unsafe overlay path: %w", err)
+	}
 	data, err := os.ReadFile(overlayAbs)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -105,44 +129,41 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
 		}
 		return fmt.Errorf("gitops writer: read overlay: %w", err)
 	}
-
 	patched, err := PatchImage(data, p.ImageName, p.NewTag)
 	if err != nil {
 		return fmt.Errorf("gitops writer: patch overlay: %w", err)
 	}
-
 	if err := os.WriteFile(overlayAbs, patched, 0644); err != nil {
 		return fmt.Errorf("gitops writer: write overlay: %w", err)
 	}
-
 	if _, err := worktree.Add(filepath.ToSlash(p.OverlayPath)); err != nil {
 		return fmt.Errorf("gitops writer: stage overlay: %w", err)
 	}
+	return nil
+}
 
-	msg := fmt.Sprintf("deploy(%s/%s/%s): %s by %s",
-		p.ProductSlug, p.ComponentSlug, p.EnvName, p.NewTag, p.Actor)
-
-	if _, err = worktree.Commit(msg, &git.CommitOptions{
+// commitAndPush creates a commit authored by the KubeGate system identity and pushes it.
+// ErrEmptyCommit (tag already deployed) and NoErrAlreadyUpToDate are treated as no-ops.
+func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Worktree, auth transport.AuthMethod, msg string) error {
+	_, err := worktree.Commit(msg, &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  "KubeGate",
-			Email: "kubegate@noreply",
+			Email: "noreply@kubegate.local",
 			When:  time.Now(),
 		},
-	}); err != nil {
+	})
+	if err != nil {
 		if errors.Is(err, git.ErrEmptyCommit) {
-			// Tag is already deployed; treat as a no-op rather than an error.
 			return nil
 		}
 		return fmt.Errorf("gitops writer: commit: %w", err)
 	}
-
 	if err := repo.PushContext(ctx, &git.PushOptions{Auth: auth}); err != nil {
 		if errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return nil
 		}
 		return fmt.Errorf("gitops writer: push: %w", err)
 	}
-
 	return nil
 }
 
