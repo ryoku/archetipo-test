@@ -12,10 +12,6 @@ import (
 	"github.com/ryoku/kubegate/internal/domain"
 )
 
-// ErrDeploymentLockHeld is returned when an advisory lock cannot be acquired because another
-// deployment is already in progress for the same product-environment pair.
-var ErrDeploymentLockHeld = errors.New("deployment lock held by another process")
-
 // AcquiredLock represents a held deployment advisory lock. Release must be called exactly once.
 type AcquiredLock interface {
 	Release(ctx context.Context) error
@@ -80,8 +76,7 @@ func (s *pgxDeploymentLockStore) TryAcquire(ctx context.Context, productID, envI
 				conn.Release()
 				return nil, nil, fmt.Errorf("insert lock metadata: %w", err)
 			}
-			lock := &pgxAcquiredLock{conn: conn, store: s, productID: productID, envID: envID}
-			return lock, nil, nil
+			return &pgxAcquiredLock{conn: conn, productID: productID, envID: envID}, nil, nil
 		}
 
 		if time.Now().After(deadline) {
@@ -90,11 +85,13 @@ func (s *pgxDeploymentLockStore) TryAcquire(ctx context.Context, productID, envI
 			return nil, info, err
 		}
 
+		timer := time.NewTimer(100 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			conn.Release()
 			return nil, nil, ctx.Err()
-		case <-time.After(100 * time.Millisecond):
+		case <-timer.C:
 		}
 	}
 }
@@ -119,22 +116,22 @@ func (s *pgxDeploymentLockStore) GetLockInfo(ctx context.Context, productID, env
 // pgxAcquiredLock holds the dedicated connection that owns the session-level advisory lock.
 type pgxAcquiredLock struct {
 	conn      *pgxpool.Conn
-	store     *pgxDeploymentLockStore
 	productID string
 	envID     string
 }
 
 func (l *pgxAcquiredLock) Release(ctx context.Context) error {
 	defer l.conn.Release()
+	var errs []error
 	if _, err := l.conn.Exec(ctx,
 		`DELETE FROM deployment_locks WHERE product_id = $1 AND env_id = $2`,
 		l.productID, l.envID,
 	); err != nil {
-		return fmt.Errorf("delete lock metadata: %w", err)
+		errs = append(errs, fmt.Errorf("delete lock metadata: %w", err))
 	}
 	k1, k2 := lockKeys(l.productID, l.envID)
 	if _, err := l.conn.Exec(ctx, "SELECT pg_advisory_unlock($1, $2)", k1, k2); err != nil {
-		return fmt.Errorf("advisory unlock: %w", err)
+		errs = append(errs, fmt.Errorf("advisory unlock: %w", err))
 	}
-	return nil
+	return errors.Join(errs...)
 }

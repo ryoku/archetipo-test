@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -118,6 +119,8 @@ func TestDeploymentLockStore_ConcurrentAcquire(t *testing.T) {
 	const workers = 5
 	results := make([]bool, workers)
 	var wg sync.WaitGroup
+	var concurrent int64
+	var violated int64
 
 	for i := range workers {
 		wg.Add(1)
@@ -126,7 +129,11 @@ func TestDeploymentLockStore_ConcurrentAcquire(t *testing.T) {
 			lock, _, err := s.TryAcquire(context.Background(), productID, envID, "worker", 300*time.Millisecond)
 			if err == nil && lock != nil {
 				results[idx] = true
+				if atomic.AddInt64(&concurrent, 1) > 1 {
+					atomic.StoreInt64(&violated, 1)
+				}
 				time.Sleep(50 * time.Millisecond)
+				atomic.AddInt64(&concurrent, -1)
 				_ = lock.Release(context.Background())
 			}
 		}(i)
@@ -140,6 +147,7 @@ func TestDeploymentLockStore_ConcurrentAcquire(t *testing.T) {
 		}
 	}
 	assert.GreaterOrEqual(t, acquiredCount, 1)
+	assert.Equal(t, int64(0), atomic.LoadInt64(&violated), "multiple goroutines held the lock simultaneously")
 }
 
 // insertLockFixtures creates a product and environment row for lock tests and returns their IDs.

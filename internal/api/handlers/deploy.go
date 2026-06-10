@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -101,7 +102,11 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 	if !ok {
 		return
 	}
-	defer func() { _ = lock.Release(context.Background()) }()
+	defer func() {
+		if err := lock.Release(context.Background()); err != nil {
+			log.Printf("deploy lock release: product=%s env=%s: %v", productSlug, environmentID, err)
+		}
+	}()
 
 	if !h.applyGitOps(c, product.Slug, env, comp, req.Tag, actor) {
 		return

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -40,13 +41,13 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 
-	productID, envID := insertDeployIntegrationFixtures(t, pool)
+	productID, envID, slug := insertDeployIntegrationFixtures(t, pool)
 
 	lockStore := store.NewDeploymentLockStore(pool)
 
 	// Fixture product and environment already exist in DB; populate in-memory lookup stubs
 	// so the mock stores return the real IDs.
-	product := &domain.Product{ID: productID, Name: "Integration Product", Slug: "integ-product"}
+	product := &domain.Product{ID: productID, Name: "Integration Product", Slug: slug}
 	env := &domain.Environment{
 		ID: envID, ProductID: productID,
 		Name: "dev", Type: "dev",
@@ -74,14 +75,14 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 		Sub:          "sara-1",
 		Email:        "sara@example.com",
 		Name:         "Sara DevOps",
-		ProductRoles: map[string]domain.Role{"integ-product": domain.RoleEditor},
+		ProductRoles: map[string]domain.Role{slug: domain.RoleEditor},
 	}
 
 	// Use real stores for product/env/comp by wrapping them with adapters that return the
 	// fixture objects we already inserted.
 	ps := &mockProductStore{
-		getBySlugFn: func(_ context.Context, slug string) (*domain.Product, error) {
-			if slug == product.Slug {
+		getBySlugFn: func(_ context.Context, s string) (*domain.Product, error) {
+			if s == product.Slug {
 				return product, nil
 			}
 			return nil, store.ErrNotFound
@@ -96,8 +97,8 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 		},
 	}
 	cs := &mockComponentStore{
-		getBySlugFn: func(_ context.Context, pID, slug string) (*domain.Component, error) {
-			if pID == productID && slug == comp.Slug {
+		getBySlugFn: func(_ context.Context, pID, s string) (*domain.Component, error) {
+			if pID == productID && s == comp.Slug {
 				return comp, nil
 			}
 			return nil, store.ErrComponentNotFound
@@ -123,7 +124,7 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 			"tag":            "v1.0.0",
 		})
 		req := httptest.NewRequest(http.MethodPost,
-			"/api/v1/products/integ-product/environments/"+envID+"/deployments",
+			"/api/v1/products/"+slug+"/environments/"+envID+"/deployments",
 			bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -173,13 +174,14 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 }
 
 // insertDeployIntegrationFixtures inserts a product and environment for the integration test.
-func insertDeployIntegrationFixtures(t *testing.T, pool *pgxpool.Pool) (productID, envID string) {
+func insertDeployIntegrationFixtures(t *testing.T, pool *pgxpool.Pool) (productID, envID, slug string) {
 	t.Helper()
 	ctx := context.Background()
+	slug = integTestSlug(t)
 
 	err := pool.QueryRow(ctx,
 		`INSERT INTO products (name, slug, description) VALUES ($1, $2, $3) RETURNING id`,
-		"Integration Product", "integ-product", "",
+		"Integration Product "+slug, slug, "",
 	).Scan(&productID)
 	require.NoError(t, err)
 
@@ -194,5 +196,31 @@ func insertDeployIntegrationFixtures(t *testing.T, pool *pgxpool.Pool) (productI
 		_, _ = pool.Exec(ctx, `DELETE FROM environments WHERE product_id = $1`, productID)
 		_, _ = pool.Exec(ctx, `DELETE FROM products WHERE id = $1`, productID)
 	})
-	return productID, envID
+	return productID, envID, slug
+}
+
+// integTestSlug returns a unique, URL-safe slug derived from the test name.
+func integTestSlug(t *testing.T) string {
+	t.Helper()
+	s := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			return r
+		case r >= 'A' && r <= 'Z':
+			return r + 32
+		default:
+			return '-'
+		}
+	}, t.Name())
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	s = strings.Trim(s, "-")
+	if s == "" {
+		return "test"
+	}
+	if len(s) > 40 {
+		s = strings.TrimRight(s[:40], "-")
+	}
+	return s
 }
