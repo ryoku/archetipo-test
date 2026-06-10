@@ -117,6 +117,9 @@ func TestWriter_HappyPath(t *testing.T) {
 	if commit.Author.Name != "KubeGate" {
 		t.Errorf("author name = %q, want %q", commit.Author.Name, "KubeGate")
 	}
+	if commit.Author.Email != "noreply@kubegate.local" {
+		t.Errorf("author email = %q, want %q", commit.Author.Email, "noreply@kubegate.local")
+	}
 
 	tree, err := commit.Tree()
 	if err != nil {
@@ -209,10 +212,11 @@ func TestWriter_Cleanup(t *testing.T) {
 }
 
 func TestNewWriterFromEnv(t *testing.T) {
-	t.Run("reads all fields", func(t *testing.T) {
+	t.Run("reads HTTPS token fields", func(t *testing.T) {
 		t.Setenv("GITOPS_REPO_URL", "https://git.example.com/repo.git")
 		t.Setenv("GITOPS_TOKEN", "mytoken")
 		t.Setenv("GITOPS_DEPLOY_KEY_PATH", "")
+		t.Setenv("GITOPS_KNOWN_HOSTS_PATH", "")
 
 		w, err := NewWriterFromEnv()
 		if err != nil {
@@ -223,6 +227,24 @@ func TestNewWriterFromEnv(t *testing.T) {
 		}
 		if w.cfg.Token != "mytoken" {
 			t.Errorf("Token = %q", w.cfg.Token)
+		}
+	})
+
+	t.Run("reads SSH key fields", func(t *testing.T) {
+		t.Setenv("GITOPS_REPO_URL", "git@example.com:org/repo.git")
+		t.Setenv("GITOPS_DEPLOY_KEY_PATH", "/home/user/.ssh/id_ed25519")
+		t.Setenv("GITOPS_KNOWN_HOSTS_PATH", "/home/user/.ssh/known_hosts")
+		t.Setenv("GITOPS_TOKEN", "")
+
+		w, err := NewWriterFromEnv()
+		if err != nil {
+			t.Fatalf("NewWriterFromEnv: %v", err)
+		}
+		if w.cfg.DeployKeyPath != "/home/user/.ssh/id_ed25519" {
+			t.Errorf("DeployKeyPath = %q", w.cfg.DeployKeyPath)
+		}
+		if w.cfg.KnownHostsPath != "/home/user/.ssh/known_hosts" {
+			t.Errorf("KnownHostsPath = %q", w.cfg.KnownHostsPath)
 		}
 	})
 
@@ -267,6 +289,72 @@ func TestOverlayNotFoundError_Message(t *testing.T) {
 	}
 }
 
+func TestWriter_PathTraversalRejected(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		"overlays/prod/kustomization.yaml": seedKustomization,
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	err = w.Apply(context.Background(), ApplyParams{
+		OverlayPath:   "../../etc/hostname",
+		ImageName:     "gcr.io/test-project/test-service",
+		NewTag:        "v2.0.0",
+		ProductSlug:   "p",
+		ComponentSlug: "c",
+		EnvName:       "e",
+		Actor:         "user",
+	})
+	// securejoin should either return an error or confine the path inside tmpDir,
+	// resulting in an OverlayNotFoundError — either way Apply must not succeed.
+	if err == nil {
+		t.Fatal("expected error for path traversal OverlayPath, got nil")
+	}
+}
+
+func TestApply_RequiredParamValidation(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		"overlays/prod/kustomization.yaml": seedKustomization,
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	base := ApplyParams{
+		OverlayPath:   "overlays/prod/kustomization.yaml",
+		ImageName:     "gcr.io/test-project/test-service",
+		NewTag:        "v2.0.0",
+		ProductSlug:   "p",
+		ComponentSlug: "c",
+		EnvName:       "e",
+		Actor:         "user",
+	}
+	cases := []struct {
+		name    string
+		mutate  func(*ApplyParams)
+		wantMsg string
+	}{
+		{"empty OverlayPath", func(p *ApplyParams) { p.OverlayPath = "" }, "OverlayPath must not be empty"},
+		{"empty ImageName", func(p *ApplyParams) { p.ImageName = "" }, "ImageName must not be empty"},
+		{"empty NewTag", func(p *ApplyParams) { p.NewTag = "" }, "NewTag must not be empty"},
+		{"empty Actor", func(p *ApplyParams) { p.Actor = "" }, "Actor must not be empty"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := base
+			tc.mutate(&p)
+			err := w.Apply(context.Background(), p)
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.wantMsg) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), tc.wantMsg)
+			}
+		})
+	}
+}
+
 func TestNew_SSHKeyPathNotFound(t *testing.T) {
 	w, err := New(WriterConfig{
 		RepoURL:       "git@example.com:org/repo.git",
@@ -288,8 +376,8 @@ func TestNew_SSHKeyPathNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error loading nonexistent SSH key")
 	}
-	if !strings.Contains(err.Error(), "load SSH key") {
-		t.Errorf("error = %q, want it to contain 'load SSH key'", err.Error())
+	if !strings.Contains(err.Error(), "build auth") {
+		t.Errorf("error = %q, want it to contain 'build auth'", err.Error())
 	}
 }
 

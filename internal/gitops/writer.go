@@ -14,19 +14,26 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/skeema/knownhosts"
 	gossh "golang.org/x/crypto/ssh"
 )
 
 // WriterConfig holds the configuration for the gitops Writer.
+// Exactly one of DeployKeyPath (SSH) or Token (HTTPS) may be set; both empty means no auth
+// (suitable for local file:// remotes used in tests).
+// When DeployKeyPath is set, KnownHostsPath must also be set for SSH host key verification.
+// Leaving KnownHostsPath empty disables host key verification — only acceptable for
+// local dev against a file:// remote.
 type WriterConfig struct {
-	RepoURL       string
-	DeployKeyPath string // SSH key path; mutually exclusive with Token
-	Token         string // HTTPS personal access token; mutually exclusive with DeployKeyPath
+	RepoURL        string
+	DeployKeyPath  string // SSH key path; mutually exclusive with Token
+	KnownHostsPath string // SSH known_hosts file; required when DeployKeyPath is set for host verification
+	Token          string // HTTPS personal access token; mutually exclusive with DeployKeyPath
 }
 
 // ApplyParams are the parameters for a single gitops write operation.
 type ApplyParams struct {
-	OverlayPath   string // relative path within the repo to kustomization.yaml
+	OverlayPath   string // relative path within the repo to the overlay file containing the Kustomize images list
 	ImageName     string // full GCR image path (from Component.GCRImagePath)
 	NewTag        string // image tag to deploy
 	ProductSlug   string
@@ -60,28 +67,44 @@ func New(cfg WriterConfig) (*Writer, error) {
 	return &Writer{cfg: cfg}, nil
 }
 
-// NewWriterFromEnv reads GITOPS_REPO_URL, GITOPS_DEPLOY_KEY_PATH, and GITOPS_TOKEN from
-// the environment and delegates to New.
+// NewWriterFromEnv reads GITOPS_REPO_URL, GITOPS_DEPLOY_KEY_PATH, GITOPS_KNOWN_HOSTS_PATH,
+// and GITOPS_TOKEN from the environment and calls New.
+// If both credential variables are empty, the Writer operates in unauthenticated mode
+// (suitable for file:// remotes). Returns an error if GITOPS_REPO_URL is empty.
 func NewWriterFromEnv() (*Writer, error) {
 	return New(WriterConfig{
-		RepoURL:       os.Getenv("GITOPS_REPO_URL"),
-		DeployKeyPath: os.Getenv("GITOPS_DEPLOY_KEY_PATH"),
-		Token:         os.Getenv("GITOPS_TOKEN"),
+		RepoURL:        os.Getenv("GITOPS_REPO_URL"),
+		DeployKeyPath:  os.Getenv("GITOPS_DEPLOY_KEY_PATH"),
+		KnownHostsPath: os.Getenv("GITOPS_KNOWN_HOSTS_PATH"),
+		Token:          os.Getenv("GITOPS_TOKEN"),
 	})
 }
 
 // Apply clones the gitops repo into a temp directory, patches the Kustomize overlay file,
 // commits with a structured message, pushes, and removes the temp directory.
 // The temp directory is always removed, even on error.
+//
 // Each call performs a fresh clone rather than reusing a cached local copy; this avoids
 // stale-state bugs at the cost of a full clone per deployment, which is acceptable for
 // the current usage pattern (one deploy at a time, advisory locking handled by callers).
-// Concurrent calls targeting the same branch are not retried on non-fast-forward push
-// failures — callers are expected to serialise access via a deployment lock.
+//
+// IMPORTANT: This function is not safe for concurrent use against the same branch. Callers
+// must hold a deployment lock (e.g. a PostgreSQL advisory lock on the product+environment)
+// before calling Apply to prevent non-fast-forward push failures.
 func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
 	if p.OverlayPath == "" {
 		return fmt.Errorf("gitops writer: OverlayPath must not be empty")
 	}
+	if p.ImageName == "" {
+		return fmt.Errorf("gitops writer: ImageName must not be empty")
+	}
+	if p.NewTag == "" {
+		return fmt.Errorf("gitops writer: NewTag must not be empty")
+	}
+	if p.Actor == "" {
+		return fmt.Errorf("gitops writer: Actor must not be empty")
+	}
+
 	tmpDir, err := os.MkdirTemp("", "kubegate-gitops-*")
 	if err != nil {
 		return fmt.Errorf("gitops writer: create temp dir: %w", err)
@@ -90,7 +113,7 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
 
 	auth, err := w.buildAuth()
 	if err != nil {
-		return err
+		return fmt.Errorf("gitops writer: build auth: %w", err)
 	}
 
 	repo, err := git.PlainCloneContext(ctx, tmpDir, false, &git.CloneOptions{
@@ -124,7 +147,7 @@ func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
 	}
 	data, err := os.ReadFile(overlayAbs)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return &OverlayNotFoundError{Path: p.OverlayPath}
 		}
 		return fmt.Errorf("gitops writer: read overlay: %w", err)
@@ -143,7 +166,8 @@ func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
 }
 
 // commitAndPush creates a commit authored by the KubeGate system identity and pushes it.
-// ErrEmptyCommit (tag already deployed) and NoErrAlreadyUpToDate are treated as no-ops.
+// ErrEmptyCommit (no staged changes — e.g. overlay content already matches the requested tag)
+// and NoErrAlreadyUpToDate are treated as no-ops.
 func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Worktree, auth transport.AuthMethod, msg string) error {
 	_, err := worktree.Commit(msg, &git.CommitOptions{
 		Author: &object.Signature{
@@ -167,14 +191,30 @@ func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Work
 	return nil
 }
 
+// buildAuth returns the transport.AuthMethod derived from WriterConfig.
+// SSH: loads the private key and verifies host keys against KnownHostsPath when set.
+// If KnownHostsPath is empty, host key verification is skipped — only acceptable for
+// local file:// remotes (tests/dev); never use in production against a real remote.
+// HTTPS: uses Token as a bearer credential.
+// No auth fields set: returns nil (unauthenticated, suitable for file:// remotes).
 func (w *Writer) buildAuth() (transport.AuthMethod, error) {
 	if w.cfg.DeployKeyPath != "" {
 		sshAuth, err := gitssh.NewPublicKeysFromFile("git", w.cfg.DeployKeyPath, "")
 		if err != nil {
-			return nil, fmt.Errorf("gitops writer: load SSH key: %w", err)
+			return nil, fmt.Errorf("load SSH key: %w", err)
 		}
-		sshAuth.HostKeyCallbackHelper = gitssh.HostKeyCallbackHelper{
-			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		if w.cfg.KnownHostsPath != "" {
+			cb, err := knownhosts.New(w.cfg.KnownHostsPath)
+			if err != nil {
+				return nil, fmt.Errorf("load known_hosts: %w", err)
+			}
+			sshAuth.HostKeyCallbackHelper = gitssh.HostKeyCallbackHelper{HostKeyCallback: gossh.HostKeyCallback(cb)}
+		} else {
+			// KnownHostsPath not set: skip host key verification.
+			// Acceptable only for local file:// remotes; do not use against a real SSH remote.
+			sshAuth.HostKeyCallbackHelper = gitssh.HostKeyCallbackHelper{
+				HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec
+			}
 		}
 		return sshAuth, nil
 	}
