@@ -211,7 +211,7 @@ func TestRegisterDeploymentRoutes_RoutesRegistered(t *testing.T) {
 	r := router.New(alwaysDenyVerifier{},
 		router.RegisterDeploymentRoutes(
 			noopProductStore{}, noopEnvironmentStore{}, noopComponentStore{},
-			noopDeploymentLockStore{}, noopDeployApplier{},
+			noopDeploymentLockStore{}, noopDeployApplier{}, "",
 		))
 	assertRoutesReturn401(t, r, [][2]string{
 		{http.MethodPost, "/api/v1/products/some-slug/environments/some-id/deployments"},
