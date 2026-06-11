@@ -14,6 +14,7 @@ import (
 	"github.com/ryoku/kubegate/internal/api/middleware"
 	"github.com/ryoku/kubegate/internal/domain"
 	"github.com/ryoku/kubegate/internal/gcr"
+	"github.com/ryoku/kubegate/internal/gitops"
 	"github.com/ryoku/kubegate/internal/store"
 )
 
@@ -32,12 +33,33 @@ func (m *mockLister) ListTags(ctx context.Context, imagePath, pageToken, filter 
 
 var _ gcr.Lister = (*mockLister)(nil)
 
+// --- mock WorkloadReader ---
+
+type mockWorkloadReader struct {
+	listWorkloadsFn func(ctx context.Context, productSlug, envSlug string) ([]domain.Workload, error)
+}
+
+func (m *mockWorkloadReader) ListWorkloads(ctx context.Context, productSlug, envSlug string) ([]domain.Workload, error) {
+	if m.listWorkloadsFn != nil {
+		return m.listWorkloadsFn(ctx, productSlug, envSlug)
+	}
+	return nil, nil
+}
+
+var _ gitops.WorkloadReader = (*mockWorkloadReader)(nil)
+
 // --- router helper ---
 
-func newTagRouter(ps store.ProductStore, cs store.ComponentStore, l gcr.Lister, identity *domain.UserIdentity) *gin.Engine {
+func newTagRouter(
+	ps store.ProductStore,
+	es store.EnvironmentStore,
+	r gitops.WorkloadReader,
+	l gcr.Lister,
+	identity *domain.UserIdentity,
+) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	h := handlers.NewTagHandlers(ps, cs, l)
+	eng := gin.New()
+	h := handlers.NewTagHandlers(ps, es, r, l)
 
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
@@ -46,15 +68,34 @@ func newTagRouter(ps store.ProductStore, cs store.ComponentStore, l gcr.Lister, 
 		c.Next()
 	}
 
-	api := r.Group("/api/v1", injectIdentity)
-	api.GET("/products/:productSlug/components/:componentSlug/tags",
+	api := eng.Group("/api/v1", injectIdentity)
+	api.GET("/products/:productSlug/environments/:environmentID/workloads/:workload/tags",
 		middleware.RequireRole(domain.RoleViewer),
 		h.ListTags,
 	)
-	return r
+	return eng
 }
 
 // --- local fixtures ---
+
+var tagFixtureProduct = &domain.Product{
+	ID:   "prod-tag-1",
+	Name: "Tag Product",
+	Slug: "tag-product",
+}
+
+var tagFixtureEnv = &domain.Environment{
+	ID:        "env-tag-1",
+	ProductID: "prod-tag-1",
+	Name:      "dev",
+	Slug:      "dev",
+	Type:      "dev",
+}
+
+var tagFixtureWorkloads = []domain.Workload{
+	{Name: "main", ImageRepository: "us-docker.pkg.dev/proj/repo/img"},
+	{Name: "sidecar", ImageRepository: "us-docker.pkg.dev/proj/repo/sidecar"},
+}
 
 func tagProductStoreOK(slug string) store.ProductStore {
 	p := makeProduct(slug)
@@ -71,24 +112,56 @@ func tagProductStoreNotFound() store.ProductStore {
 	}
 }
 
-func tagCompStoreOK() store.ComponentStore {
-	return &mockComponentStore{
-		getBySlugFn: func(_ context.Context, _, _ string) (*domain.Component, error) {
-			return &domain.Component{
-				ID:           "comp-1",
-				ProductID:    "prod-1",
-				GCRImagePath: "us-docker.pkg.dev/proj/repo/img",
-			}, nil
+func tagEnvStoreOK() store.EnvironmentStore {
+	return &mockEnvironmentStore{
+		getByIDFn: func(_ context.Context, _, _ string) (*domain.Environment, error) {
+			return tagFixtureEnv, nil
 		},
 	}
 }
 
-func tagCompStoreNotFound() store.ComponentStore {
-	return &mockComponentStore{
-		getBySlugFn: func(_ context.Context, _, _ string) (*domain.Component, error) {
-			return nil, store.ErrComponentNotFound
+func tagEnvStoreNotFound() store.EnvironmentStore {
+	return &mockEnvironmentStore{
+		getByIDFn: func(_ context.Context, _, _ string) (*domain.Environment, error) {
+			return nil, store.ErrEnvironmentNotFound
 		},
 	}
+}
+
+func workloadReaderOK(workloads []domain.Workload) *mockWorkloadReader {
+	return &mockWorkloadReader{
+		listWorkloadsFn: func(_ context.Context, _, _ string) ([]domain.Workload, error) {
+			return workloads, nil
+		},
+	}
+}
+
+func workloadReaderHelmReleaseNotFound() *mockWorkloadReader {
+	return &mockWorkloadReader{
+		listWorkloadsFn: func(_ context.Context, _, _ string) ([]domain.Workload, error) {
+			return nil, gitops.ErrHelmReleaseNotFound
+		},
+	}
+}
+
+func workloadReaderHelmReleaseParseFailed() *mockWorkloadReader {
+	return &mockWorkloadReader{
+		listWorkloadsFn: func(_ context.Context, _, _ string) ([]domain.Workload, error) {
+			return nil, gitops.ErrHelmReleaseParseFailed
+		},
+	}
+}
+
+func doTagRequest(t *testing.T, r *gin.Engine, productSlug, envID, workload, query string) *httptest.ResponseRecorder {
+	t.Helper()
+	url := "/api/v1/products/" + productSlug + "/environments/" + envID + "/workloads/" + workload + "/tags"
+	if query != "" {
+		url += "?" + query
+	}
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
 }
 
 // --- tests ---
@@ -99,20 +172,23 @@ func TestTagHandler_ListTags_OK(t *testing.T) {
 		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
 			return []gcr.Tag{
 				{Name: "v1.0.0", Digest: "sha256:aaa", PushedAt: now},
-				{Name: "latest", Digest: "sha256:aaa", PushedAt: now},
+				{Name: "v1.1.0", Digest: "sha256:bbb", PushedAt: now},
 			}, "next-token", nil
 		},
 	}
 
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
-	r.ServeHTTP(w, req)
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-
 	var resp struct {
 		Tags []struct {
 			Name   string `json:"name"`
@@ -132,11 +208,14 @@ func TestTagHandler_ListTags_OK(t *testing.T) {
 }
 
 func TestTagHandler_ListTags_EmptyResult(t *testing.T) {
-	lister := &mockLister{}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
-	r.ServeHTTP(w, req)
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
@@ -152,6 +231,101 @@ func TestTagHandler_ListTags_EmptyResult(t *testing.T) {
 	}
 }
 
+func TestTagHandler_ListTags_WorkloadNotInHelmRelease_Returns404(t *testing.T) {
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "nonexistent", "")
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for unknown workload, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_HelmReleaseNotFound_Returns404(t *testing.T) {
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderHelmReleaseNotFound(),
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 when HelmRelease not found, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_HelmReleaseParseFailed_Returns422(t *testing.T) {
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderHelmReleaseParseFailed(),
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 when HelmRelease parse fails, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_WorkloadReaderError_Returns500(t *testing.T) {
+	reader := &mockWorkloadReader{
+		listWorkloadsFn: func(_ context.Context, _, _ string) ([]domain.Workload, error) {
+			return nil, fmt.Errorf("unexpected storage failure")
+		},
+	}
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		reader,
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for unexpected reader error, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_ProductNotFound(t *testing.T) {
+	r := newTagRouter(
+		tagProductStoreNotFound(),
+		tagEnvStoreNotFound(),
+		workloadReaderOK(nil),
+		&mockLister{},
+		viewerIdentity("missing"),
+	)
+	w := doTagRequest(t, r, "missing", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_EnvironmentNotFound_Returns404(t *testing.T) {
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreNotFound(),
+		workloadReaderOK(nil),
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "missing-env", "main", "")
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 when env not found, got %d", w.Code)
+	}
+}
+
 func TestTagHandler_ListTags_PageSizeForwarded(t *testing.T) {
 	var got int
 	lister := &mockLister{
@@ -160,10 +334,14 @@ func TestTagHandler_ListTags_PageSizeForwarded(t *testing.T) {
 			return nil, "", nil
 		},
 	}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags?page_size=5", nil)
-	r.ServeHTTP(w, req)
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "page_size=5")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
@@ -174,109 +352,18 @@ func TestTagHandler_ListTags_PageSizeForwarded(t *testing.T) {
 }
 
 func TestTagHandler_ListTags_InvalidPageSize(t *testing.T) {
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), &mockLister{}, viewerIdentity("my-product"))
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
 	for _, qs := range []string{"page_size=0", "page_size=-1", "page_size=101", "page_size=abc"} {
-		w := httptest.NewRecorder()
-		req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags?"+qs, nil)
-		r.ServeHTTP(w, req)
+		w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", qs)
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("%s: expected 400, got %d", qs, w.Code)
 		}
-	}
-}
-
-func TestTagHandler_ListTags_ProductNotFound(t *testing.T) {
-	r := newTagRouter(tagProductStoreNotFound(), tagCompStoreNotFound(), &mockLister{}, viewerIdentity("missing"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/missing/components/comp/tags", nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", w.Code)
-	}
-}
-
-func TestTagHandler_ListTags_ComponentNotFound(t *testing.T) {
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreNotFound(), &mockLister{}, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/missing/tags", nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", w.Code)
-	}
-}
-
-func TestTagHandler_ListTags_GCRRateLimit(t *testing.T) {
-	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
-			return nil, "", fmt.Errorf("%w: quota exceeded", gcr.ErrRateLimit)
-		},
-	}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusTooManyRequests {
-		t.Errorf("expected 429, got %d", w.Code)
-	}
-}
-
-func TestTagHandler_ListTags_GCRAuthFailure(t *testing.T) {
-	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
-			return nil, "", fmt.Errorf("%w: invalid credentials", gcr.ErrAuthFailure)
-		},
-	}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("expected 502, got %d", w.Code)
-	}
-}
-
-func TestTagHandler_ListTags_GCRNetworkError(t *testing.T) {
-	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
-			return nil, "", fmt.Errorf("%w: connection refused", gcr.ErrNetwork)
-		},
-	}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("expected 502, got %d", w.Code)
-	}
-}
-
-func TestTagHandler_ListTags_EmptyGCRImagePath(t *testing.T) {
-	compStore := &mockComponentStore{
-		getBySlugFn: func(_ context.Context, _, _ string) (*domain.Component, error) {
-			return &domain.Component{ID: "comp-1", ProductID: "prod-1", GCRImagePath: ""}, nil
-		},
-	}
-	r := newTagRouter(tagProductStoreOK("my-product"), compStore, &mockLister{}, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/no-image/tags", nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Errorf("expected 422 for empty GCRImagePath, got %d", w.Code)
-	}
-}
-
-func TestTagHandler_ListTags_GCRRepoNotFound(t *testing.T) {
-	lister := &mockLister{
-		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
-			return nil, "", fmt.Errorf("%w: repository not found", gcr.ErrRepoNotFound)
-		},
-	}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected 404 for GCR ErrRepoNotFound, got %d", w.Code)
 	}
 }
 
@@ -288,26 +375,20 @@ func TestTagHandler_ListTags_PageTokenForwarded(t *testing.T) {
 			return nil, "", nil
 		},
 	}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags?page_token=abc123", nil)
-	r.ServeHTTP(w, req)
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "page_token=abc123")
+
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 	if gotToken != "abc123" {
-		t.Errorf("expected page_token %q forwarded to lister, got %q", "abc123", gotToken)
-	}
-}
-
-func TestTagHandler_ListTags_Unauthenticated(t *testing.T) {
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), &mockLister{}, nil)
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags", nil)
-	r.ServeHTTP(w, req)
-	// No identity → RequireRole middleware aborts with 401
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401, got %d", w.Code)
+		t.Errorf("expected page_token %q forwarded, got %q", "abc123", gotToken)
 	}
 }
 
@@ -319,15 +400,139 @@ func TestTagHandler_ListTags_FilterForwarded(t *testing.T) {
 			return nil, "", nil
 		},
 	}
-	r := newTagRouter(tagProductStoreOK("my-product"), tagCompStoreOK(), lister, viewerIdentity("my-product"))
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/my-product/components/my-comp/tags?filter=v1", nil)
-	r.ServeHTTP(w, req)
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "filter=v1")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 	if gotFilter != "v1" {
-		t.Errorf("expected filter %q forwarded to lister, got %q", "v1", gotFilter)
+		t.Errorf("expected filter %q forwarded, got %q", "v1", gotFilter)
+	}
+}
+
+func TestTagHandler_ListTags_GCRRateLimit(t *testing.T) {
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
+			return nil, "", fmt.Errorf("%w: quota exceeded", gcr.ErrRateLimit)
+		},
+	}
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_GCRAuthFailure(t *testing.T) {
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
+			return nil, "", fmt.Errorf("%w: invalid credentials", gcr.ErrAuthFailure)
+		},
+	}
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_GCRNetworkError(t *testing.T) {
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
+			return nil, "", fmt.Errorf("%w: connection refused", gcr.ErrNetwork)
+		},
+	}
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_GCRRepoNotFound(t *testing.T) {
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag, string, error) {
+			return nil, "", fmt.Errorf("%w: repository not found", gcr.ErrRepoNotFound)
+		},
+	}
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for GCR ErrRepoNotFound, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_Unauthenticated(t *testing.T) {
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		&mockLister{},
+		nil,
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestTagHandler_ListTags_ImageRepoPassedToLister(t *testing.T) {
+	var gotImageRepo string
+	lister := &mockLister{
+		listTagsFn: func(_ context.Context, imagePath, _, _ string, _ int) ([]gcr.Tag, string, error) {
+			gotImageRepo = imagePath
+			return nil, "", nil
+		},
+	}
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		tagEnvStoreOK(),
+		workloadReaderOK(tagFixtureWorkloads),
+		lister,
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if gotImageRepo != "us-docker.pkg.dev/proj/repo/img" {
+		t.Errorf("expected image repo from workload discovery, got %q", gotImageRepo)
 	}
 }

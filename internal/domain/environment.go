@@ -10,6 +10,7 @@ type Environment struct {
 	ID          string
 	ProductID   string
 	Name        string
+	Slug        string
 	Type        string
 	OverlayPath string
 	CreatedAt   time.Time

@@ -24,6 +24,7 @@ func NewEnvironmentHandlers(ps store.ProductStore, es store.EnvironmentStore) *E
 
 type createEnvironmentRequest struct {
 	Name        string `json:"name"`
+	Slug        string `json:"slug"`
 	Type        string `json:"type"`
 	OverlayPath string `json:"overlay_path"`
 }
@@ -32,6 +33,7 @@ type environmentResponse struct {
 	ID          string `json:"id"`
 	ProductID   string `json:"product_id"`
 	Name        string `json:"name"`
+	Slug        string `json:"slug"`
 	Type        string `json:"type"`
 	OverlayPath string `json:"overlay_path"`
 	CreatedAt   string `json:"created_at"`
@@ -42,6 +44,7 @@ func toEnvironmentResponse(e *domain.Environment) environmentResponse {
 		ID:          e.ID,
 		ProductID:   e.ProductID,
 		Name:        e.Name,
+		Slug:        e.Slug,
 		Type:        e.Type,
 		OverlayPath: e.OverlayPath,
 		CreatedAt:   e.CreatedAt.Format(time.RFC3339),
@@ -69,6 +72,10 @@ func (h *EnvironmentHandlers) CreateEnvironment(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "name is required"})
 		return
 	}
+	if err := domain.ValidateSlug(req.Slug); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "slug: " + err.Error()})
+		return
+	}
 	if err := domain.ValidateEnvironmentType(req.Type); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
@@ -85,12 +92,17 @@ func (h *EnvironmentHandlers) CreateEnvironment(c *gin.Context) {
 	env := &domain.Environment{
 		ProductID:   product.ID,
 		Name:        req.Name,
+		Slug:        req.Slug,
 		Type:        req.Type,
 		OverlayPath: req.OverlayPath,
 	}
 	if err := h.envStore.Create(c.Request.Context(), env); err != nil {
 		if errors.Is(err, store.ErrEnvironmentNameConflict) {
 			c.JSON(http.StatusConflict, gin.H{"error": "environment name already exists for this product"})
+			return
+		}
+		if errors.Is(err, store.ErrEnvironmentSlugConflict) {
+			c.JSON(http.StatusConflict, gin.H{"error": "environment slug already exists for this product"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})

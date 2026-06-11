@@ -174,15 +174,35 @@ func (noopLister) ListTags(_ context.Context, _, _, _ string, _ int) ([]gcr.Tag,
 
 var _ gcr.Lister = noopLister{}
 
+// noopWorkloadReader is a no-op WorkloadReader used to verify route registration.
+type noopWorkloadReader struct{}
+
+func (noopWorkloadReader) ListWorkloads(_ context.Context, _, _ string) ([]domain.Workload, error) {
+	return nil, nil
+}
+
+var _ gitops.WorkloadReader = noopWorkloadReader{}
+
 // TestRegisterTagRoutes_RoutesRegistered verifies that RegisterTagRoutes registers the
 // expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is
 // present, confirming the route exists (a missing route returns 404 instead).
 func TestRegisterTagRoutes_RoutesRegistered(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(alwaysDenyVerifier{},
-		router.RegisterTagRoutes(noopProductStore{}, noopComponentStore{}, noopLister{}))
+		router.RegisterTagRoutes(noopProductStore{}, noopEnvironmentStore{}, noopWorkloadReader{}, noopLister{}))
 	assertRoutesReturn401(t, r, [][2]string{
-		{http.MethodGet, "/api/v1/products/some-slug/components/some-comp/tags"},
+		{http.MethodGet, "/api/v1/products/some-slug/environments/some-id/workloads/some-workload/tags"},
+	})
+}
+
+// TestRegisterWorkloadRoutes_RoutesRegistered verifies that RegisterWorkloadRoutes registers
+// the expected HTTP endpoint.
+func TestRegisterWorkloadRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterWorkloadRoutes(noopProductStore{}, noopEnvironmentStore{}, noopWorkloadReader{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/products/some-slug/environments/some-id/workloads"},
 	})
 }
 
@@ -210,7 +230,7 @@ func TestRegisterDeploymentRoutes_RoutesRegistered(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(alwaysDenyVerifier{},
 		router.RegisterDeploymentRoutes(
-			noopProductStore{}, noopEnvironmentStore{}, noopComponentStore{},
+			noopProductStore{}, noopEnvironmentStore{},
 			noopDeploymentLockStore{}, noopDeployApplier{}, "",
 		))
 	assertRoutesReturn401(t, r, [][2]string{

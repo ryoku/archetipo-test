@@ -162,8 +162,8 @@ func insertLockFixtures(t *testing.T, pool *pgxpool.Pool) (productID, envID stri
 	require.NoError(t, err)
 
 	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, type, overlay_path) VALUES ($1, $2, $3, $4) RETURNING id`,
-		productID, "dev", "dev", "apps/dev/lock-test/lock-test-helmrelease.yaml",
+		`INSERT INTO environments (product_id, name, slug, type, overlay_path) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		productID, "dev", "dev", "dev", "apps/dev/lock-test/lock-test-helmrelease.yaml",
 	).Scan(&envID)
 	require.NoError(t, err)
 

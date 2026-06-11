@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -13,6 +14,9 @@ import (
 
 // ErrEnvironmentNameConflict is returned when an environment with the same name already exists for this product.
 var ErrEnvironmentNameConflict = errors.New("environment name already exists for this product")
+
+// ErrEnvironmentSlugConflict is returned when an environment with the same slug already exists for this product.
+var ErrEnvironmentSlugConflict = errors.New("environment slug already exists for this product")
 
 // ErrEnvironmentNotFound is returned when the requested environment does not exist.
 var ErrEnvironmentNotFound = errors.New("environment not found")
@@ -39,13 +43,17 @@ func NewEnvironmentStore(pool *pgxpool.Pool) EnvironmentStore {
 
 func (s *pgxEnvironmentStore) Create(ctx context.Context, e *domain.Environment) error {
 	row := s.pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, type, overlay_path)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO environments (product_id, name, slug, type, overlay_path)
+		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING id, created_at`,
-		e.ProductID, e.Name, e.Type, e.OverlayPath,
+		e.ProductID, e.Name, e.Slug, e.Type, e.OverlayPath,
 	)
 	if err := row.Scan(&e.ID, &e.CreatedAt); err != nil {
-		if isUniqueViolation(err) {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if strings.Contains(pgErr.ConstraintName, "slug") {
+				return ErrEnvironmentSlugConflict
+			}
 			return ErrEnvironmentNameConflict
 		}
 		return fmt.Errorf("create environment: %w", err)
@@ -55,7 +63,7 @@ func (s *pgxEnvironmentStore) Create(ctx context.Context, e *domain.Environment)
 
 func (s *pgxEnvironmentStore) ListByProduct(ctx context.Context, productID string) ([]domain.Environment, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, product_id, name, type, overlay_path, created_at
+		`SELECT id, product_id, name, slug, type, overlay_path, created_at
 		 FROM environments
 		 WHERE product_id = $1
 		 ORDER BY created_at ASC`,
@@ -69,7 +77,7 @@ func (s *pgxEnvironmentStore) ListByProduct(ctx context.Context, productID strin
 	environments := []domain.Environment{}
 	for rows.Next() {
 		var e domain.Environment
-		if err := rows.Scan(&e.ID, &e.ProductID, &e.Name, &e.Type, &e.OverlayPath, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.ProductID, &e.Name, &e.Slug, &e.Type, &e.OverlayPath, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan environment: %w", err)
 		}
 		environments = append(environments, e)
@@ -83,11 +91,11 @@ func (s *pgxEnvironmentStore) ListByProduct(ctx context.Context, productID strin
 func (s *pgxEnvironmentStore) GetByID(ctx context.Context, productID, environmentID string) (*domain.Environment, error) {
 	var e domain.Environment
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, product_id, name, type, overlay_path, created_at
+		`SELECT id, product_id, name, slug, type, overlay_path, created_at
 		 FROM environments
 		 WHERE product_id = $1 AND id = $2`,
 		productID, environmentID,
-	).Scan(&e.ID, &e.ProductID, &e.Name, &e.Type, &e.OverlayPath, &e.CreatedAt)
+	).Scan(&e.ID, &e.ProductID, &e.Name, &e.Slug, &e.Type, &e.OverlayPath, &e.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrEnvironmentNotFound

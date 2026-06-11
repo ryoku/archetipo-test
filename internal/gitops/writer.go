@@ -14,6 +14,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/ryoku/kubegate/internal/domain"
 	"github.com/skeema/knownhosts"
 	gossh "golang.org/x/crypto/ssh"
 )
@@ -33,22 +34,28 @@ type WriterConfig struct {
 
 // ApplyParams are the parameters for a single gitops write operation.
 type ApplyParams struct {
-	OverlayPath   string // relative path within the repo to the overlay file containing the Kustomize images list
-	ImageName     string // full GCR image path (from Component.GCRImagePath)
-	NewTag        string // image tag to deploy
-	ProductSlug   string
-	ComponentSlug string
-	EnvName       string
-	Actor         string // authenticated user identifier; appears in the commit message
+	HelmReleasePath string // relative path within the repo to the HelmRelease file (derived from convention)
+	Workload        string // workload name to patch (spec.values.[workload].image.tag)
+	NewTag          string // image tag to deploy
+	ProductSlug     string
+	EnvName         string
+	Actor           string // authenticated user identifier; appears in the commit message
 }
 
-// OverlayNotFoundError is returned when the overlay file does not exist at the expected path.
-type OverlayNotFoundError struct {
+// HelmReleaseNotFoundError is returned when the HelmRelease file does not exist at the expected path.
+type HelmReleaseNotFoundError struct {
 	Path string
 }
 
-func (e *OverlayNotFoundError) Error() string {
-	return fmt.Sprintf("gitops writer: overlay file not found: %s", e.Path)
+func (e *HelmReleaseNotFoundError) Error() string {
+	return fmt.Sprintf("gitops writer: HelmRelease not found: %s", e.Path)
+}
+
+func (e *HelmReleaseNotFoundError) Unwrap() error { return ErrHelmReleaseNotFound }
+
+// WorkloadReader reads workloads from a product's HelmRelease in the gitops repo.
+type WorkloadReader interface {
+	ListWorkloads(ctx context.Context, productSlug, envSlug string) ([]domain.Workload, error)
 }
 
 // Writer applies gitops write operations: clone → patch → commit → push.
@@ -80,8 +87,8 @@ func NewWriterFromEnv() (*Writer, error) {
 	})
 }
 
-// Apply clones the gitops repo into a temp directory, patches the Kustomize overlay file,
-// commits with a structured message, pushes, and removes the temp directory.
+// Apply clones the gitops repo into a temp directory, patches spec.values.[workload].image.tag
+// in the HelmRelease file, commits with a structured message, pushes, and removes the temp directory.
 // The temp directory is always removed, even on error.
 //
 // Each call performs a fresh clone rather than reusing a cached local copy; this avoids
@@ -92,11 +99,11 @@ func NewWriterFromEnv() (*Writer, error) {
 // must hold a deployment lock (e.g. a PostgreSQL advisory lock on the product+environment)
 // before calling Apply to prevent non-fast-forward push failures.
 func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
-	if p.OverlayPath == "" {
-		return fmt.Errorf("gitops writer: OverlayPath must not be empty")
+	if p.HelmReleasePath == "" {
+		return fmt.Errorf("gitops writer: HelmReleasePath must not be empty")
 	}
-	if p.ImageName == "" {
-		return fmt.Errorf("gitops writer: ImageName must not be empty")
+	if p.Workload == "" {
+		return fmt.Errorf("gitops writer: Workload must not be empty")
 	}
 	if p.NewTag == "" {
 		return fmt.Errorf("gitops writer: NewTag must not be empty")
@@ -134,39 +141,83 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
 	}
 
 	msg := fmt.Sprintf("deploy(%s/%s/%s): %s by %s",
-		p.ProductSlug, p.ComponentSlug, p.EnvName, p.NewTag, p.Actor)
+		p.ProductSlug, p.Workload, p.EnvName, p.NewTag, p.Actor)
 
 	return commitAndPush(ctx, repo, worktree, auth, msg)
 }
 
-// patchAndStage reads the overlay file, applies the image patch, writes it back, and stages it.
-func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
-	overlayAbs, err := securejoin.SecureJoin(tmpDir, p.OverlayPath)
+// ListWorkloads clones the gitops repo, reads the HelmRelease for the given product and
+// environment, and returns the discovered workloads. The temp clone is always removed.
+func (w *Writer) ListWorkloads(ctx context.Context, productSlug, envSlug string) ([]domain.Workload, error) {
+	tmpDir, err := os.MkdirTemp("", "kubegate-gitops-read-*")
 	if err != nil {
-		return fmt.Errorf("gitops writer: unsafe overlay path: %w", err)
+		return nil, fmt.Errorf("gitops writer: create temp dir: %w", err)
 	}
-	data, err := os.ReadFile(overlayAbs)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort cleanup of temp clone; errors here are non-actionable
+
+	auth, err := w.buildAuth()
+	if err != nil {
+		return nil, fmt.Errorf("gitops writer: build auth: %w", err)
+	}
+
+	_, err = git.PlainCloneContext(ctx, tmpDir, false, &git.CloneOptions{
+		URL:  w.cfg.RepoURL,
+		Auth: auth,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gitops writer: clone: %w", err)
+	}
+
+	relPath := HelmReleasePath(envSlug, productSlug)
+	absPath, err := securejoin.SecureJoin(tmpDir, relPath)
+	if err != nil {
+		return nil, fmt.Errorf("gitops writer: unsafe helmrelease path: %w", err)
+	}
+
+	data, err := os.ReadFile(absPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &OverlayNotFoundError{Path: p.OverlayPath}
+			return nil, fmt.Errorf("%w: %s", ErrHelmReleaseNotFound, relPath)
 		}
-		return fmt.Errorf("gitops writer: read overlay: %w", err)
+		return nil, fmt.Errorf("gitops writer: read helmrelease: %w", err)
 	}
-	patched, err := PatchImage(data, p.ImageName, p.NewTag)
+
+	workloads, err := DiscoverWorkloads(data)
 	if err != nil {
-		return fmt.Errorf("gitops writer: patch overlay: %w", err)
+		return nil, err
 	}
-	if err := os.WriteFile(overlayAbs, patched, 0644); err != nil {
-		return fmt.Errorf("gitops writer: write overlay: %w", err)
+	return workloads, nil
+}
+
+// patchAndStage reads the HelmRelease file, patches spec.values.[workload].image.tag,
+// writes it back, and stages the change.
+func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
+	absPath, err := securejoin.SecureJoin(tmpDir, p.HelmReleasePath)
+	if err != nil {
+		return fmt.Errorf("gitops writer: unsafe helmrelease path: %w", err)
 	}
-	if _, err := worktree.Add(filepath.ToSlash(p.OverlayPath)); err != nil {
-		return fmt.Errorf("gitops writer: stage overlay: %w", err)
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &HelmReleaseNotFoundError{Path: p.HelmReleasePath}
+		}
+		return fmt.Errorf("gitops writer: read helmrelease: %w", err)
+	}
+	patched, err := PatchHelmRelease(data, p.Workload, p.NewTag)
+	if err != nil {
+		return fmt.Errorf("gitops writer: patch helmrelease: %w", err)
+	}
+	if err := os.WriteFile(absPath, patched, 0644); err != nil {
+		return fmt.Errorf("gitops writer: write helmrelease: %w", err)
+	}
+	if _, err := worktree.Add(filepath.ToSlash(p.HelmReleasePath)); err != nil {
+		return fmt.Errorf("gitops writer: stage helmrelease: %w", err)
 	}
 	return nil
 }
 
 // commitAndPush creates a commit authored by the KubeGate system identity and pushes it.
-// ErrEmptyCommit (no staged changes — e.g. overlay content already matches the requested tag)
+// ErrEmptyCommit (no staged changes — e.g. HelmRelease already has the requested tag)
 // and NoErrAlreadyUpToDate are treated as no-ops.
 func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Worktree, auth transport.AuthMethod, msg string) error {
 	_, err := worktree.Commit(msg, &git.CommitOptions{
@@ -194,7 +245,7 @@ func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Work
 // buildAuth returns the transport.AuthMethod derived from WriterConfig.
 // SSH: loads the private key and verifies host keys against KnownHostsPath when set.
 // If KnownHostsPath is empty, host key verification is skipped — only acceptable for
-// local file:// remotes (tests/dev); never use in production against a real remote.
+// local file:// remotes (tests/dev); never use in production against a real SSH remote.
 // HTTPS: uses Token as a bearer credential.
 // No auth fields set: returns nil (unauthenticated, suitable for file:// remotes).
 func (w *Writer) buildAuth() (transport.AuthMethod, error) {

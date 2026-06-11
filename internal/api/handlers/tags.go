@@ -8,21 +8,22 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ryoku/kubegate/internal/domain"
 	"github.com/ryoku/kubegate/internal/gcr"
+	"github.com/ryoku/kubegate/internal/gitops"
 	"github.com/ryoku/kubegate/internal/store"
 )
 
-// TagHandlers bundles HTTP handlers for /products/:productSlug/components/:componentSlug/tags.
+// TagHandlers bundles HTTP handlers for workload tag listing.
 type TagHandlers struct {
 	productStore store.ProductStore
-	compStore    store.ComponentStore
+	envStore     store.EnvironmentStore
+	reader       gitops.WorkloadReader
 	lister       gcr.Lister
 }
 
-// NewTagHandlers returns a TagHandlers wired to the given stores and lister.
-func NewTagHandlers(ps store.ProductStore, cs store.ComponentStore, l gcr.Lister) *TagHandlers {
-	return &TagHandlers{productStore: ps, compStore: cs, lister: l}
+// NewTagHandlers returns a TagHandlers wired to the given stores, reader and lister.
+func NewTagHandlers(ps store.ProductStore, es store.EnvironmentStore, r gitops.WorkloadReader, l gcr.Lister) *TagHandlers {
+	return &TagHandlers{productStore: ps, envStore: es, reader: r, lister: l}
 }
 
 type tagResponse struct {
@@ -36,16 +37,13 @@ type listTagsResponse struct {
 	NextPageToken string        `json:"next_page_token,omitempty"`
 }
 
-// ListTags handles GET /api/v1/products/:productSlug/components/:componentSlug/tags.
+// ListTags handles GET /api/v1/products/:productSlug/environments/:environmentID/workloads/:workload/tags.
 func (h *TagHandlers) ListTags(c *gin.Context) {
 	productSlug := c.Param("productSlug")
-	componentSlug := c.Param("componentSlug")
+	environmentID := c.Param("environmentID")
+	workloadName := c.Param("workload")
 
 	if !checkProductAccess(c, productSlug) || !validateURLSlug(c, productSlug) {
-		return
-	}
-	if err := domain.ValidateSlug(componentSlug); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid component slug in URL"})
 		return
 	}
 
@@ -54,41 +52,29 @@ func (h *TagHandlers) ListTags(c *gin.Context) {
 		return
 	}
 
-	comp, err := h.compStore.GetBySlug(c.Request.Context(), product.ID, componentSlug)
+	env, err := h.envStore.GetByID(c.Request.Context(), product.ID, environmentID)
 	if err != nil {
-		if errors.Is(err, store.ErrComponentNotFound) {
+		if errors.Is(err, store.ErrEnvironmentNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
-		log.Printf("GetBySlug product=%s component=%s: %v", productSlug, componentSlug, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
 
-	if comp.GCRImagePath == "" {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "component has no GCR image path configured"})
+	imageRepo, ok := h.resolveWorkloadImageRepo(c, productSlug, environmentID, product.Slug, env.Slug, workloadName)
+	if !ok {
 		return
 	}
 
-	pageToken := c.Query("page_token")
-	pageSize := 20
-	if ps := c.Query("page_size"); ps != "" {
-		n, parseErr := strconv.Atoi(ps)
-		if parseErr != nil || n <= 0 || n > 100 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "page_size must be between 1 and 100"})
-			return
-		}
-		pageSize = n
-	}
-
-	filter := c.Query("filter")
-	if len(filter) > 200 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "filter must be 200 characters or fewer"})
+	pageToken, pageSize, filter, ok := parseTagListParams(c)
+	if !ok {
 		return
 	}
-	tags, nextToken, err := h.lister.ListTags(c.Request.Context(), comp.GCRImagePath, pageToken, filter, pageSize)
+
+	tags, nextToken, err := h.lister.ListTags(c.Request.Context(), imageRepo, pageToken, filter, pageSize)
 	if err != nil {
-		h.replyListerError(c, productSlug, componentSlug, err)
+		h.replyListerError(c, productSlug, workloadName, err)
 		return
 	}
 
@@ -106,22 +92,64 @@ func (h *TagHandlers) ListTags(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// replyListerError maps a gcr.Lister error to an HTTP response.
-// ErrRepoNotFound → 404, ErrRateLimit → 429.
-// Auth failures and network errors are logged server-side and both return 502
-// to avoid exposing internal failure details to clients.
-func (h *TagHandlers) replyListerError(c *gin.Context, productSlug, componentSlug string, err error) {
+// resolveWorkloadImageRepo calls ListWorkloads and returns the image repository for the named workload.
+func (h *TagHandlers) resolveWorkloadImageRepo(c *gin.Context, productSlug, environmentID, productSlugForGit, envSlug, workloadName string) (string, bool) {
+	workloads, err := h.reader.ListWorkloads(c.Request.Context(), productSlugForGit, envSlug)
+	if err != nil {
+		switch {
+		case errors.Is(err, gitops.ErrHelmReleaseNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, gitops.ErrHelmReleaseParseFailed):
+			log.Printf("ListTags product=%s env=%s workload=%s: parse error: %v", productSlug, environmentID, workloadName, err)
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "HelmRelease file could not be parsed"})
+		default:
+			log.Printf("ListTags product=%s env=%s workload=%s: %v", productSlug, environmentID, workloadName, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		}
+		return "", false
+	}
+
+	for _, w := range workloads {
+		if w.Name == workloadName {
+			return w.ImageRepository, true
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "workload not found in HelmRelease"})
+	return "", false
+}
+
+// parseTagListParams extracts and validates page_token, page_size and filter query params.
+func parseTagListParams(c *gin.Context) (pageToken string, pageSize int, filter string, ok bool) {
+	pageToken = c.Query("page_token")
+	pageSize = 20
+	if ps := c.Query("page_size"); ps != "" {
+		n, err := strconv.Atoi(ps)
+		if err != nil || n <= 0 || n > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "page_size must be between 1 and 100"})
+			return "", 0, "", false
+		}
+		pageSize = n
+	}
+	filter = c.Query("filter")
+	if len(filter) > 200 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "filter must be 200 characters or fewer"})
+		return "", 0, "", false
+	}
+	return pageToken, pageSize, filter, true
+}
+
+func (h *TagHandlers) replyListerError(c *gin.Context, productSlug, workload string, err error) {
 	switch {
 	case errors.Is(err, gcr.ErrRepoNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "image repository not found"})
 	case errors.Is(err, gcr.ErrRateLimit):
-		log.Printf("ListTags %s/%s: Artifact Registry rate limit: %v", productSlug, componentSlug, err)
+		log.Printf("ListTags %s/%s: Artifact Registry rate limit: %v", productSlug, workload, err)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Artifact Registry rate limit exceeded"})
 	case errors.Is(err, gcr.ErrAuthFailure):
-		log.Printf("ListTags %s/%s: authentication failure: %v", productSlug, componentSlug, err)
+		log.Printf("ListTags %s/%s: authentication failure: %v", productSlug, workload, err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "error contacting Artifact Registry"})
 	default:
-		log.Printf("ListTags %s/%s: %v", productSlug, componentSlug, err)
+		log.Printf("ListTags %s/%s: %v", productSlug, workload, err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "error contacting Artifact Registry"})
 	}
 }

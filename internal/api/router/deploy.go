@@ -11,12 +11,11 @@ import (
 func RegisterDeploymentRoutes(
 	ps store.ProductStore,
 	es store.EnvironmentStore,
-	cs store.ComponentStore,
 	ls store.DeploymentLockStore,
 	applier handlers.GitOpsApplier,
 	defaultTagConvention string,
 ) func(*gin.RouterGroup) {
-	h := handlers.NewDeploymentHandlers(ps, es, cs, ls, applier, defaultTagConvention)
+	h := handlers.NewDeploymentHandlers(ps, es, ls, applier, defaultTagConvention)
 	return func(api *gin.RouterGroup) {
 		api.POST(
 			"/products/:productSlug/environments/:environmentID/deployments",

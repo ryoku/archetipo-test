@@ -24,7 +24,6 @@ type GitOpsApplier interface {
 type DeploymentHandlers struct {
 	productStore         store.ProductStore
 	envStore             store.EnvironmentStore
-	compStore            store.ComponentStore
 	lockStore            store.DeploymentLockStore
 	applier              GitOpsApplier
 	lockTimeout          time.Duration
@@ -34,7 +33,6 @@ type DeploymentHandlers struct {
 func NewDeploymentHandlers(
 	productStore store.ProductStore,
 	envStore store.EnvironmentStore,
-	compStore store.ComponentStore,
 	lockStore store.DeploymentLockStore,
 	applier GitOpsApplier,
 	defaultTagConvention string,
@@ -42,7 +40,6 @@ func NewDeploymentHandlers(
 	return &DeploymentHandlers{
 		productStore:         productStore,
 		envStore:             envStore,
-		compStore:            compStore,
 		lockStore:            lockStore,
 		applier:              applier,
 		lockTimeout:          deploymentLockTimeout(),
@@ -59,8 +56,8 @@ func deploymentLockTimeout() time.Duration {
 }
 
 type deployRequest struct {
-	ComponentSlug string `json:"component_slug"`
-	Tag           string `json:"tag"`
+	Workload string `json:"workload"`
+	Tag      string `json:"tag"`
 }
 
 type deploymentLockResponse struct {
@@ -94,7 +91,7 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 		return
 	}
 
-	product, env, comp, ok := h.resolveDeployTargets(c, productSlug, environmentID, req.ComponentSlug)
+	product, env, ok := h.resolveDeployTargets(c, productSlug, environmentID)
 	if !ok {
 		return
 	}
@@ -114,13 +111,13 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 		}
 	}()
 
-	if !h.applyGitOps(c, product.Slug, env, comp, req.Tag, actor) {
+	if !h.applyGitOps(c, product, env, req.Workload, req.Tag, actor) {
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"product":     product.Slug,
-		"component":   comp.Slug,
+		"workload":    req.Workload,
 		"env":         env.Name,
 		"tag":         req.Tag,
 		"deployed_by": actor,
@@ -133,8 +130,8 @@ func bindDeployRequest(c *gin.Context) (deployRequest, bool) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return req, false
 	}
-	if req.ComponentSlug == "" {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "component_slug is required"})
+	if req.Workload == "" {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "workload is required"})
 		return req, false
 	}
 	if req.Tag == "" {
@@ -144,10 +141,10 @@ func bindDeployRequest(c *gin.Context) (deployRequest, bool) {
 	return req, true
 }
 
-func (h *DeploymentHandlers) resolveDeployTargets(c *gin.Context, productSlug, environmentID, componentSlug string) (*domain.Product, *domain.Environment, *domain.Component, bool) {
+func (h *DeploymentHandlers) resolveDeployTargets(c *gin.Context, productSlug, environmentID string) (*domain.Product, *domain.Environment, bool) {
 	product, ok := resolveProduct(c, h.productStore, productSlug)
 	if !ok {
-		return nil, nil, nil, false
+		return nil, nil, false
 	}
 	env, err := h.envStore.GetByID(c.Request.Context(), product.ID, environmentID)
 	if err != nil {
@@ -156,18 +153,9 @@ func (h *DeploymentHandlers) resolveDeployTargets(c *gin.Context, productSlug, e
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		}
-		return nil, nil, nil, false
+		return nil, nil, false
 	}
-	comp, err := h.compStore.GetBySlug(c.Request.Context(), product.ID, componentSlug)
-	if err != nil {
-		if errors.Is(err, store.ErrComponentNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
-		}
-		return nil, nil, nil, false
-	}
-	return product, env, comp, true
+	return product, env, true
 }
 
 func (h *DeploymentHandlers) acquireLock(c *gin.Context, productID, envID, actor string) (store.AcquiredLock, bool) {
@@ -189,25 +177,30 @@ func (h *DeploymentHandlers) acquireLock(c *gin.Context, productID, envID, actor
 	return lock, true
 }
 
-func (h *DeploymentHandlers) applyGitOps(c *gin.Context, productSlug string, env *domain.Environment, comp *domain.Component, tag, actor string) bool {
+func (h *DeploymentHandlers) applyGitOps(c *gin.Context, product *domain.Product, env *domain.Environment, workload, tag, actor string) bool {
+	helmReleasePath := gitops.HelmReleasePath(env.Slug, product.Slug)
 	err := h.applier.Apply(c.Request.Context(), gitops.ApplyParams{
-		OverlayPath:   env.OverlayPath,
-		ImageName:     comp.GCRImagePath,
-		NewTag:        tag,
-		ProductSlug:   productSlug,
-		ComponentSlug: comp.Slug,
-		EnvName:       env.Name,
-		Actor:         actor,
+		HelmReleasePath: helmReleasePath,
+		Workload:        workload,
+		NewTag:          tag,
+		ProductSlug:     product.Slug,
+		EnvName:         env.Name,
+		Actor:           actor,
 	})
 	if err == nil {
 		return true
 	}
-	var notFound *gitops.OverlayNotFoundError
+	var notFound *gitops.HelmReleaseNotFoundError
 	if errors.As(err, &notFound) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("overlay not found: %s", notFound.Path)})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("HelmRelease not found: %s", notFound.Path)})
 		return false
 	}
-	log.Printf("applyGitOps product=%s component=%s env=%s tag=%s: %v", productSlug, comp.Slug, env.Name, tag, err)
+	var pathErr *gitops.HelmReleasePathError
+	if errors.As(err, &pathErr) {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("workload not found in HelmRelease: %s", pathErr.Path)})
+		return false
+	}
+	log.Printf("applyGitOps product=%s workload=%s env=%s tag=%s: %v", product.Slug, workload, env.Name, tag, err)
 	c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 	return false
 }
