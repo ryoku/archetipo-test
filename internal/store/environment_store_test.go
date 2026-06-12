@@ -32,19 +32,26 @@ func cleanEnvironments(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-func TestEnvironmentStore_Create(t *testing.T) {
+// newEnvStoreTest opens a pool, clears state, creates a product, and returns a
+// ready EnvironmentStore and the product. The pool is closed via t.Cleanup.
+func newEnvStoreTest(t *testing.T, productSlug string) (store.EnvironmentStore, *domain.Product) {
+	t.Helper()
 	pool := newEnvironmentTestPool(t)
 	cleanEnvironments(t, pool)
 	cleanProducts(t, pool)
+	prod := createTestProduct(t, pool, productSlug)
+	return store.NewEnvironmentStore(pool), prod
+}
 
-	prod := createTestProduct(t, pool, "env-create")
-	es := store.NewEnvironmentStore(pool)
+func TestEnvironmentStore_Create(t *testing.T) {
+	es, prod := newEnvStoreTest(t, "env-create")
 
 	e := &domain.Environment{
 		ProductID:   prod.ID,
 		Name:        "dev",
 		Type:        "dev",
 		OverlayPath: "overlays/dev",
+		Slug:        "dev",
 	}
 	if err := es.Create(context.Background(), e); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -58,16 +65,11 @@ func TestEnvironmentStore_Create(t *testing.T) {
 }
 
 func TestEnvironmentStore_ListByProduct(t *testing.T) {
-	pool := newEnvironmentTestPool(t)
-	cleanEnvironments(t, pool)
-	cleanProducts(t, pool)
-
-	prod := createTestProduct(t, pool, "env-list")
-	es := store.NewEnvironmentStore(pool)
+	es, prod := newEnvStoreTest(t, "env-list")
 
 	envs := []domain.Environment{
-		{ProductID: prod.ID, Name: "dev", Type: "dev", OverlayPath: "overlays/dev"},
-		{ProductID: prod.ID, Name: "integration", Type: "integration", OverlayPath: "overlays/integration"},
+		{ProductID: prod.ID, Name: "dev", Type: "dev", OverlayPath: "overlays/dev", Slug: "dev"},
+		{ProductID: prod.ID, Name: "integration", Type: "integration", OverlayPath: "overlays/integration", Slug: "integration"},
 	}
 	for i := range envs {
 		if err := es.Create(context.Background(), &envs[i]); err != nil {
@@ -92,18 +94,14 @@ func TestEnvironmentStore_ListByProduct(t *testing.T) {
 }
 
 func TestEnvironmentStore_Delete(t *testing.T) {
-	pool := newEnvironmentTestPool(t)
-	cleanEnvironments(t, pool)
-	cleanProducts(t, pool)
-
-	prod := createTestProduct(t, pool, "env-delete")
-	es := store.NewEnvironmentStore(pool)
+	es, prod := newEnvStoreTest(t, "env-delete")
 
 	e := &domain.Environment{
 		ProductID:   prod.ID,
 		Name:        "dev",
 		Type:        "dev",
 		OverlayPath: "overlays/dev",
+		Slug:        "dev",
 	}
 	if err := es.Create(context.Background(), e); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -123,12 +121,7 @@ func TestEnvironmentStore_Delete(t *testing.T) {
 }
 
 func TestEnvironmentStore_Delete_NotFound(t *testing.T) {
-	pool := newEnvironmentTestPool(t)
-	cleanEnvironments(t, pool)
-	cleanProducts(t, pool)
-
-	prod := createTestProduct(t, pool, "env-delete-notfound")
-	es := store.NewEnvironmentStore(pool)
+	es, prod := newEnvStoreTest(t, "env-delete-notfound")
 
 	err := es.Delete(context.Background(), prod.ID, "00000000-0000-0000-0000-000000000000")
 	if err == nil {
@@ -139,35 +132,57 @@ func TestEnvironmentStore_Delete_NotFound(t *testing.T) {
 	}
 }
 
+func assertEnvConflict(t *testing.T, es store.EnvironmentStore, e *domain.Environment, wantErr error) {
+	t.Helper()
+	err := es.Create(context.Background(), e)
+	if err == nil {
+		t.Fatalf("expected %v, got nil", wantErr)
+	}
+	if err != wantErr {
+		t.Errorf("expected %v, got %v", wantErr, err)
+	}
+}
+
 func TestEnvironmentStore_Create_NameConflict(t *testing.T) {
-	pool := newEnvironmentTestPool(t)
-	cleanEnvironments(t, pool)
-	cleanProducts(t, pool)
+	es, prod := newEnvStoreTest(t, "env-conflict")
 
-	prod := createTestProduct(t, pool, "env-conflict")
-	es := store.NewEnvironmentStore(pool)
-
-	e1 := &domain.Environment{
+	if err := es.Create(context.Background(), &domain.Environment{
 		ProductID:   prod.ID,
 		Name:        "dev",
 		Type:        "dev",
 		OverlayPath: "overlays/dev",
-	}
-	if err := es.Create(context.Background(), e1); err != nil {
+		Slug:        "dev",
+	}); err != nil {
 		t.Fatalf("first Create: %v", err)
 	}
 
-	e2 := &domain.Environment{
+	assertEnvConflict(t, es, &domain.Environment{
 		ProductID:   prod.ID,
 		Name:        "dev",
 		Type:        "dev",
 		OverlayPath: "overlays/dev-2",
+		Slug:        "dev-2",
+	}, store.ErrEnvironmentNameConflict)
+}
+
+func TestEnvironmentStore_Create_SlugConflict(t *testing.T) {
+	es, prod := newEnvStoreTest(t, "env-slug-conflict")
+
+	if err := es.Create(context.Background(), &domain.Environment{
+		ProductID:   prod.ID,
+		Name:        "dev-env",
+		Type:        "dev",
+		OverlayPath: "overlays/dev",
+		Slug:        "dev",
+	}); err != nil {
+		t.Fatalf("first Create: %v", err)
 	}
-	err := es.Create(context.Background(), e2)
-	if err == nil {
-		t.Fatal("expected error for duplicate environment name in same product, got nil")
-	}
-	if err != store.ErrEnvironmentNameConflict {
-		t.Errorf("expected ErrEnvironmentNameConflict, got %v", err)
-	}
+
+	assertEnvConflict(t, es, &domain.Environment{
+		ProductID:   prod.ID,
+		Name:        "dev-environment",
+		Type:        "dev",
+		OverlayPath: "overlays/dev-2",
+		Slug:        "dev",
+	}, store.ErrEnvironmentSlugConflict)
 }

@@ -56,14 +56,13 @@ var _ handlers.GitOpsApplier = (*mockGitOpsApplier)(nil)
 func newDeployRouter(
 	ps store.ProductStore,
 	es store.EnvironmentStore,
-	cs store.ComponentStore,
 	ls store.DeploymentLockStore,
 	applier handlers.GitOpsApplier,
 	identity *domain.UserIdentity,
 ) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := handlers.NewDeploymentHandlers(ps, es, cs, ls, applier, "")
+	h := handlers.NewDeploymentHandlers(ps, es, ls, applier, "")
 
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
@@ -85,19 +84,11 @@ var deployFixtureProduct = &domain.Product{
 }
 
 var deployFixtureEnv = &domain.Environment{
-	ID:          "env-id-1",
-	ProductID:   "prod-id-1",
-	Name:        "dev",
-	Type:        "dev",
-	OverlayPath: "apps/dev/my-service/my-service-helmrelease.yaml",
-}
-
-var deployFixtureComp = &domain.Component{
-	ID:           "comp-id-1",
-	ProductID:    "prod-id-1",
-	Name:         "my-service",
-	Slug:         "my-service",
-	GCRImagePath: "europe-docker.pkg.dev/proj/repo/my-service",
+	ID:        "env-id-1",
+	ProductID: "prod-id-1",
+	Name:      "dev",
+	Slug:      "dev",
+	Type:      "dev",
 }
 
 func editorIdentityForDeploy(productSlug string) *domain.UserIdentity {
@@ -127,17 +118,6 @@ func envStoreWithEnv(e *domain.Environment) *mockEnvironmentStore {
 				return e, nil
 			}
 			return nil, store.ErrEnvironmentNotFound
-		},
-	}
-}
-
-func compStoreWithComp(comp *domain.Component) *mockComponentStore {
-	return &mockComponentStore{
-		getBySlugFn: func(_ context.Context, productID, slug string) (*domain.Component, error) {
-			if productID == comp.ProductID && slug == comp.Slug {
-				return comp, nil
-			}
-			return nil, store.ErrComponentNotFound
 		},
 	}
 }
@@ -181,15 +161,14 @@ func TestDeploy_Success(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(),
 		successApplier(),
 		editorIdentityForDeploy("my-service"),
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.2.3",
+		"workload": "main",
+		"tag":      "v1.2.3",
 	})
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -197,6 +176,31 @@ func TestDeploy_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, "v1.2.3", resp["tag"])
 	assert.Equal(t, "Sara DevOps", resp["deployed_by"])
+	assert.Equal(t, "main", resp["workload"])
+}
+
+func TestDeploy_ApplyParamsUsesHelmReleasePath(t *testing.T) {
+	var captured gitops.ApplyParams
+	r := newDeployRouter(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) error {
+			captured = p
+			return nil
+		}},
+		editorIdentityForDeploy("my-service"),
+	)
+
+	doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v2.0.0",
+	})
+
+	assert.Equal(t, "apps/dev/my-service/my-service-helmrelease.yaml", captured.HelmReleasePath)
+	assert.Equal(t, "main", captured.Workload)
+	assert.Equal(t, "v2.0.0", captured.NewTag)
+	assert.Equal(t, "my-service", captured.ProductSlug)
 }
 
 func TestDeploy_LockHeld_Returns409WithHolderInfo(t *testing.T) {
@@ -211,15 +215,14 @@ func TestDeploy_LockHeld_Returns409WithHolderInfo(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		heldLockStore(holder),
 		successApplier(),
 		editorIdentityForDeploy("my-service"),
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.2.3",
+		"workload": "main",
+		"tag":      "v1.2.3",
 	})
 
 	assert.Equal(t, http.StatusConflict, w.Code)
@@ -234,7 +237,6 @@ func TestDeploy_LockStoreError_Returns500(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		&mockDeploymentLockStore{
 			tryAcquireFn: func(_ context.Context, _, _, _ string, _ time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
 				return nil, nil, errors.New("db connection lost")
@@ -245,18 +247,17 @@ func TestDeploy_LockStoreError_Returns500(t *testing.T) {
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestDeploy_MissingComponentSlug_Returns422(t *testing.T) {
+func TestDeploy_MissingWorkload_Returns422(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(), successApplier(),
 		editorIdentityForDeploy("my-service"),
 	)
@@ -270,12 +271,11 @@ func TestDeploy_MissingTag_Returns422(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(), successApplier(),
 		editorIdentityForDeploy("my-service"),
 	)
 
-	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{"component_slug": "my-service"})
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{"workload": "main"})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
@@ -284,7 +284,6 @@ func TestDeploy_GitOpsError_Returns500(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(),
 		&mockGitOpsApplier{applyFn: func(_ context.Context, _ gitops.ApplyParams) error {
 			return errors.New("push failed")
@@ -293,28 +292,49 @@ func TestDeploy_GitOpsError_Returns500(t *testing.T) {
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestDeploy_OverlayNotFound_Returns422(t *testing.T) {
+func TestDeploy_WorkloadNotInHelmRelease_Returns422(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(),
 		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) error {
-			return &gitops.OverlayNotFoundError{Path: p.OverlayPath}
+			return &gitops.HelmReleasePathError{Path: "spec.values." + p.Workload, Reason: "key not found"}
 		}},
 		editorIdentityForDeploy("my-service"),
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
+		"workload": "nonexistent",
+		"tag":      "v1.0.0",
+	})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Contains(t, resp["error"], "workload not found in HelmRelease")
+}
+
+func TestDeploy_HelmReleaseNotFound_Returns422(t *testing.T) {
+	r := newDeployRouter(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) error {
+			return &gitops.HelmReleaseNotFoundError{Path: p.HelmReleasePath}
+		}},
+		editorIdentityForDeploy("my-service"),
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -323,32 +343,14 @@ func TestDeploy_OverlayNotFound_Returns422(t *testing.T) {
 func TestDeploy_EnvironmentNotFound_Returns404(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
-		&mockEnvironmentStore{}, // getByIDFn nil → ErrEnvironmentNotFound
-		compStoreWithComp(deployFixtureComp),
+		&mockEnvironmentStore{},
 		acquiringLockStore(), successApplier(),
 		editorIdentityForDeploy("my-service"),
 	)
 
 	w := doDeployRequest(t, r, "my-service", "unknown-env", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
-	})
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestDeploy_ComponentNotFound_Returns404(t *testing.T) {
-	r := newDeployRouter(
-		productStoreWithProduct(deployFixtureProduct),
-		envStoreWithEnv(deployFixtureEnv),
-		&mockComponentStore{}, // getBySlugFn nil → ErrComponentNotFound
-		acquiringLockStore(), successApplier(),
-		editorIdentityForDeploy("my-service"),
-	)
-
-	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "unknown-comp",
-		"tag":            "v1.0.0",
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -358,7 +360,6 @@ func TestDeploy_ViewerRole_Returns403(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(), successApplier(),
 		&domain.UserIdentity{
 			Sub:          "user-2",
@@ -369,8 +370,8 @@ func TestDeploy_ViewerRole_Returns403(t *testing.T) {
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -382,7 +383,6 @@ func TestDeploymentLockTimeout_UsesEnvVar(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		&mockDeploymentLockStore{
 			tryAcquireFn: func(_ context.Context, _, _, _ string, timeout time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
 				capturedTimeout = timeout
@@ -394,8 +394,8 @@ func TestDeploymentLockTimeout_UsesEnvVar(t *testing.T) {
 	)
 
 	doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, 10*time.Second, capturedTimeout)
@@ -407,7 +407,6 @@ func TestDeploymentLockTimeout_UnsetDefaultsTo5s(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		&mockDeploymentLockStore{
 			tryAcquireFn: func(_ context.Context, _, _, _ string, timeout time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
 				capturedTimeout = timeout
@@ -419,8 +418,8 @@ func TestDeploymentLockTimeout_UnsetDefaultsTo5s(t *testing.T) {
 	)
 
 	doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, 5*time.Second, capturedTimeout)
@@ -432,7 +431,6 @@ func TestDeploymentLockTimeout_InvalidValueDefaultsTo5s(t *testing.T) {
 	r := newDeployRouter(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
-		compStoreWithComp(deployFixtureComp),
 		&mockDeploymentLockStore{
 			tryAcquireFn: func(_ context.Context, _, _, _ string, timeout time.Duration) (store.AcquiredLock, *domain.DeploymentLock, error) {
 				capturedTimeout = timeout
@@ -444,8 +442,8 @@ func TestDeploymentLockTimeout_InvalidValueDefaultsTo5s(t *testing.T) {
 	)
 
 	doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.0.0",
+		"workload": "main",
+		"tag":      "v1.0.0",
 	})
 
 	assert.Equal(t, 5*time.Second, capturedTimeout)
@@ -456,17 +454,16 @@ func TestDeploymentLockTimeout_InvalidValueDefaultsTo5s(t *testing.T) {
 const tagConventionTestDefault = `^v\d+\.\d+\.\d+$`
 
 var deployFixtureProdEnv = &domain.Environment{
-	ID:          "env-prod-1",
-	ProductID:   "prod-id-1",
-	Name:        "production",
-	Type:        "production",
-	OverlayPath: "apps/production/my-service/my-service-helmrelease.yaml",
+	ID:        "env-prod-1",
+	ProductID: "prod-id-1",
+	Name:      "production",
+	Slug:      "production",
+	Type:      "production",
 }
 
 func newDeployRouterWithConvention(
 	ps store.ProductStore,
 	es store.EnvironmentStore,
-	cs store.ComponentStore,
 	ls store.DeploymentLockStore,
 	applier handlers.GitOpsApplier,
 	identity *domain.UserIdentity,
@@ -474,7 +471,7 @@ func newDeployRouterWithConvention(
 ) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := handlers.NewDeploymentHandlers(ps, es, cs, ls, applier, defaultTagConvention)
+	h := handlers.NewDeploymentHandlers(ps, es, ls, applier, defaultTagConvention)
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
 			c.Set(domain.IdentityContextKey, identity)
@@ -491,16 +488,15 @@ func TestDeploy_ProductionEnv_NonConformingTag_Returns422(t *testing.T) {
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureProdEnv),
-		compStoreWithComp(deployFixtureComp),
-		&mockDeploymentLockStore{}, // nil tryAcquireFn — panics if reached
-		&mockGitOpsApplier{},       // nil applyFn — panics if reached
+		&mockDeploymentLockStore{},
+		&mockGitOpsApplier{},
 		editorIdentityForDeploy("my-service"),
 		tagConventionTestDefault,
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "latest",
+		"workload": "main",
+		"tag":      "latest",
 	})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -515,7 +511,6 @@ func TestDeploy_ProductionEnv_ConformingTag_Returns200(t *testing.T) {
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureProdEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(),
 		successApplier(),
 		editorIdentityForDeploy("my-service"),
@@ -523,8 +518,8 @@ func TestDeploy_ProductionEnv_ConformingTag_Returns200(t *testing.T) {
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.2.3",
+		"workload": "main",
+		"tag":      "v1.2.3",
 	})
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -533,8 +528,7 @@ func TestDeploy_ProductionEnv_ConformingTag_Returns200(t *testing.T) {
 func TestDeploy_DevEnv_NonConformingTag_NotValidated_Returns200(t *testing.T) {
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(deployFixtureProduct),
-		envStoreWithEnv(deployFixtureEnv), // dev env
-		compStoreWithComp(deployFixtureComp),
+		envStoreWithEnv(deployFixtureEnv),
 		acquiringLockStore(),
 		successApplier(),
 		editorIdentityForDeploy("my-service"),
@@ -542,8 +536,8 @@ func TestDeploy_DevEnv_NonConformingTag_NotValidated_Returns200(t *testing.T) {
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "latest",
+		"workload": "main",
+		"tag":      "latest",
 	})
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -560,17 +554,15 @@ func TestDeploy_ProductionEnv_ProductRegex_OverridesDefault_Returns422(t *testin
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(productWithRegex),
 		envStoreWithEnv(deployFixtureProdEnv),
-		compStoreWithComp(deployFixtureComp),
-		&mockDeploymentLockStore{}, // panics if reached
-		&mockGitOpsApplier{},       // panics if reached
+		&mockDeploymentLockStore{},
+		&mockGitOpsApplier{},
 		editorIdentityForDeploy("my-service"),
 		tagConventionTestDefault,
 	)
 
-	// v1.2.3 matches the default but NOT the product-level regex
 	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.2.3",
+		"workload": "main",
+		"tag":      "v1.2.3",
 	})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -591,16 +583,15 @@ func TestDeploy_ProductionEnv_InvalidStoredRegex_Returns500(t *testing.T) {
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(productWithBadRegex),
 		envStoreWithEnv(deployFixtureProdEnv),
-		compStoreWithComp(deployFixtureComp),
-		&mockDeploymentLockStore{}, // panics if reached
-		&mockGitOpsApplier{},       // panics if reached
+		&mockDeploymentLockStore{},
+		&mockGitOpsApplier{},
 		editorIdentityForDeploy("my-service"),
 		tagConventionTestDefault,
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "v1.2.3",
+		"workload": "main",
+		"tag":      "v1.2.3",
 	})
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -617,7 +608,6 @@ func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns200(t *testing.T
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(productWithRegex),
 		envStoreWithEnv(deployFixtureProdEnv),
-		compStoreWithComp(deployFixtureComp),
 		acquiringLockStore(),
 		successApplier(),
 		editorIdentityForDeploy("my-service"),
@@ -625,8 +615,8 @@ func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns200(t *testing.T
 	)
 
 	w := doDeployRequest(t, r, "my-service", "env-prod-1", map[string]string{
-		"component_slug": "my-service",
-		"tag":            "release-42",
+		"workload": "main",
+		"tag":      "release-42",
 	})
 
 	assert.Equal(t, http.StatusOK, w.Code)

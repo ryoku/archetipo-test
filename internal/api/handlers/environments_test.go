@@ -73,6 +73,7 @@ func makeEnvironment(productID, id, envType string) domain.Environment {
 		Name:        "Env " + id,
 		Type:        envType,
 		OverlayPath: "overlays/" + id,
+		Slug:        id,
 		CreatedAt:   time.Date(2026, 6, 6, 0, 0, 0, 0, time.UTC),
 	}
 }
@@ -94,6 +95,7 @@ func TestCreateEnvironment_Valid_Returns201(t *testing.T) {
 		"/api/v1/products/my-product/environments",
 		jsonBody(map[string]string{
 			"name":         "Dev Env",
+			"slug":         "dev-env",
 			"type":         "dev",
 			"overlay_path": "overlays/dev",
 		}),
@@ -106,6 +108,9 @@ func TestCreateEnvironment_Valid_Returns201(t *testing.T) {
 	}
 	if resp["id"] == nil {
 		t.Error("expected id in response")
+	}
+	if resp["slug"] != "dev-env" {
+		t.Errorf("expected slug=dev-env in response, got %v", resp["slug"])
 	}
 }
 
@@ -186,6 +191,7 @@ func TestCreateEnvironment_NameConflict_Returns409(t *testing.T) {
 		"/api/v1/products/my-product/environments",
 		jsonBody(map[string]string{
 			"name":         "Existing Env",
+			"slug":         "existing-env",
 			"type":         "integration",
 			"overlay_path": "overlays/existing",
 		}),
@@ -243,6 +249,7 @@ func TestCreateEnvironment_StoreError_Returns500(t *testing.T) {
 		"/api/v1/products/my-product/environments",
 		jsonBody(map[string]string{
 			"name":         "Dev Env",
+			"slug":         "dev-env",
 			"type":         "dev",
 			"overlay_path": "overlays/dev",
 		}),
@@ -280,6 +287,61 @@ func TestCreateEnvironment_NoIdentity_Returns401(t *testing.T) {
 		}),
 	)
 	assertStatus(t, w, http.StatusUnauthorized)
+}
+
+func TestCreateEnvironment_EmptySlug_Returns422(t *testing.T) {
+	ps := productStoreWithGetBySlug(productGetBySlugOK("my-product"))
+	es := &mockEnvironmentStore{}
+	w := doJSON(
+		newEnvironmentRouter(ps, es, editorIdentity("my-product")),
+		http.MethodPost,
+		"/api/v1/products/my-product/environments",
+		jsonBody(map[string]string{
+			"name":         "Dev Env",
+			"slug":         "",
+			"type":         "dev",
+			"overlay_path": "overlays/dev",
+		}),
+	)
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+}
+
+func TestCreateEnvironment_InvalidSlug_Returns422(t *testing.T) {
+	ps := productStoreWithGetBySlug(productGetBySlugOK("my-product"))
+	es := &mockEnvironmentStore{}
+	w := doJSON(
+		newEnvironmentRouter(ps, es, editorIdentity("my-product")),
+		http.MethodPost,
+		"/api/v1/products/my-product/environments",
+		jsonBody(map[string]string{
+			"name":         "Dev Env",
+			"slug":         "UPPERCASE_invalid!",
+			"type":         "dev",
+			"overlay_path": "overlays/dev",
+		}),
+	)
+	assertStatus(t, w, http.StatusUnprocessableEntity)
+}
+
+func TestCreateEnvironment_SlugConflict_Returns409(t *testing.T) {
+	ps := productStoreWithGetBySlug(productGetBySlugOK("my-product"))
+	es := &mockEnvironmentStore{
+		createFn: func(_ context.Context, _ *domain.Environment) error {
+			return store.ErrEnvironmentSlugConflict
+		},
+	}
+	w := doJSON(
+		newEnvironmentRouter(ps, es, editorIdentity("my-product")),
+		http.MethodPost,
+		"/api/v1/products/my-product/environments",
+		jsonBody(map[string]string{
+			"name":         "Dev Env",
+			"slug":         "dev-env",
+			"type":         "dev",
+			"overlay_path": "overlays/dev",
+		}),
+	)
+	assertStatus(t, w, http.StatusConflict)
 }
 
 // --- ListEnvironments tests ---

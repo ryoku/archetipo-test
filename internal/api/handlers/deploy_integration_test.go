@@ -45,18 +45,13 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 
 	lockStore := store.NewDeploymentLockStore(pool)
 
-	// Fixture product and environment already exist in DB; populate in-memory lookup stubs
-	// so the mock stores return the real IDs.
 	product := &domain.Product{ID: productID, Name: "Integration Product", Slug: slug}
 	env := &domain.Environment{
-		ID: envID, ProductID: productID,
-		Name: "dev", Type: "dev",
-		OverlayPath: "apps/dev/integ/integ-helmrelease.yaml",
-	}
-	comp := &domain.Component{
-		ID: "comp-integ-1", ProductID: productID,
-		Name: "integ-svc", Slug: "integ-svc",
-		GCRImagePath: "europe-docker.pkg.dev/proj/repo/integ-svc",
+		ID:        envID,
+		ProductID: productID,
+		Name:      "dev",
+		Slug:      "dev",
+		Type:      "dev",
 	}
 
 	// Slow applier: blocks for 400 ms to give the second request time to collide.
@@ -78,8 +73,6 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 		ProductRoles: map[string]domain.Role{slug: domain.RoleEditor},
 	}
 
-	// Use real stores for product/env/comp by wrapping them with adapters that return the
-	// fixture objects we already inserted.
 	ps := &mockProductStore{
 		getBySlugFn: func(_ context.Context, s string) (*domain.Product, error) {
 			if s == product.Slug {
@@ -96,18 +89,10 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 			return nil, store.ErrEnvironmentNotFound
 		},
 	}
-	cs := &mockComponentStore{
-		getBySlugFn: func(_ context.Context, pID, s string) (*domain.Component, error) {
-			if pID == productID && s == comp.Slug {
-				return comp, nil
-			}
-			return nil, store.ErrComponentNotFound
-		},
-	}
 	makeRouter := func(applier handlers.GitOpsApplier) *gin.Engine {
 		gin.SetMode(gin.TestMode)
 		r := gin.New()
-		h := handlers.NewDeploymentHandlers(ps, es, cs, lockStore, applier, "")
+		h := handlers.NewDeploymentHandlers(ps, es, lockStore, applier, "")
 		injectIdentity := func(c *gin.Context) {
 			c.Set(domain.IdentityContextKey, identityEditor)
 			c.Next()
@@ -120,8 +105,8 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 
 	doRequest := func(r *gin.Engine) *httptest.ResponseRecorder {
 		body, _ := json.Marshal(map[string]string{
-			"component_slug": comp.Slug,
-			"tag":            "v1.0.0",
+			"workload": "integ-svc",
+			"tag":      "v1.0.0",
 		})
 		req := httptest.NewRequest(http.MethodPost,
 			"/api/v1/products/"+slug+"/environments/"+envID+"/deployments",
@@ -186,8 +171,8 @@ func insertDeployIntegrationFixtures(t *testing.T, pool *pgxpool.Pool) (productI
 	require.NoError(t, err)
 
 	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, type, overlay_path) VALUES ($1, $2, $3, $4) RETURNING id`,
-		productID, "dev", "dev", "apps/dev/integ/integ-helmrelease.yaml",
+		`INSERT INTO environments (product_id, name, slug, type, overlay_path) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		productID, "dev", "dev", "dev", "apps/dev/"+slug+"/"+slug+"-helmrelease.yaml",
 	).Scan(&envID)
 	require.NoError(t, err)
 

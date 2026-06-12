@@ -16,6 +16,7 @@ import (
 	"github.com/ryoku/kubegate/internal/api/handlers"
 	"github.com/ryoku/kubegate/internal/api/router"
 	"github.com/ryoku/kubegate/internal/auth"
+	"github.com/ryoku/kubegate/internal/domain"
 	"github.com/ryoku/kubegate/internal/gcr"
 	"github.com/ryoku/kubegate/internal/gitops"
 	"github.com/ryoku/kubegate/internal/store"
@@ -59,7 +60,7 @@ func main() {
 
 	gcrLister, closeGCR := initGCRLister()
 	defer closeGCR()
-	gitopsApplier := initGitOpsApplier()
+	gitopsApplier, workloadReader := initGitOps()
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -71,8 +72,9 @@ func main() {
 		router.RegisterComponentRoutes(productStore, componentStore),
 		router.RegisterEnvironmentRoutes(productStore, environmentStore),
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
-		router.RegisterTagRoutes(productStore, componentStore, gcrLister),
-		router.RegisterDeploymentRoutes(productStore, environmentStore, componentStore, lockStore, gitopsApplier, tagConventionDefault),
+		router.RegisterWorkloadRoutes(productStore, environmentStore, workloadReader),
+		router.RegisterTagRoutes(productStore, environmentStore, workloadReader, gcrLister),
+		router.RegisterDeploymentRoutes(productStore, environmentStore, lockStore, gitopsApplier, tagConventionDefault),
 	)
 	registerSPA(r)
 
@@ -112,20 +114,26 @@ func initGCRLister() (gcr.Lister, func()) {
 	}
 }
 
-// GITOPS_REPO_URL is optional; all deploy requests fail with a clear error when absent.
-func initGitOpsApplier() handlers.GitOpsApplier {
+// GITOPS_REPO_URL is optional; all deploy and workload requests fail with a clear error when absent.
+func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader) {
 	w, err := gitops.NewWriterFromEnv()
 	if err != nil {
-		log.Printf("GitOps writer unavailable (deployments disabled): %v", err)
-		return &disabledGitOpsApplier{}
+		log.Printf("GitOps writer unavailable (deployments and workload discovery disabled): %v", err)
+		return &disabledGitOpsApplier{}, &disabledWorkloadReader{}
 	}
-	return w
+	return w, w
 }
 
 type disabledGitOpsApplier struct{}
 
 func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) error {
-	return fmt.Errorf("gitops writer not configured: set GITOPS_REPO_URL")
+	return fmt.Errorf("%w: set GITOPS_REPO_URL to enable deployments", gitops.ErrGitOpsNotConfigured)
+}
+
+type disabledWorkloadReader struct{}
+
+func (d *disabledWorkloadReader) ListWorkloads(_ context.Context, _, _ string) ([]domain.Workload, error) {
+	return nil, fmt.Errorf("%w: set GITOPS_REPO_URL to enable workload discovery", gitops.ErrGitOpsNotConfigured)
 }
 
 // pgx5DSN converts a standard postgresql:// or postgres:// URL to the pgx5://

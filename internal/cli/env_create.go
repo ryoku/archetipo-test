@@ -16,6 +16,7 @@ type createEnvRequest struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	OverlayPath string `json:"overlay_path"`
+	Slug        string `json:"slug"`
 }
 
 type createEnvOpts struct {
@@ -25,6 +26,7 @@ type createEnvOpts struct {
 	name        string
 	envType     string
 	overlay     string
+	slug        string
 }
 
 func createEnvironment(cmd *cobra.Command, configDir string, opts createEnvOpts) error {
@@ -40,7 +42,7 @@ func createEnvironment(cmd *cobra.Command, configDir string, opts createEnvOpts)
 		return fmt.Errorf("reading stored token: %w", err)
 	}
 
-	payload, err := json.Marshal(createEnvRequest{Name: opts.name, Type: opts.envType, OverlayPath: opts.overlay})
+	payload, err := json.Marshal(createEnvRequest{Name: opts.name, Type: opts.envType, OverlayPath: opts.overlay, Slug: opts.slug})
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
 	}
@@ -99,6 +101,7 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 		name        string
 		envType     string
 		overlay     string
+		slug        string
 	)
 
 	cmd := &cobra.Command{
@@ -113,6 +116,7 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 				name:        name,
 				envType:     envType,
 				overlay:     overlay,
+				slug:        slug,
 			})
 		},
 	}
@@ -123,7 +127,8 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Environment name")
 	cmd.Flags().StringVar(&envType, "type", "", "Environment type (dev, integration, production)")
 	cmd.Flags().StringVar(&overlay, "overlay", "", "Gitops overlay path (relative)")
-	for _, flag := range []string{"product", "name", "type", "overlay"} {
+	cmd.Flags().StringVar(&slug, "slug", "", "Environment slug (URL-safe identifier)")
+	for _, flag := range []string{"product", "name", "type", "overlay", "slug"} {
 		if err := cmd.MarkFlagRequired(flag); err != nil {
 			panic(fmt.Sprintf("env create: MarkFlagRequired %s: %v", flag, err))
 		}

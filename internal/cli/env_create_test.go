@@ -20,6 +20,7 @@ func baseEnvCreateArgs(apiURL string) []string {
 		"--name", "production",
 		"--type", "production",
 		"--overlay", "overlays/my-app/api/production",
+		"--slug", "production",
 	}
 }
 
@@ -79,6 +80,9 @@ func TestEnvCreateSuccess(t *testing.T) {
 	}
 	if gotBody["overlay_path"] != "overlays/my-app/api/production" {
 		t.Errorf("request body overlay_path = %q, want 'overlays/my-app/api/production'", gotBody["overlay_path"])
+	}
+	if gotBody["slug"] != "production" {
+		t.Errorf("request body slug = %q, want 'production'", gotBody["slug"])
 	}
 	if !strings.Contains(output, "production") {
 		t.Errorf("output missing confirmation message, got: %s", output)

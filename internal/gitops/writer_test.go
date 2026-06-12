@@ -3,6 +3,7 @@ package gitops
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,18 +67,23 @@ func kubegateGitopsDirCount(t *testing.T) int {
 	return n
 }
 
-const seedKustomization = `apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-images:
-  - name: gcr.io/test-project/test-service
-    newTag: v1.0.0
-resources:
-  - deployment.yaml
+const seedHelmRelease = `apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: my-product
+spec:
+  values:
+    test-service:
+      image:
+        repository: gcr.io/test-project/test-service
+        tag: v1.0.0
 `
+
+const helmReleasePath = "apps/production/my-product/my-product-helmrelease.yaml"
 
 func TestWriter_HappyPath(t *testing.T) {
 	repoURL, bareDir := makeLocalBareRepo(t, map[string]string{
-		"overlays/prod/kustomization.yaml": seedKustomization,
+		helmReleasePath: seedHelmRelease,
 	})
 
 	w, err := New(WriterConfig{RepoURL: repoURL})
@@ -86,13 +92,12 @@ func TestWriter_HappyPath(t *testing.T) {
 	}
 
 	if err := w.Apply(context.Background(), ApplyParams{
-		OverlayPath:   "overlays/prod/kustomization.yaml",
-		ImageName:     "gcr.io/test-project/test-service",
-		NewTag:        "v2.0.0",
-		ProductSlug:   "my-product",
-		ComponentSlug: "test-service",
-		EnvName:       "production",
-		Actor:         "sara@example.com",
+		HelmReleasePath: helmReleasePath,
+		Workload:        "test-service",
+		NewTag:          "v2.0.0",
+		ProductSlug:     "my-product",
+		EnvName:         "production",
+		Actor:           "sara@example.com",
 	}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -125,7 +130,7 @@ func TestWriter_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Tree: %v", err)
 	}
-	f, err := tree.File("overlays/prod/kustomization.yaml")
+	f, err := tree.File(helmReleasePath)
 	if err != nil {
 		t.Fatalf("Tree.File: %v", err)
 	}
@@ -134,19 +139,19 @@ func TestWriter_HappyPath(t *testing.T) {
 		t.Fatalf("Contents: %v", err)
 	}
 	if !strings.Contains(contents, "v2.0.0") {
-		t.Errorf("overlay missing new tag: %s", contents)
+		t.Errorf("helmrelease missing new tag: %s", contents)
 	}
 	if !strings.Contains(contents, "apiVersion") {
-		t.Errorf("overlay missing preserved key 'apiVersion': %s", contents)
+		t.Errorf("helmrelease missing preserved key 'apiVersion': %s", contents)
 	}
 	if strings.Contains(contents, "v1.0.0") {
-		t.Errorf("overlay still contains old tag: %s", contents)
+		t.Errorf("helmrelease still contains old tag: %s", contents)
 	}
 }
 
-func TestWriter_OverlayNotFound(t *testing.T) {
+func TestWriter_HelmReleaseNotFound(t *testing.T) {
 	repoURL, _ := makeLocalBareRepo(t, map[string]string{
-		"overlays/prod/kustomization.yaml": seedKustomization,
+		helmReleasePath: seedHelmRelease,
 	})
 
 	w, err := New(WriterConfig{RepoURL: repoURL})
@@ -154,28 +159,28 @@ func TestWriter_OverlayNotFound(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
+	missingPath := "apps/production/other/other-helmrelease.yaml"
 	err = w.Apply(context.Background(), ApplyParams{
-		OverlayPath:   "overlays/nonexistent/kustomization.yaml",
-		ImageName:     "gcr.io/test-project/test-service",
-		NewTag:        "v2.0.0",
-		ProductSlug:   "p",
-		ComponentSlug: "c",
-		EnvName:       "e",
-		Actor:         "user",
+		HelmReleasePath: missingPath,
+		Workload:        "svc",
+		NewTag:          "v2.0.0",
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
 	})
 
-	var notFound *OverlayNotFoundError
+	var notFound *HelmReleaseNotFoundError
 	if !errors.As(err, &notFound) {
-		t.Fatalf("expected *OverlayNotFoundError, got %T: %v", err, err)
+		t.Fatalf("expected *HelmReleaseNotFoundError, got %T: %v", err, err)
 	}
-	if notFound.Path != "overlays/nonexistent/kustomization.yaml" {
-		t.Errorf("Path = %q, want %q", notFound.Path, "overlays/nonexistent/kustomization.yaml")
+	if notFound.Path != missingPath {
+		t.Errorf("Path = %q, want %q", notFound.Path, missingPath)
 	}
 }
 
 func TestWriter_Cleanup(t *testing.T) {
 	repoURL, _ := makeLocalBareRepo(t, map[string]string{
-		"overlays/prod/kustomization.yaml": seedKustomization,
+		helmReleasePath: seedHelmRelease,
 	})
 	w, err := New(WriterConfig{RepoURL: repoURL})
 	if err != nil {
@@ -185,29 +190,34 @@ func TestWriter_Cleanup(t *testing.T) {
 	before := kubegateGitopsDirCount(t)
 
 	_ = w.Apply(context.Background(), ApplyParams{
-		OverlayPath:   "overlays/prod/kustomization.yaml",
-		ImageName:     "gcr.io/test-project/test-service",
-		NewTag:        "v2.0.0",
-		ProductSlug:   "p",
-		ComponentSlug: "c",
-		EnvName:       "e",
-		Actor:         "user",
+		HelmReleasePath: helmReleasePath,
+		Workload:        "test-service",
+		NewTag:          "v2.0.0",
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
 	})
 	if got := kubegateGitopsDirCount(t); got != before {
 		t.Errorf("temp dir leaked after success: count before=%d, after=%d", before, got)
 	}
 
 	_ = w.Apply(context.Background(), ApplyParams{
-		OverlayPath:   "does/not/exist.yaml",
-		ImageName:     "gcr.io/test-project/test-service",
-		NewTag:        "v2.0.0",
-		ProductSlug:   "p",
-		ComponentSlug: "c",
-		EnvName:       "e",
-		Actor:         "user",
+		HelmReleasePath: "apps/production/does/not/exist.yaml",
+		Workload:        "svc",
+		NewTag:          "v2.0.0",
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
 	})
 	if got := kubegateGitopsDirCount(t); got != before {
-		t.Errorf("temp dir leaked after error: count before=%d, after=%d", before, got)
+		t.Errorf("temp dir leaked after Apply error: count before=%d, after=%d", before, got)
+	}
+
+	// ListWorkloads uses a separate kubegate-gitops-read-* prefix — verify no leak there either.
+	_, _ = w.ListWorkloads(context.Background(), "my-product", "production")
+	_, _ = w.ListWorkloads(context.Background(), "missing-product", "production")
+	if got := kubegateGitopsDirCount(t); got != before {
+		t.Errorf("temp dir leaked after ListWorkloads: count before=%d, after=%d", before, got)
 	}
 }
 
@@ -261,29 +271,28 @@ func TestNewWriterFromEnv(t *testing.T) {
 
 func TestWriter_IdempotentRedeployNoError(t *testing.T) {
 	repoURL, _ := makeLocalBareRepo(t, map[string]string{
-		"overlays/prod/kustomization.yaml": seedKustomization,
+		helmReleasePath: seedHelmRelease,
 	})
 	w, err := New(WriterConfig{RepoURL: repoURL})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	p := ApplyParams{
-		OverlayPath:   "overlays/prod/kustomization.yaml",
-		ImageName:     "gcr.io/test-project/test-service",
-		NewTag:        "v1.0.0", // same as the seed tag — no change
-		ProductSlug:   "p",
-		ComponentSlug: "c",
-		EnvName:       "e",
-		Actor:         "user",
+		HelmReleasePath: helmReleasePath,
+		Workload:        "test-service",
+		NewTag:          "v1.0.0", // same as the seed tag — no change
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
 	}
 	if err := w.Apply(context.Background(), p); err != nil {
 		t.Errorf("Apply with same tag should return nil, got: %v", err)
 	}
 }
 
-func TestOverlayNotFoundError_Message(t *testing.T) {
-	err := &OverlayNotFoundError{Path: "overlays/prod/kustomization.yaml"}
-	want := "gitops writer: overlay file not found: overlays/prod/kustomization.yaml"
+func TestHelmReleaseNotFoundError_Message(t *testing.T) {
+	err := &HelmReleaseNotFoundError{Path: "apps/prod/svc/svc-helmrelease.yaml"}
+	want := "gitops writer: HelmRelease not found: apps/prod/svc/svc-helmrelease.yaml"
 	if err.Error() != want {
 		t.Errorf("Error() = %q, want %q", err.Error(), want)
 	}
@@ -291,52 +300,50 @@ func TestOverlayNotFoundError_Message(t *testing.T) {
 
 func TestWriter_PathTraversalRejected(t *testing.T) {
 	repoURL, _ := makeLocalBareRepo(t, map[string]string{
-		"overlays/prod/kustomization.yaml": seedKustomization,
+		helmReleasePath: seedHelmRelease,
 	})
 	w, err := New(WriterConfig{RepoURL: repoURL})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	err = w.Apply(context.Background(), ApplyParams{
-		OverlayPath:   "../../etc/hostname",
-		ImageName:     "gcr.io/test-project/test-service",
-		NewTag:        "v2.0.0",
-		ProductSlug:   "p",
-		ComponentSlug: "c",
-		EnvName:       "e",
-		Actor:         "user",
+		HelmReleasePath: "../../etc/hostname",
+		Workload:        "svc",
+		NewTag:          "v2.0.0",
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
 	})
 	// securejoin should either return an error or confine the path inside tmpDir,
-	// resulting in an OverlayNotFoundError — either way Apply must not succeed.
+	// resulting in a HelmReleaseNotFoundError — either way Apply must not succeed.
 	if err == nil {
-		t.Fatal("expected error for path traversal OverlayPath, got nil")
+		t.Fatal("expected error for path traversal HelmReleasePath, got nil")
 	}
 }
 
 func TestApply_RequiredParamValidation(t *testing.T) {
 	repoURL, _ := makeLocalBareRepo(t, map[string]string{
-		"overlays/prod/kustomization.yaml": seedKustomization,
+		helmReleasePath: seedHelmRelease,
 	})
 	w, err := New(WriterConfig{RepoURL: repoURL})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	base := ApplyParams{
-		OverlayPath:   "overlays/prod/kustomization.yaml",
-		ImageName:     "gcr.io/test-project/test-service",
-		NewTag:        "v2.0.0",
-		ProductSlug:   "p",
-		ComponentSlug: "c",
-		EnvName:       "e",
-		Actor:         "user",
+		HelmReleasePath: helmReleasePath,
+		Workload:        "test-service",
+		NewTag:          "v2.0.0",
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
 	}
 	cases := []struct {
 		name    string
 		mutate  func(*ApplyParams)
 		wantMsg string
 	}{
-		{"empty OverlayPath", func(p *ApplyParams) { p.OverlayPath = "" }, "OverlayPath must not be empty"},
-		{"empty ImageName", func(p *ApplyParams) { p.ImageName = "" }, "ImageName must not be empty"},
+		{"empty HelmReleasePath", func(p *ApplyParams) { p.HelmReleasePath = "" }, "HelmReleasePath must not be empty"},
+		{"empty Workload", func(p *ApplyParams) { p.Workload = "" }, "Workload must not be empty"},
 		{"empty NewTag", func(p *ApplyParams) { p.NewTag = "" }, "NewTag must not be empty"},
 		{"empty Actor", func(p *ApplyParams) { p.Actor = "" }, "Actor must not be empty"},
 	}
@@ -365,13 +372,12 @@ func TestNew_SSHKeyPathNotFound(t *testing.T) {
 	}
 	// buildAuth is called inside Apply; trigger it directly via Apply to cover the error path.
 	err = w.Apply(context.Background(), ApplyParams{
-		OverlayPath:   "overlays/kustomization.yaml",
-		ImageName:     "gcr.io/p/s",
-		NewTag:        "v1",
-		ProductSlug:   "p",
-		ComponentSlug: "s",
-		EnvName:       "e",
-		Actor:         "user",
+		HelmReleasePath: "apps/e/p/p-helmrelease.yaml",
+		Workload:        "s",
+		NewTag:          "v1",
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
 	})
 	if err == nil {
 		t.Fatal("expected error loading nonexistent SSH key")
@@ -389,5 +395,77 @@ func TestNew_MutuallyExclusiveAuth(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error when both DeployKeyPath and Token are set")
+	}
+}
+
+func TestWriter_ListWorkloads_HappyPath(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		helmReleasePath: seedHelmRelease,
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	workloads, err := w.ListWorkloads(context.Background(), "my-product", "production")
+	if err != nil {
+		t.Fatalf("ListWorkloads: %v", err)
+	}
+	if len(workloads) != 1 {
+		t.Fatalf("expected 1 workload, got %d", len(workloads))
+	}
+	if workloads[0].Name != "test-service" {
+		t.Errorf("workload name = %q, want %q", workloads[0].Name, "test-service")
+	}
+	if workloads[0].ImageRepository != "gcr.io/test-project/test-service" {
+		t.Errorf("image repository = %q, want %q", workloads[0].ImageRepository, "gcr.io/test-project/test-service")
+	}
+}
+
+func TestWriter_ListWorkloads_HelmReleaseNotFound(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		helmReleasePath: seedHelmRelease,
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	_, err = w.ListWorkloads(context.Background(), "other-product", "production")
+	if !errors.Is(err, ErrHelmReleaseNotFound) {
+		t.Fatalf("expected ErrHelmReleaseNotFound, got %T: %v", err, err)
+	}
+}
+
+func TestWriter_ListWorkloads_ParseError(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		helmReleasePath: "not: valid: yaml: ::::",
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	_, err = w.ListWorkloads(context.Background(), "my-product", "production")
+	if !errors.Is(err, ErrHelmReleaseParseFailed) {
+		t.Fatalf("expected ErrHelmReleaseParseFailed, got %T: %v", err, err)
+	}
+}
+
+func TestHelmReleaseNotFoundError_Unwrap(t *testing.T) {
+	err := &HelmReleaseNotFoundError{Path: "apps/production/svc/svc-helmrelease.yaml"}
+	if !errors.Is(err, ErrHelmReleaseNotFound) {
+		t.Errorf("errors.Is via Unwrap should match ErrHelmReleaseNotFound, got false")
+	}
+	wrapped := fmt.Errorf("outer: %w", err)
+	if !errors.Is(wrapped, ErrHelmReleaseNotFound) {
+		t.Errorf("errors.Is through wrapping should match ErrHelmReleaseNotFound, got false")
+	}
+	var target *HelmReleaseNotFoundError
+	if !errors.As(wrapped, &target) {
+		t.Errorf("errors.As should extract *HelmReleaseNotFoundError from wrapped error, got false")
+	}
+	if target.Path != err.Path {
+		t.Errorf("extracted Path = %q, want %q", target.Path, err.Path)
 	}
 }
