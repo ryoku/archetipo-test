@@ -3,6 +3,7 @@ package gitops
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -448,5 +449,23 @@ func TestWriter_ListWorkloads_ParseError(t *testing.T) {
 	_, err = w.ListWorkloads(context.Background(), "my-product", "production")
 	if !errors.Is(err, ErrHelmReleaseParseFailed) {
 		t.Fatalf("expected ErrHelmReleaseParseFailed, got %T: %v", err, err)
+	}
+}
+
+func TestHelmReleaseNotFoundError_Unwrap(t *testing.T) {
+	err := &HelmReleaseNotFoundError{Path: "apps/production/svc/svc-helmrelease.yaml"}
+	if !errors.Is(err, ErrHelmReleaseNotFound) {
+		t.Errorf("errors.Is via Unwrap should match ErrHelmReleaseNotFound, got false")
+	}
+	wrapped := fmt.Errorf("outer: %w", err)
+	if !errors.Is(wrapped, ErrHelmReleaseNotFound) {
+		t.Errorf("errors.Is through wrapping should match ErrHelmReleaseNotFound, got false")
+	}
+	var target *HelmReleaseNotFoundError
+	if !errors.As(wrapped, &target) {
+		t.Errorf("errors.As should extract *HelmReleaseNotFoundError from wrapped error, got false")
+	}
+	if target.Path != err.Path {
+		t.Errorf("extracted Path = %q, want %q", target.Path, err.Path)
 	}
 }

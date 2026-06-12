@@ -73,6 +73,7 @@ func makeEnvironment(productID, id, envType string) domain.Environment {
 		Name:        "Env " + id,
 		Type:        envType,
 		OverlayPath: "overlays/" + id,
+		Slug:        id,
 		CreatedAt:   time.Date(2026, 6, 6, 0, 0, 0, 0, time.UTC),
 	}
 }
@@ -107,6 +108,9 @@ func TestCreateEnvironment_Valid_Returns201(t *testing.T) {
 	}
 	if resp["id"] == nil {
 		t.Error("expected id in response")
+	}
+	if resp["slug"] != "dev-env" {
+		t.Errorf("expected slug=dev-env in response, got %v", resp["slug"])
 	}
 }
 

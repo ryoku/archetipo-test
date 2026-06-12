@@ -17,7 +17,8 @@
       "Read(//home/ryoku/.claude-work/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/requesting-code-review/**)",
       "mcp__sonarqube__search_my_sonarqube_projects",
       "mcp__sonarqube__show_rule",
-      "mcp__sonarqube__search_sonar_issues_in_projects"
+      "mcp__sonarqube__search_sonar_issues_in_projects",
+      "mcp__sonarqube__get_duplications"
     ]
   },
   "hooks": {

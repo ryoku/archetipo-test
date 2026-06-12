@@ -177,7 +177,7 @@ func (w *Writer) ListWorkloads(ctx context.Context, productSlug, envSlug string)
 	data, err := os.ReadFile(absPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("%w: %s", ErrHelmReleaseNotFound, relPath)
+			return nil, &HelmReleaseNotFoundError{Path: relPath}
 		}
 		return nil, fmt.Errorf("gitops writer: read helmrelease: %w", err)
 	}

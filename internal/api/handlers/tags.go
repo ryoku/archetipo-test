@@ -58,6 +58,7 @@ func (h *TagHandlers) ListTags(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("ListTags product=%s env=%s workload=%s: env store error: %v", productSlug, environmentID, workloadName, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
@@ -97,8 +98,11 @@ func (h *TagHandlers) resolveWorkloadImageRepo(c *gin.Context, productSlug, envi
 	workloads, err := h.reader.ListWorkloads(c.Request.Context(), productSlugForGit, envSlug)
 	if err != nil {
 		switch {
+		case errors.Is(err, gitops.ErrGitOpsNotConfigured):
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "workload discovery is not available on this server"})
 		case errors.Is(err, gitops.ErrHelmReleaseNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			log.Printf("ListTags product=%s env=%s workload=%s: helmrelease not found: %v", productSlug, environmentID, workloadName, err)
+			c.JSON(http.StatusNotFound, gin.H{"error": "HelmRelease not found for this environment"})
 		case errors.Is(err, gitops.ErrHelmReleaseParseFailed):
 			log.Printf("ListTags product=%s env=%s workload=%s: parse error: %v", productSlug, environmentID, workloadName, err)
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "HelmRelease file could not be parsed"})

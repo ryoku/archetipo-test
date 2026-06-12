@@ -118,7 +118,7 @@ func initGCRLister() (gcr.Lister, func()) {
 func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader) {
 	w, err := gitops.NewWriterFromEnv()
 	if err != nil {
-		log.Printf("GitOps writer unavailable (deployments disabled): %v", err)
+		log.Printf("GitOps writer unavailable (deployments and workload discovery disabled): %v", err)
 		return &disabledGitOpsApplier{}, &disabledWorkloadReader{}
 	}
 	return w, w
@@ -127,13 +127,13 @@ func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader) {
 type disabledGitOpsApplier struct{}
 
 func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) error {
-	return fmt.Errorf("gitops writer not configured: set GITOPS_REPO_URL")
+	return fmt.Errorf("%w: set GITOPS_REPO_URL to enable deployments", gitops.ErrGitOpsNotConfigured)
 }
 
 type disabledWorkloadReader struct{}
 
 func (d *disabledWorkloadReader) ListWorkloads(_ context.Context, _, _ string) ([]domain.Workload, error) {
-	return nil, fmt.Errorf("gitops writer not configured: set GITOPS_REPO_URL")
+	return nil, fmt.Errorf("%w: set GITOPS_REPO_URL to enable workload discovery", gitops.ErrGitOpsNotConfigured)
 }
 
 // pgx5DSN converts a standard postgresql:// or postgres:// URL to the pgx5://

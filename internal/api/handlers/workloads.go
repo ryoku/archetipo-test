@@ -47,6 +47,7 @@ func (h *WorkloadHandlers) ListWorkloads(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": errMsgNotFound})
 			return
 		}
+		log.Printf("ListWorkloads product=%s env=%s: env store error: %v", productSlug, environmentID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
@@ -54,8 +55,11 @@ func (h *WorkloadHandlers) ListWorkloads(c *gin.Context) {
 	workloads, err := h.reader.ListWorkloads(c.Request.Context(), product.Slug, env.Slug)
 	if err != nil {
 		switch {
+		case errors.Is(err, gitops.ErrGitOpsNotConfigured):
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "workload discovery is not available on this server"})
 		case errors.Is(err, gitops.ErrHelmReleaseNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			log.Printf("ListWorkloads product=%s env=%s: helmrelease not found: %v", productSlug, environmentID, err)
+			c.JSON(http.StatusNotFound, gin.H{"error": "HelmRelease not found for this environment"})
 		case errors.Is(err, gitops.ErrHelmReleaseParseFailed):
 			log.Printf("ListWorkloads product=%s env=%s: %v", productSlug, environmentID, err)
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "HelmRelease file could not be parsed"})

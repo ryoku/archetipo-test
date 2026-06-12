@@ -190,6 +190,10 @@ func (h *DeploymentHandlers) applyGitOps(c *gin.Context, product *domain.Product
 	if err == nil {
 		return true
 	}
+	if errors.Is(err, gitops.ErrGitOpsNotConfigured) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "deployments are not available on this server"})
+		return false
+	}
 	var notFound *gitops.HelmReleaseNotFoundError
 	if errors.As(err, &notFound) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("HelmRelease not found: %s", notFound.Path)})
@@ -198,6 +202,11 @@ func (h *DeploymentHandlers) applyGitOps(c *gin.Context, product *domain.Product
 	var pathErr *gitops.HelmReleasePathError
 	if errors.As(err, &pathErr) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("workload not found in HelmRelease: %s", pathErr.Path)})
+		return false
+	}
+	var inputErr *gitops.PatchInputError
+	if errors.As(err, &inputErr) {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("invalid %s: %s", inputErr.Field, inputErr.Reason)})
 		return false
 	}
 	log.Printf("applyGitOps product=%s workload=%s env=%s tag=%s: %v", product.Slug, workload, env.Name, tag, err)

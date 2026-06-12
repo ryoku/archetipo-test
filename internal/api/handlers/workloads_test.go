@@ -217,6 +217,23 @@ func TestListWorkloads_EnvironmentNotFound_Returns404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestListWorkloads_EnvStoreError_Returns500(t *testing.T) {
+	r := newWorkloadRouter(
+		wlProductStore(wlFixtureProduct),
+		&mockEnvironmentStore{
+			getByIDFn: func(_ context.Context, _, _ string) (*domain.Environment, error) {
+				return nil, fmt.Errorf("db connection lost")
+			},
+		},
+		workloadReaderOK(nil),
+		viewerIdentity("wl-product"),
+	)
+
+	w := doWorkloadRequest(t, r, "wl-product", "env-wl-1")
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func TestListWorkloads_Unauthenticated_Returns401(t *testing.T) {
 	r := newWorkloadRouter(
 		wlProductStore(wlFixtureProduct),

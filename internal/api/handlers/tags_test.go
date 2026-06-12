@@ -231,6 +231,25 @@ func TestTagHandler_ListTags_EmptyResult(t *testing.T) {
 	}
 }
 
+func TestTagHandler_ListTags_EnvStoreError_Returns500(t *testing.T) {
+	r := newTagRouter(
+		tagProductStoreOK("tag-product"),
+		&mockEnvironmentStore{
+			getByIDFn: func(_ context.Context, _, _ string) (*domain.Environment, error) {
+				return nil, fmt.Errorf("db connection lost")
+			},
+		},
+		workloadReaderOK(tagFixtureWorkloads),
+		&mockLister{},
+		viewerIdentity("tag-product"),
+	)
+	w := doTagRequest(t, r, "tag-product", "env-tag-1", "main", "")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for unexpected env store error, got %d", w.Code)
+	}
+}
+
 func TestTagHandler_ListTags_WorkloadNotInHelmRelease_Returns404(t *testing.T) {
 	r := newTagRouter(
 		tagProductStoreOK("tag-product"),

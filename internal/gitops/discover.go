@@ -14,6 +14,8 @@ var (
 	ErrHelmReleaseNotFound = errors.New("helmrelease not found")
 	// ErrHelmReleaseParseFailed is returned when the HelmRelease file cannot be parsed.
 	ErrHelmReleaseParseFailed = errors.New("helmrelease could not be parsed")
+	// ErrGitOpsNotConfigured is returned by stub implementations when GITOPS_REPO_URL is not set.
+	ErrGitOpsNotConfigured = errors.New("gitops not configured")
 )
 
 // HelmReleasePath returns the conventional gitops path for a product's HelmRelease file.
