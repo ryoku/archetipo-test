@@ -329,10 +329,16 @@ describe('listWorkloads', () => {
     expect(result).toEqual(workloads)
   })
 
-  it('throws on non-ok response', async () => {
+  it('throws with status code in message on non-ok response', async () => {
     vi.stubGlobal('fetch', makeFetchStub(500))
 
     await expect(listWorkloads('tok', 'my-product', 'env-id')).rejects.toThrow('listWorkloads: 500')
+  })
+
+  it('throws with exact "listWorkloads: 404" message on 404', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(404))
+
+    await expect(listWorkloads('tok', 'my-product', 'env-id')).rejects.toThrow('listWorkloads: 404')
   })
 })
 

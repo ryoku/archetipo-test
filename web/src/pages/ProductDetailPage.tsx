@@ -141,7 +141,7 @@ export default function ProductDetailPage() {
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Failed to load workloads'
-        if (msg.includes('404')) {
+        if (msg === 'listWorkloads: 404') {
           setWorkloadsNotFound(true)
           setWorkloads([])
         } else {

@@ -197,6 +197,18 @@ describe('ProductDetailPage — workloads table', () => {
     })
   })
 
+  it('shows error banner when listWorkloads rejects with a non-404 error', async () => {
+    const env = makeEnvironment({ id: 'e1' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockRejectedValue(new Error('listWorkloads: 500'))
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeTruthy()
+    })
+  })
+
   it('shows no environments state when listEnvironments returns empty array', async () => {
     mockListEnvironments.mockResolvedValue([])
 
