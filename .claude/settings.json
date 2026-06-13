@@ -22,7 +22,8 @@
       "Bash(make go:build)",
       "Bash(pnpm e2e *)",
       "Bash(pnpm playwright *)",
-      "Bash(pnpm build *)"
+      "Bash(pnpm build *)",
+      "Bash(go vet *)"
     ]
   },
   "hooks": {
