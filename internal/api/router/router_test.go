@@ -95,34 +95,6 @@ func TestRegisterProductRoutes_RoutesRegistered(t *testing.T) {
 	})
 }
 
-// noopComponentStore is a no-op implementation used to verify component route registration.
-type noopComponentStore struct{}
-
-func (noopComponentStore) Create(_ context.Context, _ *domain.Component) error { return nil }
-func (noopComponentStore) GetBySlug(_ context.Context, _, _ string) (*domain.Component, error) {
-	return nil, nil
-}
-func (noopComponentStore) ListByProduct(_ context.Context, _ string) ([]domain.Component, error) {
-	return nil, nil
-}
-func (noopComponentStore) Delete(_ context.Context, _, _ string) error { return nil }
-
-var _ store.ComponentStore = noopComponentStore{}
-
-// TestRegisterComponentRoutes verifies that RegisterComponentRoutes registers the
-// expected HTTP endpoints. All /api/v1/* requests return 401 when no valid token is
-// present, confirming the routes exist (a missing route returns 404 instead).
-func TestRegisterComponentRoutes_RoutesRegistered(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := router.New(alwaysDenyVerifier{},
-		router.RegisterComponentRoutes(noopProductStore{}, noopComponentStore{}))
-	assertRoutesReturn401(t, r, [][2]string{
-		{http.MethodPost, "/api/v1/products/some-slug/components"},
-		{http.MethodGet, "/api/v1/products/some-slug/components"},
-		{http.MethodDelete, "/api/v1/products/some-slug/components/comp-slug"},
-	})
-}
-
 // noopEnvironmentStore is a no-op implementation used to verify environment route registration.
 type noopEnvironmentStore struct{}
 

@@ -1,19 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, waitFor, act, cleanup, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { Product, Component } from '../api/products'
+import type { Product, Environment, Workload } from '../api/products'
 import ProductDetailPage from './ProductDetailPage'
 
 // ─── Mocks ────────────────────────────────────────────────────
 
-const mockListComponents = vi.hoisted(() => vi.fn<() => Promise<Component[]>>())
-const mockCreateComponent = vi.hoisted(() => vi.fn<() => Promise<Component>>())
-const mockDeleteComponent = vi.hoisted(() => vi.fn<() => Promise<void>>())
+const mockListEnvironments = vi.hoisted(() => vi.fn<() => Promise<Environment[]>>())
+const mockListWorkloads = vi.hoisted(() => vi.fn<() => Promise<Workload[]>>())
 
 vi.mock('../api/products', () => ({
-  listComponents: mockListComponents,
-  createComponent: mockCreateComponent,
-  deleteComponent: mockDeleteComponent,
+  listEnvironments: mockListEnvironments,
+  listWorkloads: mockListWorkloads,
 }))
 
 const mockUseAuth = vi.fn()
@@ -22,9 +20,30 @@ vi.mock('../auth/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }))
 
+vi.mock('../components/ProductHero', () => ({
+  default: ({ product }: { product: Product }) => <div data-testid="product-hero">{product.name}</div>,
+}))
+
+vi.mock('../components/ProductSubNav', () => ({
+  default: () => <div data-testid="product-sub-nav" />,
+}))
+
+vi.mock('../components/ProductNotFound', () => ({
+  default: () => (
+    <div>
+      <span>Product not found</span>
+      <button onClick={() => capturedNavigate('/')}>Back to Products</button>
+    </div>
+  ),
+}))
+
+vi.mock('../components/DeployDialog', () => ({
+  DeployDialog: () => <div data-testid="deploy-dialog" />,
+}))
+
 let capturedNavigate: Mock
 
-// We need to be able to change what useParams and useLocation return per test
+// Per-test mutable state for router mocks
 let mockSlug = 'test-product'
 let mockLocationState: Product | undefined = undefined
 
@@ -52,14 +71,22 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
   }
 }
 
-function makeComponent(overrides: Partial<Component> = {}): Component {
+function makeEnvironment(overrides: Partial<Environment> = {}): Environment {
   return {
-    id: 'c1',
+    id: 'e1',
     product_id: 'p1',
-    name: 'api',
-    slug: 'api',
-    gcr_image_path: 'europe-west1-docker.pkg.dev/acme/platform/api',
+    name: 'development',
+    type: 'dev',
+    overlay_path: 'overlays/dev',
     created_at: '2025-01-01T00:00:00Z',
+    ...overrides,
+  }
+}
+
+function makeWorkload(overrides: Partial<Workload> = {}): Workload {
+  return {
+    name: 'api',
+    image_repository: 'europe-west1-docker.pkg.dev/acme/platform/api',
     ...overrides,
   }
 }
@@ -84,9 +111,8 @@ beforeEach(() => {
     logout: vi.fn(),
     accessToken: 'test-token',
   })
-  mockListComponents.mockResolvedValue([])
-  mockCreateComponent.mockResolvedValue(makeComponent())
-  mockDeleteComponent.mockResolvedValue(undefined)
+  mockListEnvironments.mockResolvedValue([])
+  mockListWorkloads.mockResolvedValue([])
 })
 
 afterEach(cleanup)
@@ -116,45 +142,29 @@ describe('ProductDetailPage — not found', () => {
   })
 })
 
-describe('ProductDetailPage — with product', () => {
-  it('shows product name when state is provided', () => {
-    renderPage()
-
-    expect(screen.getByText('Platform API')).toBeTruthy()
-  })
-
-  it('shows product slug as tag chip', async () => {
-    renderPage()
-
-    // slug appears in multiple places (breadcrumb + tag chip); use getAllBy and check at least one
-    await waitFor(() => {
-      const elements = screen.getAllByText('test-product')
-      expect(elements.length).toBeGreaterThan(0)
-    })
-  })
-
-  it('renders component table when listComponents returns data', async () => {
-    const components = [
-      makeComponent({ id: 'c1', name: 'api', slug: 'api' }),
-      makeComponent({ id: 'c2', name: 'worker', slug: 'worker-svc', gcr_image_path: 'path/worker' }),
+describe('ProductDetailPage — workloads table', () => {
+  it('shows workloads table rows when listWorkloads returns data', async () => {
+    const env = makeEnvironment({ id: 'e1', name: 'development' })
+    const workloads = [
+      makeWorkload({ name: 'api', image_repository: 'repo/api' }),
+      makeWorkload({ name: 'worker', image_repository: 'repo/worker' }),
     ]
-    mockListComponents.mockResolvedValue(components)
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue(workloads)
 
     renderPage()
 
-    // Each name appears in name+slug cells; use getAllByText
     await waitFor(() => {
-      const apiNames = screen.getAllByText('api')
-      expect(apiNames.length).toBeGreaterThan(0)
+      expect(screen.getByText('api')).toBeTruthy()
       expect(screen.getByText('worker')).toBeTruthy()
     })
   })
 
-  it('shows GCR image path in the table', async () => {
-    const comp = makeComponent({
-      gcr_image_path: 'europe-west1-docker.pkg.dev/acme/platform/api',
-    })
-    mockListComponents.mockResolvedValue([comp])
+  it('renders image_repository values in the workloads table', async () => {
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api', image_repository: 'europe-west1-docker.pkg.dev/acme/platform/api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
 
     renderPage()
 
@@ -163,236 +173,220 @@ describe('ProductDetailPage — with product', () => {
     })
   })
 
-  it('shows empty state when no components', async () => {
-    mockListComponents.mockResolvedValue([])
+  it('shows empty state when listWorkloads returns empty array', async () => {
+    const env = makeEnvironment({ id: 'e1' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([])
 
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByTestId('empty-components')).toBeTruthy()
+      expect(screen.getByTestId('empty-workloads')).toBeTruthy()
     })
   })
 
-  it('shows add component form when "Add Component" is clicked', async () => {
-    renderPage()
+  it('shows error banner when listEnvironments rejects', async () => {
+    mockListEnvironments.mockRejectedValue(new Error('listEnvironments: 500'))
 
-    await waitFor(() => screen.getByText('Add Component'))
-
-    act(() => {
-      screen.getByText('Add Component').click()
-    })
-
-    expect(screen.getByText('New Component')).toBeTruthy()
-    expect(screen.getByLabelText('Name *')).toBeTruthy()
-    expect(screen.getByLabelText('Slug *')).toBeTruthy()
-    expect(screen.getByLabelText('GCR Image Path *')).toBeTruthy()
-  })
-
-  it('calls createComponent on form submit and adds to list', async () => {
-    const newComp = makeComponent({ id: 'c99', name: 'frontend', slug: 'frontend', gcr_image_path: 'path/frontend' })
-    mockCreateComponent.mockResolvedValue(newComp)
-    mockListComponents.mockResolvedValue([])
-
-    renderPage()
-
-    await waitFor(() => screen.getByText('Add Component'))
-
-    act(() => {
-      screen.getByText('Add Component').click()
-    })
-
-    const nameInput = screen.getByLabelText('Name *')
-    const slugInput = screen.getByLabelText('Slug *')
-    const gcrInput = screen.getByLabelText('GCR Image Path *')
-
-    // Use fireEvent.change to properly trigger React's synthetic events
-    await act(async () => {
-      fireEvent.change(nameInput, { target: { value: 'frontend' } })
-      fireEvent.change(slugInput, { target: { value: 'frontend' } })
-      fireEvent.change(gcrInput, { target: { value: 'path/frontend' } })
-    })
-
-    await act(async () => {
-      screen.getByText('Save Component').click()
-    })
-
-    await waitFor(() => {
-      expect(mockCreateComponent).toHaveBeenCalledWith('test-token', 'test-product', {
-        name: 'frontend',
-        slug: 'frontend',
-        gcr_image_path: 'path/frontend',
-      })
-    })
-  })
-
-  it('adds the new component to the list after successful create', async () => {
-    const newComp = makeComponent({ id: 'c99', name: 'frontend', slug: 'frontend', gcr_image_path: 'path/frontend' })
-    mockCreateComponent.mockResolvedValue(newComp)
-    mockListComponents.mockResolvedValue([])
-
-    renderPage()
-
-    await waitFor(() => screen.getByText('Add Component'))
-
-    act(() => {
-      screen.getByText('Add Component').click()
-    })
-
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'frontend' } })
-      fireEvent.change(screen.getByLabelText('Slug *'), { target: { value: 'frontend' } })
-      fireEvent.change(screen.getByLabelText('GCR Image Path *'), { target: { value: 'path/frontend' } })
-    })
-
-    await act(async () => {
-      screen.getByText('Save Component').click()
-    })
-
-    await waitFor(() => {
-      const els = screen.getAllByText('frontend')
-      expect(els.length).toBeGreaterThan(0)
-    })
-  })
-
-  it('hides the form when Cancel is clicked', async () => {
-    renderPage()
-
-    await waitFor(() => screen.getByText('Add Component'))
-
-    act(() => {
-      screen.getByText('Add Component').click()
-    })
-
-    expect(screen.getByText('New Component')).toBeTruthy()
-
-    act(() => {
-      screen.getByText('Cancel').click()
-    })
-
-    expect(screen.queryByText('New Component')).toBeNull()
-  })
-
-  it('calls listComponents with the product slug and token', async () => {
     renderPage()
 
     await waitFor(() => {
-      expect(mockListComponents).toHaveBeenCalledWith('test-token', 'test-product')
+      expect(screen.getByRole('alert')).toBeTruthy()
     })
   })
 
-  it('resets to loading state and clears stale components when slug changes', async () => {
-    // First render: foo product with one distinctly-named component
-    mockSlug = 'foo'
-    mockLocationState = makeProduct({ slug: 'foo' })
-    const fooComp = makeComponent({ id: 'c-foo', name: 'Foo Service', slug: 'foo-svc' })
-    mockListComponents.mockResolvedValueOnce([fooComp])
+  it('shows HelmRelease not found state when listWorkloads rejects with 404', async () => {
+    const env = makeEnvironment({ id: 'e1' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockRejectedValue(new Error('listWorkloads: 404'))
 
-    const { rerender } = renderPage()
+    renderPage()
 
-    await waitFor(() => expect(screen.getByText('Foo Service')).toBeTruthy())
+    await waitFor(() => {
+      expect(screen.getByTestId('workloads-not-found')).toBeTruthy()
+    })
+  })
 
-    // Simulate navigation to a different product (slug changes, new fetch never resolves)
-    mockSlug = 'bar'
-    mockLocationState = makeProduct({ slug: 'bar' })
-    mockListComponents.mockReturnValueOnce(new Promise(() => {}))
+  it('shows error banner when listWorkloads rejects with a non-404 error', async () => {
+    const env = makeEnvironment({ id: 'e1' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockRejectedValue(new Error('listWorkloads: 500'))
 
-    rerender(
-      <MemoryRouter initialEntries={['/products/bar']}>
-        <ProductDetailPage />
-      </MemoryRouter>,
-    )
+    renderPage()
 
-    // Stale component from 'foo' must NOT be visible while 'bar' is loading
-    await waitFor(() => expect(screen.queryByText('Foo Service')).toBeNull())
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeTruthy()
+    })
+  })
+
+  it('shows no environments state when listEnvironments returns empty array', async () => {
+    mockListEnvironments.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText(/No environments configured/)).toBeTruthy()
+    })
   })
 })
 
-describe('ProductDetailPage — delete confirm dialog', () => {
-  it('renders delete confirmation as a native <dialog> element', async () => {
-    const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
-    mockListComponents.mockResolvedValue([comp])
+describe('ProductDetailPage — environment selector', () => {
+  it('auto-selects the first environment and calls listWorkloads with its id', async () => {
+    const env = makeEnvironment({ id: 'e1', name: 'development' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([])
+
     renderPage()
-    await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
-    act(() => { screen.getByRole('button', { name: /Delete api-gw/i }).click() })
-    const dialog = screen.getByRole('dialog')
-    expect(dialog.tagName.toLowerCase()).toBe('dialog')
+
+    await waitFor(() => {
+      expect(mockListWorkloads).toHaveBeenCalledWith('test-token', 'test-product', 'e1')
+    })
   })
 
-  it('closes confirm dialog when Escape key is pressed on window', async () => {
-    const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
-    mockListComponents.mockResolvedValue([comp])
-    renderPage()
-    await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
-    act(() => { screen.getByRole('button', { name: /Delete api-gw/i }).click() })
-    expect(screen.getByRole('dialog')).toBeTruthy()
-    // Escape must work even when the dialog is not focused — window-level listener required
-    act(() => { fireEvent.keyDown(window, { key: 'Escape' }) })
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('shows delete confirm dialog when Delete button is clicked', async () => {
-    const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
-    mockListComponents.mockResolvedValue([comp])
+  it('calls listWorkloads with second env id when selector changes', async () => {
+    const envs = [
+      makeEnvironment({ id: 'e1', name: 'development' }),
+      makeEnvironment({ id: 'e2', name: 'production', type: 'production' }),
+    ]
+    mockListEnvironments.mockResolvedValue(envs)
+    mockListWorkloads.mockResolvedValue([])
 
     renderPage()
 
-    await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
-
-    act(() => {
-      screen.getByRole('button', { name: /Delete api-gw/i }).click()
-    })
-
-    expect(screen.getByText('Remove Component')).toBeTruthy()
-    expect(screen.getByText(/cannot be undone/i)).toBeTruthy()
-  })
-
-  it('closes dialog when Cancel is clicked', async () => {
-    const comp = makeComponent({ name: 'api-gw', slug: 'api-gw' })
-    mockListComponents.mockResolvedValue([comp])
-
-    renderPage()
-
-    await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
-
-    act(() => {
-      screen.getByRole('button', { name: /Delete api-gw/i }).click()
-    })
-
-    expect(screen.getByText('Remove Component')).toBeTruthy()
-
-    act(() => {
-      // Click the Cancel button inside the dialog footer (last one in the DOM)
-      const cancelButtons = screen.getAllByText('Cancel')
-      cancelButtons[cancelButtons.length - 1].click()
-    })
-
-    expect(screen.queryByText('Remove Component')).toBeNull()
-  })
-
-  it('calls deleteComponent and removes from list on confirm', async () => {
-    const comp = makeComponent({ id: 'c1', name: 'api-gw', slug: 'api-gw' })
-    mockListComponents.mockResolvedValue([comp])
-    mockDeleteComponent.mockResolvedValue(undefined)
-
-    renderPage()
-
-    await waitFor(() => screen.getByRole('button', { name: /Delete api-gw/i }))
-
-    act(() => {
-      screen.getByRole('button', { name: /Delete api-gw/i }).click()
-    })
+    // Wait for selector to appear
+    await waitFor(() => screen.getByRole('combobox'))
 
     await act(async () => {
-      screen.getByText('Delete Component').click()
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'e2' } })
     })
 
     await waitFor(() => {
-      expect(mockDeleteComponent).toHaveBeenCalledWith('test-token', 'test-product', 'api-gw')
+      expect(mockListWorkloads).toHaveBeenCalledWith('test-token', 'test-product', 'e2')
+    })
+  })
+
+  it('renders an option for each environment in the dropdown', async () => {
+    const envs = [
+      makeEnvironment({ id: 'e1', name: 'development' }),
+      makeEnvironment({ id: 'e2', name: 'production', type: 'production' }),
+    ]
+    mockListEnvironments.mockResolvedValue(envs)
+    mockListWorkloads.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'development' })).toBeTruthy()
+      expect(screen.getByRole('option', { name: 'production' })).toBeTruthy()
+    })
+  })
+})
+
+describe('ProductDetailPage — loading state', () => {
+  it('shows loading spinner while listWorkloads is pending', async () => {
+    const env = makeEnvironment({ id: 'e1' })
+    mockListEnvironments.mockResolvedValue([env])
+    // Never resolves
+    mockListWorkloads.mockReturnValue(new Promise(() => {}))
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText(/Loading workloads/i)).toBeTruthy()
+    })
+  })
+})
+
+describe('ProductDetailPage — RBAC: Deploy button', () => {
+  it('shows Deploy button for editor role', async () => {
+    mockLocationState = makeProduct({ my_role: 'editor' })
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Deploy api/i })).toBeTruthy()
+    })
+  })
+
+  it('shows Deploy button for admin role', async () => {
+    mockLocationState = makeProduct({ my_role: 'admin' })
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Deploy api/i })).toBeTruthy()
+    })
+  })
+
+  it('does not show Deploy button for viewer role', async () => {
+    mockLocationState = makeProduct({ my_role: 'viewer' })
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
+
+    renderPage()
+
+    await waitFor(() => screen.getByText('api'))
+
+    expect(screen.queryByRole('button', { name: /Deploy api/i })).toBeNull()
+  })
+
+  it('opens DeployDialog when Deploy button is clicked', async () => {
+    mockLocationState = makeProduct({ my_role: 'editor' })
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /Deploy api/i }))
+
+    act(() => {
+      screen.getByRole('button', { name: /Deploy api/i }).click()
     })
 
-    // Component should be removed from the list
+    expect(screen.getByTestId('deploy-dialog')).toBeTruthy()
+  })
+})
+
+describe('ProductDetailPage — API calls', () => {
+  it('calls listEnvironments with token and product slug', async () => {
+    renderPage()
+
     await waitFor(() => {
-      expect(screen.getByTestId('empty-components')).toBeTruthy()
+      expect(mockListEnvironments).toHaveBeenCalledWith('test-token', 'test-product')
     })
+  })
+
+  it('calls listWorkloads with token, slug, and first env id once environments load', async () => {
+    const env = makeEnvironment({ id: 'e1' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(mockListWorkloads).toHaveBeenCalledWith('test-token', 'test-product', 'e1')
+    })
+  })
+
+  it('does not call listWorkloads when there are no environments', async () => {
+    mockListEnvironments.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => screen.getByText(/No environments configured/))
+
+    expect(mockListWorkloads).not.toHaveBeenCalled()
   })
 })

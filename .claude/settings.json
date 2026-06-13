@@ -18,7 +18,12 @@
       "mcp__sonarqube__search_my_sonarqube_projects",
       "mcp__sonarqube__show_rule",
       "mcp__sonarqube__search_sonar_issues_in_projects",
-      "mcp__sonarqube__get_duplications"
+      "mcp__sonarqube__get_duplications",
+      "Bash(make go:build)",
+      "Bash(pnpm e2e *)",
+      "Bash(pnpm playwright *)",
+      "Bash(pnpm build *)",
+      "Bash(go vet *)"
     ]
   },
   "hooks": {

@@ -1,30 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listTags, type Tag } from '../api/products'
+import { listTags, type Tag, type Workload } from '../api/products'
 import './DeployDialog.css'
 
-type ComponentRef = { slug: string; name: string; gcr_image_path: string }
-
 type DeployDialogProps =
-  | { open: false; token: string | null; productSlug: string; component: ComponentRef | null; onClose: () => void; onDeploy?: (tag: string) => void }
-  | { open: true;  token: string | null; productSlug: string; component: ComponentRef;        onClose: () => void; onDeploy?: (tag: string) => void }
+  | { open: false; token: string | null; productSlug: string; environmentId: string; workload: Workload | null; onClose: () => void; onDeploy?: (tag: string) => void }
+  | { open: true;  token: string | null; productSlug: string; environmentId: string; workload: Workload;        onClose: () => void; onDeploy?: (tag: string) => void }
 
 function formatPushedAt(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return iso.slice(0, 10)
-  }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function DeployDialog({
   open,
   token,
   productSlug,
-  component,
+  environmentId,
+  workload,
   onClose,
   onDeploy,
 }: DeployDialogProps) {
@@ -41,10 +34,10 @@ export function DeployDialog({
 
   const fetchTags = useCallback(
     async (opts: { filter?: string; pageToken?: string; append?: boolean }) => {
-      if (!component || !token) return
+      if (!workload || !token) return
       setLoading(true)
       try {
-        const result = await listTags(token, productSlug, component.slug, {
+        const result = await listTags(token, productSlug, environmentId, workload.name, {
           filter: opts.filter || undefined,
           pageToken: opts.pageToken,
           pageSize: 20,
@@ -52,13 +45,14 @@ export function DeployDialog({
         setTags(prev => (opts.append ? [...prev, ...result.tags] : result.tags))
         setNextPageToken(result.next_page_token)
         setError(false)
-      } catch {
+      } catch (err: unknown) {
+        console.error('[DeployDialog] fetchTags failed:', err)
         setError(true)
       } finally {
         setLoading(false)
       }
     },
-    [token, productSlug, component],
+    [token, productSlug, environmentId, workload],
   )
 
   useEffect(() => {
@@ -191,8 +185,8 @@ export function DeployDialog({
             </svg>
           </div>
           <div className="dd-header-info">
-            <div id="dd-dialog-title" className="dd-title">Seleziona tag — {component.name}</div>
-            <div className="dd-subtitle">{component.gcr_image_path}</div>
+            <div id="dd-dialog-title" className="dd-title">Seleziona tag — {workload.name}</div>
+            <div className="dd-subtitle">{workload.image_repository}</div>
           </div>
           <button className="dd-close" onClick={onClose} aria-label="Chiudi">
             <svg

@@ -45,12 +45,6 @@ func main() {
 	}
 	productCmd.AddCommand(cli.NewProductListCmd(configDir))
 
-	componentCmd := &cobra.Command{
-		Use:   "component",
-		Short: "Manage components",
-	}
-	componentCmd.AddCommand(cli.NewComponentListCmd(configDir))
-
 	envCmd := &cobra.Command{
 		Use:   "env",
 		Short: "Manage environments",
@@ -58,7 +52,7 @@ func main() {
 	envCmd.AddCommand(cli.NewEnvListCmd(configDir))
 	envCmd.AddCommand(cli.NewEnvCreateCmd(configDir))
 
-	root.AddCommand(loginCmd, logoutCmd, productCmd, componentCmd, envCmd)
+	root.AddCommand(loginCmd, logoutCmd, productCmd, envCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

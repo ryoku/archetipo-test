@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   listProducts,
-  listComponents,
-  createComponent,
-  deleteComponent,
+  listWorkloads,
   listEnvironments,
   createEnvironment,
   deleteEnvironment,
@@ -62,124 +60,6 @@ describe('listProducts', () => {
 
     const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('/api/v1/products')
-  })
-})
-
-// ─── listComponents ────────────────────────────────────────────
-describe('listComponents', () => {
-  it('returns parsed JSON on success', async () => {
-    const components = [
-      {
-        id: 'c1',
-        product_id: 'p1',
-        name: 'api',
-        slug: 'api',
-        gcr_image_path: 'europe-west1-docker.pkg.dev/acme/platform/api',
-        created_at: '2025-01-01T00:00:00Z',
-      },
-    ]
-    vi.stubGlobal('fetch', makeFetchStub(200, components))
-
-    const result = await listComponents('tok', 'platform')
-    expect(result).toEqual(components)
-  })
-
-  it('calls the correct URL with the product slug', async () => {
-    const fetchStub = makeFetchStub(200, [])
-    vi.stubGlobal('fetch', fetchStub)
-
-    await listComponents('tok', 'my-product')
-
-    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('/api/v1/products/my-product/components')
-  })
-
-  it('throws on non-ok response', async () => {
-    vi.stubGlobal('fetch', makeFetchStub(500))
-
-    await expect(listComponents('tok', 'platform')).rejects.toThrow('listComponents: 500')
-  })
-})
-
-// ─── createComponent ───────────────────────────────────────────
-describe('createComponent', () => {
-  it('returns the created component on success', async () => {
-    const created = {
-      id: 'c2',
-      product_id: 'p1',
-      name: 'worker',
-      slug: 'worker',
-      gcr_image_path: 'europe-west1-docker.pkg.dev/acme/platform/worker',
-      created_at: '2025-01-01T00:00:00Z',
-    }
-    vi.stubGlobal('fetch', makeFetchStub(201, created))
-
-    const result = await createComponent('tok', 'platform', {
-      name: 'worker',
-      slug: 'worker',
-      gcr_image_path: 'europe-west1-docker.pkg.dev/acme/platform/worker',
-    })
-    expect(result).toEqual(created)
-  })
-
-  it('sends a POST request with correct body and Content-Type', async () => {
-    const fetchStub = makeFetchStub(201, { id: 'c2', product_id: 'p1', name: 'worker', slug: 'worker', gcr_image_path: 'path', created_at: '2025-01-01T00:00:00Z' })
-    vi.stubGlobal('fetch', fetchStub)
-
-    const data = { name: 'worker', slug: 'worker', gcr_image_path: 'path' }
-    await createComponent('tok', 'platform', data)
-
-    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('/api/v1/products/platform/components')
-    expect(init.method).toBe('POST')
-    expect(init.body).toBe(JSON.stringify(data))
-    const headers = new Headers(init.headers)
-    expect(headers.get('Content-Type')).toBe('application/json')
-  })
-
-  it('sets Authorization header', async () => {
-    const fetchStub = makeFetchStub(201, { id: 'c2', product_id: 'p1', name: 'w', slug: 'w', gcr_image_path: 'p', created_at: '2025-01-01T00:00:00Z' })
-    vi.stubGlobal('fetch', fetchStub)
-
-    await createComponent('my-token', 'platform', { name: 'w', slug: 'w', gcr_image_path: 'p' })
-
-    const [, init] = fetchStub.mock.calls[0] as [string, RequestInit]
-    const headers = new Headers(init.headers)
-    expect(headers.get('Authorization')).toBe('Bearer my-token')
-  })
-
-  it('throws on non-ok response', async () => {
-    vi.stubGlobal('fetch', makeFetchStub(422))
-
-    await expect(
-      createComponent('tok', 'platform', { name: 'w', slug: 'w', gcr_image_path: 'p' }),
-    ).rejects.toThrow('createComponent: 422')
-  })
-})
-
-// ─── deleteComponent ───────────────────────────────────────────
-describe('deleteComponent', () => {
-  it('resolves without error on 204', async () => {
-    vi.stubGlobal('fetch', makeFetchStub(204))
-
-    await expect(deleteComponent('tok', 'platform', 'api')).resolves.toBeUndefined()
-  })
-
-  it('sends a DELETE request to the correct URL', async () => {
-    const fetchStub = makeFetchStub(204)
-    vi.stubGlobal('fetch', fetchStub)
-
-    await deleteComponent('tok', 'my-product', 'my-comp')
-
-    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('/api/v1/products/my-product/components/my-comp')
-    expect(init.method).toBe('DELETE')
-  })
-
-  it('throws on non-ok response', async () => {
-    vi.stubGlobal('fetch', makeFetchStub(404))
-
-    await expect(deleteComponent('tok', 'platform', 'api')).rejects.toThrow('deleteComponent: 404')
   })
 })
 
@@ -437,6 +317,41 @@ describe('clearTagConvention', () => {
   })
 })
 
+// ─── listWorkloads ─────────────────────────────────────────────
+describe('listWorkloads', () => {
+  it('calls the correct URL with productSlug and environmentId', async () => {
+    const fetchStub = makeFetchStub(200, [])
+    vi.stubGlobal('fetch', fetchStub)
+
+    await listWorkloads('tok', 'my-product', 'env-id')
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/environments/env-id/workloads')
+  })
+
+  it('returns Workload[] on 200', async () => {
+    const workloads = [
+      { name: 'api', image_repository: 'europe-west1-docker.pkg.dev/acme/platform/api' },
+    ]
+    vi.stubGlobal('fetch', makeFetchStub(200, workloads))
+
+    const result = await listWorkloads('tok', 'my-product', 'env-id')
+    expect(result).toEqual(workloads)
+  })
+
+  it('throws with status code in message on non-ok response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(500))
+
+    await expect(listWorkloads('tok', 'my-product', 'env-id')).rejects.toThrow('listWorkloads: 500')
+  })
+
+  it('throws with exact "listWorkloads: 404" message on 404', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(404))
+
+    await expect(listWorkloads('tok', 'my-product', 'env-id')).rejects.toThrow('listWorkloads: 404')
+  })
+})
+
 // ─── listTags ──────────────────────────────────────────────────
 describe('listTags', () => {
   it('returns parsed tags response on success', async () => {
@@ -446,7 +361,7 @@ describe('listTags', () => {
     }
     vi.stubGlobal('fetch', makeFetchStub(200, body))
 
-    const result = await listTags('token', 'my-product', 'my-comp')
+    const result = await listTags('token', 'my-product', 'env-id', 'wl-name')
     expect(result).toEqual(body)
   })
 
@@ -454,17 +369,17 @@ describe('listTags', () => {
     const fetchStub = makeFetchStub(200, { tags: [], next_page_token: '' })
     vi.stubGlobal('fetch', fetchStub)
 
-    await listTags('token', 'my-product', 'my-comp')
+    await listTags('token', 'my-product', 'env-id', 'wl-name')
 
     const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('/api/v1/products/my-product/components/my-comp/tags')
+    expect(url).toBe('/api/v1/products/my-product/environments/env-id/workloads/wl-name/tags')
   })
 
   it('includes filter in URL query string', async () => {
     const fetchStub = makeFetchStub(200, { tags: [], next_page_token: '' })
     vi.stubGlobal('fetch', fetchStub)
 
-    await listTags('token', 'my-product', 'my-comp', { filter: 'v1' })
+    await listTags('token', 'my-product', 'env-id', 'wl-name', { filter: 'v1' })
 
     const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
     expect(url).toContain('filter=v1')
@@ -474,7 +389,7 @@ describe('listTags', () => {
     const fetchStub = makeFetchStub(200, { tags: [], next_page_token: '' })
     vi.stubGlobal('fetch', fetchStub)
 
-    await listTags('token', 'my-product', 'my-comp', { pageToken: 'tok2' })
+    await listTags('token', 'my-product', 'env-id', 'wl-name', { pageToken: 'tok2' })
 
     const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
     expect(url).toContain('page_token=tok2')
@@ -483,6 +398,6 @@ describe('listTags', () => {
   it('throws on non-ok response', async () => {
     vi.stubGlobal('fetch', makeFetchStub(502))
 
-    await expect(listTags('token', 'my-product', 'my-comp')).rejects.toThrow('listTags: 502')
+    await expect(listTags('token', 'my-product', 'env-id', 'wl-name')).rejects.toThrow('listTags: 502')
   })
 })
