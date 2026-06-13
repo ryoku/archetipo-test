@@ -64,6 +64,25 @@ func newEnvironmentRouter(ps store.ProductStore, es store.EnvironmentStore, iden
 	return r
 }
 
+// --- product store helpers (moved from components_test.go) ---
+
+func productGetBySlugOK(slug string) func(ctx context.Context, s string) (*domain.Product, error) {
+	p := makeProduct(slug)
+	return func(_ context.Context, _ string) (*domain.Product, error) {
+		return &p, nil
+	}
+}
+
+func productGetBySlugNotFound() func(ctx context.Context, s string) (*domain.Product, error) {
+	return func(_ context.Context, _ string) (*domain.Product, error) {
+		return nil, store.ErrNotFound
+	}
+}
+
+func productStoreWithGetBySlug(fn func(ctx context.Context, slug string) (*domain.Product, error)) *mockProductStore {
+	return &mockProductStore{getBySlugFn: fn}
+}
+
 // --- fixtures ---
 
 func makeEnvironment(productID, id, envType string) domain.Environment {

@@ -53,7 +53,6 @@ func main() {
 	defer pool.Close()
 
 	productStore := store.NewProductStore(pool)
-	componentStore := store.NewComponentStore(pool)
 	environmentStore := store.NewEnvironmentStore(pool)
 	lockStore := store.NewDeploymentLockStore(pool)
 	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
@@ -69,7 +68,6 @@ func main() {
 
 	r := router.New(verifier,
 		router.RegisterProductRoutes(productStore),
-		router.RegisterComponentRoutes(productStore, componentStore),
 		router.RegisterEnvironmentRoutes(productStore, environmentStore),
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
 		router.RegisterWorkloadRoutes(productStore, environmentStore, workloadReader),

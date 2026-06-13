@@ -10,15 +10,6 @@ export interface Product {
   my_role?: 'admin' | 'editor' | 'viewer'
 }
 
-export interface Component {
-  id: string
-  product_id: string
-  name: string
-  slug: string
-  gcr_image_path: string
-  created_at: string
-}
-
 export interface Environment {
   id: string
   product_id: string
@@ -28,43 +19,15 @@ export interface Environment {
   created_at: string
 }
 
+export interface Workload {
+  name: string
+  image_repository: string
+}
+
 export async function listProducts(token: string): Promise<Product[]> {
   const res = await apiFetch('/api/v1/products', token)
   if (!res.ok) throw new Error(`listProducts: ${res.status}`)
   return (await res.json()) as Product[]
-}
-
-export async function listComponents(token: string, productSlug: string): Promise<Component[]> {
-  const res = await apiFetch(`/api/v1/products/${productSlug}/components`, token)
-  if (!res.ok) throw new Error(`listComponents: ${res.status}`)
-  return (await res.json()) as Component[]
-}
-
-export async function createComponent(
-  token: string,
-  productSlug: string,
-  data: { name: string; slug: string; gcr_image_path: string }
-): Promise<Component> {
-  const res = await apiFetch(`/api/v1/products/${productSlug}/components`, token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`createComponent: ${res.status}`)
-  return (await res.json()) as Component
-}
-
-export async function deleteComponent(
-  token: string,
-  productSlug: string,
-  componentSlug: string
-): Promise<void> {
-  const res = await apiFetch(
-    `/api/v1/products/${productSlug}/components/${componentSlug}`,
-    token,
-    { method: 'DELETE' }
-  )
-  if (!res.ok) throw new Error(`deleteComponent: ${res.status}`)
 }
 
 export async function listEnvironments(token: string, productSlug: string): Promise<Environment[]> {
@@ -98,6 +61,12 @@ export async function deleteEnvironment(
     { method: 'DELETE' }
   )
   if (!res.ok) throw new Error(`deleteEnvironment: ${res.status}`)
+}
+
+export async function listWorkloads(token: string, productSlug: string, environmentId: string): Promise<Workload[]> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/environments/${environmentId}/workloads`, token)
+  if (!res.ok) throw new Error(`listWorkloads: ${res.status}`)
+  return (await res.json()) as Workload[]
 }
 
 export async function createProduct(
@@ -168,7 +137,8 @@ export interface ListTagsResponse {
 export async function listTags(
   token: string,
   productSlug: string,
-  componentSlug: string,
+  environmentId: string,
+  workloadName: string,
   options?: { pageToken?: string; pageSize?: number; filter?: string }
 ): Promise<ListTagsResponse> {
   const params = new URLSearchParams()
@@ -176,7 +146,7 @@ export async function listTags(
   if (options?.pageSize !== undefined) params.set('page_size', String(options.pageSize))
   if (options?.filter !== undefined && options.filter !== '') params.set('filter', options.filter)
   const qs = params.toString()
-  const url = `/api/v1/products/${productSlug}/components/${componentSlug}/tags${qs ? '?' + qs : ''}`
+  const url = `/api/v1/products/${productSlug}/environments/${environmentId}/workloads/${workloadName}/tags${qs ? '?' + qs : ''}`
   const res = await apiFetch(url, token)
   if (!res.ok) throw new Error(`listTags: ${res.status}`)
   return (await res.json()) as ListTagsResponse

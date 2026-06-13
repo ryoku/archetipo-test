@@ -2,71 +2,57 @@ import { useEffect, useState } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
-  listComponents,
-  createComponent,
-  deleteComponent,
+  listEnvironments,
+  listWorkloads,
+  type Environment,
+  type Workload,
   type Product,
-  type Component,
 } from '../api/products'
 import './ProductDetailPage.css'
 import ProductHero from '../components/ProductHero'
 import ProductSubNav from '../components/ProductSubNav'
 import ProductNotFound from '../components/ProductNotFound'
-import ConfirmDeleteFooter from '../components/ConfirmDeleteFooter'
 import { DeployDialog } from '../components/DeployDialog'
 
-interface FormState {
-  name: string
-  slug: string
-  gcr_image_path: string
-}
-
-interface FormErrors {
-  name?: string
-  slug?: string
-  gcr_image_path?: string
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return iso.slice(0, 10)
-  }
-}
-
-interface ComponentsContentProps {
+interface WorkloadsContentProps {
   readonly loading: boolean
-  readonly components: Component[]
+  readonly workloads: Workload[]
+  readonly notFound: boolean
+  readonly noEnvironments: boolean
   readonly canWrite: boolean
-  readonly onDelete: (comp: Component) => void
-  readonly onDeploy: (comp: Component) => void
+  readonly onDeploy: (workload: Workload) => void
 }
 
-function ComponentsContent({ loading, components, canWrite, onDelete, onDeploy }: ComponentsContentProps) {
+function WorkloadsContent({ loading, workloads, notFound, noEnvironments, canWrite, onDeploy }: WorkloadsContentProps) {
   if (loading) {
     return (
       <div className="pd-loading">
         <div className="pd-spinner" />
-        <span>Loading components…</span>
+        <span>Loading workloads…</span>
       </div>
     )
   }
-  if (components.length === 0) {
+  if (noEnvironments) {
     return (
-      <div className="pd-empty-state" data-testid="empty-components">
-        <div className="pd-empty-icon">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="2" y="3" width="14" height="12" rx="2" />
-            <path d="M6 3v12M12 3v12M2 7h14M2 11h14" />
-          </svg>
-        </div>
-        <div className="pd-empty-title">No components registered</div>
-        <div className="pd-empty-sub">Add the first component using the button above.</div>
+      <div className="pd-empty-state">
+        <div className="pd-empty-title">No environments configured</div>
+        <div className="pd-empty-sub">Add an environment first to discover workloads.</div>
+      </div>
+    )
+  }
+  if (notFound) {
+    return (
+      <div className="pd-empty-state" data-testid="workloads-not-found">
+        <div className="pd-empty-title">HelmRelease not configured</div>
+        <div className="pd-empty-sub">No HelmRelease found for this environment in the gitops repo.</div>
+      </div>
+    )
+  }
+  if (workloads.length === 0) {
+    return (
+      <div className="pd-empty-state" data-testid="empty-workloads">
+        <div className="pd-empty-title">No workloads discovered</div>
+        <div className="pd-empty-sub">No workloads with an image.repository field were found in the HelmRelease.</div>
       </div>
     )
   }
@@ -75,45 +61,30 @@ function ComponentsContent({ loading, components, canWrite, onDelete, onDeploy }
       <table className="pd-comp-table">
         <thead>
           <tr>
-            <th>Component</th>
-            <th>GCR Image Path</th>
-            <th>Added</th>
+            <th>Workload</th>
+            <th>Image Repository</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {components.map((comp) => (
-            <tr key={comp.id}>
+          {workloads.map((wl) => (
+            <tr key={wl.name}>
               <td className="pd-comp-name-cell">
-                <div className="pd-comp-name-str">{comp.name}</div>
-                <div className="pd-comp-slug-str">{comp.slug}</div>
+                <div className="pd-comp-name-str">{wl.name}</div>
               </td>
-              <td><span className="pd-comp-path-str">{comp.gcr_image_path}</span></td>
-              <td><span className="pd-comp-date">{formatDate(comp.created_at)}</span></td>
+              <td><span className="pd-comp-path-str">{wl.image_repository}</span></td>
               <td>
                 <div className="pd-row-actions">
                   {canWrite && (
                     <button
                       className="pd-btn-deploy"
-                      onClick={() => onDeploy(comp)}
-                      aria-label={`Deploy ${comp.name}`}
+                      onClick={() => onDeploy(wl)}
+                      aria-label={`Deploy ${wl.name}`}
                     >
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M6 1L10 5H7.5V10H4.5V5H2L6 1Z" />
                       </svg>
                       Deploy
-                    </button>
-                  )}
-                  {canWrite && (
-                    <button
-                      className="pd-btn-danger"
-                      onClick={() => onDelete(comp)}
-                      aria-label={`Delete ${comp.name}`}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M1.5 3.5h9M4 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5M5 5.5v3M7 5.5v3M2.5 3.5l.5 7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5l.5-7" />
-                      </svg>
-                      Delete
                     </button>
                   )}
                 </div>
@@ -135,122 +106,57 @@ export default function ProductDetailPage() {
   const product = location.state as Product | undefined
   const canWrite = product?.my_role === 'editor' || product?.my_role === 'admin'
 
-  const [components, setComponents] = useState<Component[]>([])
-  const [loadingComponents, setLoadingComponents] = useState(true)
+  const [environments, setEnvironments] = useState<Environment[]>([])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(true)
+  const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null)
+  const [workloads, setWorkloads] = useState<Workload[]>([])
+  const [loadingWorkloads, setLoadingWorkloads] = useState(false)
+  const [workloadsError, setWorkloadsError] = useState<string | null>(null)
+  const [workloadsNotFound, setWorkloadsNotFound] = useState(false)
+  const [selectedWorkload, setSelectedWorkload] = useState<Workload | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  // Add form state
-  const [showForm, setShowForm] = useState(false)
-  const [formState, setFormState] = useState<FormState>({
-    name: '',
-    slug: '',
-    gcr_image_path: '',
-  })
-  const [formErrors, setFormErrors] = useState<FormErrors>({})
-  const [formSubmitting, setFormSubmitting] = useState(false)
-
-  // Delete confirm dialog state
-  const [deleteTarget, setDeleteTarget] = useState<Component | null>(null)
-  const [deleteInProgress, setDeleteInProgress] = useState(false)
-
-  // Deploy dialog state
-  const [deployComponent, setDeployComponent] = useState<Component | null>(null)
 
   useEffect(() => {
     if (!slug || !accessToken) return
-    // Intentional reset: slug changed, clear stale list and show loading before new fetch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingComponents(true)
-    setComponents([])
-    listComponents(accessToken, slug)
-      .then(setComponents)
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Failed to load components')
+    listEnvironments(accessToken, slug)
+      .then((envs) => {
+        const firstId = envs[0]?.id ?? null
+        setEnvironments(envs)
+        setSelectedEnvId(firstId)
+        if (firstId) setLoadingWorkloads(true)
       })
-      .finally(() => { setLoadingComponents(false) })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Failed to load environments')
+      })
+      .finally(() => { setLoadingEnvironments(false) })
   }, [slug, accessToken])
 
-  // Window-level Escape handler: closes the delete dialog regardless of focus state.
   useEffect(() => {
-    if (!deleteTarget) return
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDeleteTarget(null)
-    }
-    globalThis.addEventListener('keydown', handleEscape)
-    return () => { globalThis.removeEventListener('keydown', handleEscape) }
-  }, [deleteTarget])
+    if (!selectedEnvId || !slug || !accessToken) return
+    listWorkloads(accessToken, slug, selectedEnvId)
+      .then((wls) => {
+        setWorkloads(wls)
+        setWorkloadsNotFound(false)
+        setWorkloadsError(null)
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : 'Failed to load workloads'
+        if (msg.includes('404')) {
+          setWorkloadsNotFound(true)
+          setWorkloads([])
+        } else {
+          setWorkloadsError(msg)
+        }
+      })
+      .finally(() => { setLoadingWorkloads(false) })
+  }, [selectedEnvId, slug, accessToken])
 
   if (!product) {
     return <ProductNotFound />
   }
 
-  function handleNameChange(value: string) {
-    const autoSlug = value
-      .toLowerCase()
-      .replaceAll(/[^a-z0-9]+/g, '-')
-      .replaceAll(/^-|-$/g, '')
-    setFormState((prev) => ({ ...prev, name: value, slug: autoSlug }))
-  }
-
-  function validateForm(): boolean {
-    const errs: FormErrors = {}
-    if (!formState.name.trim()) errs.name = 'Name is required'
-    if (!formState.slug.trim()) {
-      errs.slug = 'Slug is required'
-    } else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(formState.slug)) {
-      errs.slug = 'Only lowercase letters, digits and hyphens'
-    }
-    if (!formState.gcr_image_path.trim()) errs.gcr_image_path = 'GCR image path is required'
-    setFormErrors(errs)
-    return Object.keys(errs).length === 0
-  }
-
-  async function handleFormSubmit() {
-    if (!validateForm() || !accessToken || !slug) return
-    setFormSubmitting(true)
-    setError(null)
-    try {
-      const newComp = await createComponent(accessToken, slug, {
-        name: formState.name.trim(),
-        slug: formState.slug.trim(),
-        gcr_image_path: formState.gcr_image_path.trim(),
-      })
-      setComponents((prev) => [...prev, newComp])
-      setShowForm(false)
-      setFormState({ name: '', slug: '', gcr_image_path: '' })
-      setFormErrors({})
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create component')
-    } finally {
-      setFormSubmitting(false)
-    }
-  }
-
-  function handleCancelForm() {
-    setShowForm(false)
-    setFormState({ name: '', slug: '', gcr_image_path: '' })
-    setFormErrors({})
-  }
-
-  async function handleDeleteConfirm() {
-    if (!deleteTarget || !accessToken || !slug) return
-    setDeleteInProgress(true)
-    setError(null)
-    try {
-      await deleteComponent(accessToken, slug, deleteTarget.slug)
-      setComponents((prev) => prev.filter((c) => c.id !== deleteTarget.id))
-      setDeleteTarget(null)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to delete component')
-      setDeleteTarget(null)
-    } finally {
-      setDeleteInProgress(false)
-    }
-  }
-
   return (
     <div className="pd-page">
-      {/* Page top / hero */}
       <div className="pd-page-top">
         <div className="pd-breadcrumb">
           <button className="pd-bc-link" onClick={() => navigate('/')}>
@@ -262,207 +168,61 @@ export default function ProductDetailPage() {
 
         <ProductHero product={product} />
 
-        {/* Sub-nav: Components | Environments */}
-        <ProductSubNav activeTab="components" product={product} />
+        <ProductSubNav activeTab="workloads" product={product} />
       </div>
 
-      {/* Page body */}
       <div className="pd-page-body">
-        {error && (
+        {(error ?? workloadsError) && (
           <div className="pd-error" role="alert">
-            <strong>Error:</strong> {error}
+            <strong>Error:</strong> {error ?? workloadsError}
           </div>
         )}
 
-        {/* Components section */}
-        <div className="pd-section-head">
-          <div>
-            <div className="pd-section-label">Registered Components</div>
-            <div className="pd-section-sub">
-              Each component maps to a Google Artifact Registry image repository.
+        {environments.length > 0 && (
+          <div className="pd-section-head">
+            <div>
+              <div className="pd-section-label">Workloads</div>
+              <div className="pd-section-sub">Discovered from the HelmRelease in the gitops repo.</div>
             </div>
-          </div>
-          {!showForm && canWrite && (
-            <button
-              className="pd-btn-primary"
-              onClick={() => setShowForm(true)}
+            <select
+              value={selectedEnvId ?? ''}
+              onChange={(e) => {
+                setSelectedEnvId(e.target.value)
+                setLoadingWorkloads(true)
+                setWorkloads([])
+                setWorkloadsNotFound(false)
+                setWorkloadsError(null)
+              }}
+              className="pd-input"
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6 2v8M2 6h8" />
-              </svg>
-              Add Component
-            </button>
-          )}
-        </div>
-
-        {/* Inline add form */}
-        {showForm && (
-          <div className="pd-inline-form">
-            <div className="pd-inline-form-title">
-              <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M6 2v8M2 6h8" />
-              </svg>
-              New Component
-            </div>
-            <div className="pd-form-row">
-              <div className="pd-field">
-                <label className="pd-field-label" htmlFor="comp-name">
-                  Name *
-                </label>
-                <input
-                  id="comp-name"
-                  type="text"
-                  className="pd-input"
-                  placeholder="e.g. api-gateway"
-                  value={formState.name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  autoComplete="off"
-                />
-                {formErrors.name ? (
-                  <span className="pd-field-error">{formErrors.name}</span>
-                ) : (
-                  <span className="pd-field-hint">display name</span>
-                )}
-              </div>
-              <div className="pd-field">
-                <label className="pd-field-label" htmlFor="comp-slug">
-                  Slug *
-                </label>
-                <input
-                  id="comp-slug"
-                  type="text"
-                  className="pd-input pd-input-mono"
-                  placeholder="e.g. api-gateway"
-                  value={formState.slug}
-                  onChange={(e) =>
-                    setFormState((prev) => ({ ...prev, slug: e.target.value }))
-                  }
-                  autoComplete="off"
-                />
-                {formErrors.slug ? (
-                  <span className="pd-field-error">{formErrors.slug}</span>
-                ) : (
-                  <span className="pd-field-hint">URL-safe identifier</span>
-                )}
-              </div>
-              <div className="pd-field">
-                <label className="pd-field-label" htmlFor="comp-gcr">
-                  GCR Image Path *
-                </label>
-                <input
-                  id="comp-gcr"
-                  type="text"
-                  className="pd-input pd-input-mono"
-                  placeholder="europe-west1-docker.pkg.dev/project/repo/image"
-                  value={formState.gcr_image_path}
-                  onChange={(e) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      gcr_image_path: e.target.value,
-                    }))
-                  }
-                  autoComplete="off"
-                />
-                {formErrors.gcr_image_path ? (
-                  <span className="pd-field-error">{formErrors.gcr_image_path}</span>
-                ) : (
-                  <span className="pd-field-hint">full Artifact Registry path</span>
-                )}
-              </div>
-            </div>
-            <div className="pd-form-actions">
-              <button
-                className="pd-btn-ghost"
-                onClick={handleCancelForm}
-                disabled={formSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                className="pd-btn-primary"
-                onClick={handleFormSubmit}
-                disabled={formSubmitting}
-              >
-                {formSubmitting ? 'Saving…' : 'Save Component'}
-              </button>
-            </div>
+              {environments.map((env) => (
+                <option key={env.id} value={env.id}>{env.name}</option>
+              ))}
+            </select>
           </div>
         )}
 
-        {/* Components table */}
         <div className="pd-card">
-          <ComponentsContent
-            loading={loadingComponents}
-            components={components}
+          <WorkloadsContent
+            loading={loadingWorkloads || loadingEnvironments}
+            workloads={workloads}
+            notFound={workloadsNotFound}
+            noEnvironments={environments.length === 0 && !loadingEnvironments}
             canWrite={canWrite}
-            onDelete={(comp) => setDeleteTarget(comp)}
-            onDeploy={(comp) => setDeployComponent(comp)}
+            onDeploy={(workload) => { setSelectedWorkload(workload) }}
           />
         </div>
       </div>
 
-      {/* Deploy dialog */}
-      {deployComponent && (
+      {selectedWorkload && selectedEnvId && (
         <DeployDialog
           open={true}
           token={accessToken}
           productSlug={slug ?? ''}
-          component={deployComponent}
-          onClose={() => setDeployComponent(null)}
+          workload={selectedWorkload}
+          environmentId={selectedEnvId}
+          onClose={() => setSelectedWorkload(null)}
         />
-      )}
-
-      {/* Delete confirm dialog */}
-      {deleteTarget && (
-        <div className="pd-backdrop">
-          <button
-            type="button"
-            className="pd-backdrop-dismiss"
-            aria-label="Close dialog"
-            onClick={() => setDeleteTarget(null)}
-          />
-          <dialog
-            className="pd-confirm-dialog"
-            open
-            aria-label="Remove Component"
-          >
-            <div className="pd-confirm-head">
-              <div className="pd-confirm-icon-wrap">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 15 15"
-                  fill="none"
-                  stroke="#e05555"
-                  strokeWidth="1.8"
-                >
-                  <path d="M2 4h11M5 4V2.5a.5.5 0 01.5-.5h4a.5.5 0 01.5.5V4M6 7v4M9 7v4M3.5 4l.5 8.5a1 1 0 001 .5h5a1 1 0 001-.5L12 4" />
-                </svg>
-              </div>
-              <div>
-                <div className="pd-confirm-title">Remove Component</div>
-                <div className="pd-confirm-sub">This action cannot be undone.</div>
-              </div>
-            </div>
-            <div className="pd-confirm-body">
-              <div className="pd-confirm-target">
-                <div className="pd-confirm-target-name">{deleteTarget.name}</div>
-                <div className="pd-confirm-target-sub">{deleteTarget.slug}</div>
-                <div className="pd-confirm-target-gcr">{deleteTarget.gcr_image_path}</div>
-              </div>
-              <div className="pd-confirm-warn">
-                You are about to permanently remove this component. Once removed,
-                it will no longer be available for deployments.
-              </div>
-            </div>
-            <ConfirmDeleteFooter
-              label="Delete Component"
-              inProgress={deleteInProgress}
-              onCancel={() => setDeleteTarget(null)}
-              onConfirm={handleDeleteConfirm}
-            />
-          </dialog>
-        </div>
       )}
     </div>
   )

@@ -10,17 +10,17 @@ import * as productsApi from '../api/products'
 
 const mockListTags = productsApi.listTags as ReturnType<typeof vi.fn>
 
-const defaultComponent = {
-  slug: 'my-comp',
-  name: 'My Component',
-  gcr_image_path: 'europe-west1-docker.pkg.dev/acme/platform/my-comp',
+const defaultWorkload = {
+  name: 'My Workload',
+  image_repository: 'europe-west1-docker.pkg.dev/acme/platform/my-workload',
 }
 
 const defaultProps = {
   open: true,
   token: 'test-token',
   productSlug: 'my-product',
-  component: defaultComponent,
+  workload: defaultWorkload,
+  environmentId: 'env-123',
   onClose: vi.fn(),
   onDeploy: vi.fn(),
 }

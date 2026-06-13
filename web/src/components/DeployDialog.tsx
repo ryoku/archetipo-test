@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { listTags, type Tag } from '../api/products'
 import './DeployDialog.css'
 
-type ComponentRef = { slug: string; name: string; gcr_image_path: string }
+type WorkloadRef = { name: string; image_repository: string }
 
 type DeployDialogProps =
-  | { open: false; token: string | null; productSlug: string; component: ComponentRef | null; onClose: () => void; onDeploy?: (tag: string) => void }
-  | { open: true;  token: string | null; productSlug: string; component: ComponentRef;        onClose: () => void; onDeploy?: (tag: string) => void }
+  | { open: false; token: string | null; productSlug: string; environmentId: string; workload: WorkloadRef | null; onClose: () => void; onDeploy?: (tag: string) => void }
+  | { open: true;  token: string | null; productSlug: string; environmentId: string; workload: WorkloadRef;        onClose: () => void; onDeploy?: (tag: string) => void }
 
 function formatPushedAt(iso: string): string {
   try {
@@ -24,7 +24,8 @@ export function DeployDialog({
   open,
   token,
   productSlug,
-  component,
+  environmentId,
+  workload,
   onClose,
   onDeploy,
 }: DeployDialogProps) {
@@ -41,10 +42,10 @@ export function DeployDialog({
 
   const fetchTags = useCallback(
     async (opts: { filter?: string; pageToken?: string; append?: boolean }) => {
-      if (!component || !token) return
+      if (!workload || !token) return
       setLoading(true)
       try {
-        const result = await listTags(token, productSlug, component.slug, {
+        const result = await listTags(token, productSlug, environmentId, workload.name, {
           filter: opts.filter || undefined,
           pageToken: opts.pageToken,
           pageSize: 20,
@@ -58,7 +59,7 @@ export function DeployDialog({
         setLoading(false)
       }
     },
-    [token, productSlug, component],
+    [token, productSlug, environmentId, workload],
   )
 
   useEffect(() => {
@@ -191,8 +192,8 @@ export function DeployDialog({
             </svg>
           </div>
           <div className="dd-header-info">
-            <div id="dd-dialog-title" className="dd-title">Seleziona tag — {component.name}</div>
-            <div className="dd-subtitle">{component.gcr_image_path}</div>
+            <div id="dd-dialog-title" className="dd-title">Seleziona tag — {workload.name}</div>
+            <div className="dd-subtitle">{workload.image_repository}</div>
           </div>
           <button className="dd-close" onClick={onClose} aria-label="Chiudi">
             <svg

@@ -32,6 +32,22 @@ func cleanEnvironments(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
+// createTestProduct creates a product in the database for use as a parent in environment tests.
+// Moved from component_store_test.go where it was originally shared.
+func createTestProduct(t *testing.T, pool *pgxpool.Pool, slugSuffix string) *domain.Product {
+	t.Helper()
+	ps := store.NewProductStore(pool)
+	p := &domain.Product{
+		Name:        "Test Product " + slugSuffix,
+		Slug:        "test-product-" + slugSuffix,
+		Description: "created for store tests",
+	}
+	if err := ps.Create(context.Background(), p); err != nil {
+		t.Fatalf("createTestProduct: %v", err)
+	}
+	return p
+}
+
 // newEnvStoreTest opens a pool, clears state, creates a product, and returns a
 // ready EnvironmentStore and the product. The pool is closed via t.Cleanup.
 func newEnvStoreTest(t *testing.T, productSlug string) (store.EnvironmentStore, *domain.Product) {
