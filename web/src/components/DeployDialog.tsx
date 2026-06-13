@@ -1,23 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listTags, type Tag } from '../api/products'
+import { listTags, type Tag, type Workload } from '../api/products'
 import './DeployDialog.css'
 
-type WorkloadRef = { name: string; image_repository: string }
-
 type DeployDialogProps =
-  | { open: false; token: string | null; productSlug: string; environmentId: string; workload: WorkloadRef | null; onClose: () => void; onDeploy?: (tag: string) => void }
-  | { open: true;  token: string | null; productSlug: string; environmentId: string; workload: WorkloadRef;        onClose: () => void; onDeploy?: (tag: string) => void }
+  | { open: false; token: string | null; productSlug: string; environmentId: string; workload: Workload | null; onClose: () => void; onDeploy?: (tag: string) => void }
+  | { open: true;  token: string | null; productSlug: string; environmentId: string; workload: Workload;        onClose: () => void; onDeploy?: (tag: string) => void }
 
 function formatPushedAt(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return iso.slice(0, 10)
-  }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function DeployDialog({
@@ -53,7 +45,8 @@ export function DeployDialog({
         setTags(prev => (opts.append ? [...prev, ...result.tags] : result.tags))
         setNextPageToken(result.next_page_token)
         setError(false)
-      } catch {
+      } catch (err: unknown) {
+        console.error('[DeployDialog] fetchTags failed:', err)
         setError(true)
       } finally {
         setLoading(false)

@@ -183,6 +183,24 @@ func TestListWorkloads_ReaderError_Returns500(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
+func TestListWorkloads_GitOpsNotConfigured_Returns503(t *testing.T) {
+	reader := &mockWorkloadReader{
+		listWorkloadsFn: func(_ context.Context, _, _ string) ([]domain.Workload, error) {
+			return nil, gitops.ErrGitOpsNotConfigured
+		},
+	}
+	r := newWorkloadRouter(
+		wlProductStore(wlFixtureProduct),
+		wlEnvStore(wlFixtureEnv),
+		reader,
+		viewerIdentity("wl-product"),
+	)
+
+	w := doWorkloadRequest(t, r, "wl-product", "env-wl-1")
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
 func TestListWorkloads_ProductNotFound_Returns404(t *testing.T) {
 	r := newWorkloadRouter(
 		&mockProductStore{

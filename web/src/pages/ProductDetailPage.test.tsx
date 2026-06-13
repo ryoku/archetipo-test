@@ -185,6 +185,16 @@ describe('ProductDetailPage — workloads table', () => {
     })
   })
 
+  it('shows error banner when listEnvironments rejects', async () => {
+    mockListEnvironments.mockRejectedValue(new Error('listEnvironments: 500'))
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeTruthy()
+    })
+  })
+
   it('shows HelmRelease not found state when listWorkloads rejects with 404', async () => {
     const env = makeEnvironment({ id: 'e1' })
     mockListEnvironments.mockResolvedValue([env])

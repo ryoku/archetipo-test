@@ -319,6 +319,16 @@ describe('clearTagConvention', () => {
 
 // ─── listWorkloads ─────────────────────────────────────────────
 describe('listWorkloads', () => {
+  it('calls the correct URL with productSlug and environmentId', async () => {
+    const fetchStub = makeFetchStub(200, [])
+    vi.stubGlobal('fetch', fetchStub)
+
+    await listWorkloads('tok', 'my-product', 'env-id')
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/environments/env-id/workloads')
+  })
+
   it('returns Workload[] on 200', async () => {
     const workloads = [
       { name: 'api', image_repository: 'europe-west1-docker.pkg.dev/acme/platform/api' },

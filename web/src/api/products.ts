@@ -20,8 +20,8 @@ export interface Environment {
 }
 
 export interface Workload {
-  name: string
-  image_repository: string
+  readonly name: string
+  readonly image_repository: string
 }
 
 export async function listProducts(token: string): Promise<Product[]> {

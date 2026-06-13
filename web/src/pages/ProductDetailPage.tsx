@@ -126,6 +126,7 @@ export default function ProductDetailPage() {
         if (firstId) setLoadingWorkloads(true)
       })
       .catch((err: unknown) => {
+        console.error('[ProductDetailPage] listEnvironments failed for slug=%s:', slug, err)
         setError(err instanceof Error ? err.message : 'Failed to load environments')
       })
       .finally(() => { setLoadingEnvironments(false) })
@@ -140,6 +141,7 @@ export default function ProductDetailPage() {
         setWorkloadsError(null)
       })
       .catch((err: unknown) => {
+        console.error('[ProductDetailPage] listWorkloads failed for slug=%s env=%s:', slug, selectedEnvId, err)
         const msg = err instanceof Error ? err.message : 'Failed to load workloads'
         if (msg === 'listWorkloads: 404') {
           setWorkloadsNotFound(true)
@@ -192,6 +194,7 @@ export default function ProductDetailPage() {
                 setWorkloads([])
                 setWorkloadsNotFound(false)
                 setWorkloadsError(null)
+                setError(null)
               }}
               className="pd-input"
             >
@@ -202,16 +205,18 @@ export default function ProductDetailPage() {
           </div>
         )}
 
-        <div className="pd-card">
-          <WorkloadsContent
-            loading={loadingWorkloads || loadingEnvironments}
-            workloads={workloads}
-            notFound={workloadsNotFound}
-            noEnvironments={environments.length === 0 && !loadingEnvironments}
-            canWrite={canWrite}
-            onDeploy={(workload) => { setSelectedWorkload(workload) }}
-          />
-        </div>
+        {!error && (
+          <div className="pd-card">
+            <WorkloadsContent
+              loading={loadingWorkloads || loadingEnvironments}
+              workloads={workloads}
+              notFound={workloadsNotFound}
+              noEnvironments={environments.length === 0 && !loadingEnvironments}
+              canWrite={canWrite}
+              onDeploy={(workload) => { setSelectedWorkload(workload) }}
+            />
+          </div>
+        )}
       </div>
 
       {selectedWorkload && selectedEnvId && (
