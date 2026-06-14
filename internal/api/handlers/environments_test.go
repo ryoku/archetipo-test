@@ -365,6 +365,9 @@ func TestListEnvironments_WithItems_Returns200(t *testing.T) {
 	if len(resp) != 2 {
 		t.Errorf("expected 2 environments, got %d", len(resp))
 	}
+	if resp[0]["gitops_path"] != "apps/env-a/my-product/my-product-helmrelease.yaml" {
+		t.Errorf("expected gitops_path=apps/env-a/my-product/my-product-helmrelease.yaml in response, got %v", resp[0]["gitops_path"])
+	}
 }
 
 func TestListEnvironments_EmptyList_Returns200WithArray(t *testing.T) {

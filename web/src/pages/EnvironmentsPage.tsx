@@ -351,7 +351,7 @@ export default function EnvironmentsPage() {
                 )}
               </div>
             </div>
-            {formState.slug && (
+            {slug && formState.slug && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(formState.slug) && (
               <div className="pd-field pd-field-preview">
                 <span className="pd-field-label">GitOps Path</span>
                 <span className="env-path-str" data-testid="gitops-path-preview">

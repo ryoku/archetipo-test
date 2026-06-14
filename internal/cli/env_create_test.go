@@ -80,6 +80,9 @@ func TestEnvCreateSuccess(t *testing.T) {
 	if gotBody["slug"] != "production" {
 		t.Errorf("request body slug = %q, want 'production'", gotBody["slug"])
 	}
+	if _, ok := gotBody["overlay_path"]; ok {
+		t.Error("request body must not contain overlay_path")
+	}
 	if !strings.Contains(output, "production") {
 		t.Errorf("output missing confirmation message, got: %s", output)
 	}

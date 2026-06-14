@@ -393,7 +393,36 @@ describe('EnvironmentsPage — slug validation', () => {
     const slugInput = screen.getByLabelText('Slug *')
     expect((slugInput as HTMLInputElement).value).toBe('my-staging-env')
 
-    expect(screen.getByTestId('gitops-path-preview').textContent).toContain('apps/my-staging-env/')
+    expect(screen.getByTestId('gitops-path-preview').textContent).toContain(
+      'apps/my-staging-env/platform-api/platform-api-helmrelease.yaml',
+    )
+  })
+
+  it('does not override manually edited slug when name changes again', async () => {
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /add environment/i }))
+
+    act(() => {
+      screen.getByRole('button', { name: /add environment/i }).click()
+    })
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'My App' } })
+    })
+
+    // Manually override the auto-derived slug
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Slug *'), { target: { value: 'custom-slug' } })
+    })
+
+    // Change name again — slug must not be re-derived
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Different Name' } })
+    })
+
+    const slugInput = screen.getByLabelText('Slug *')
+    expect((slugInput as HTMLInputElement).value).toBe('custom-slug')
   })
 })
 

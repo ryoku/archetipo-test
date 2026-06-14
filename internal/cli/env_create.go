@@ -70,7 +70,13 @@ func createEnvironment(cmd *cobra.Command, configDir string, opts createEnvOpts)
 		}
 		return fmt.Errorf("validation error: %s", string(body))
 	case http.StatusConflict:
-		return fmt.Errorf("environment name already exists for product %q", opts.productSlug)
+		var apiErr struct {
+			Error string `json:"error"`
+		}
+		if jsonErr := json.Unmarshal(body, &apiErr); jsonErr == nil && apiErr.Error != "" {
+			return fmt.Errorf("conflict: %s", apiErr.Error)
+		}
+		return fmt.Errorf("conflict creating environment in product %q", opts.productSlug)
 	case http.StatusNotFound:
 		return fmt.Errorf("product not found: %s", opts.productSlug)
 	case http.StatusUnauthorized:

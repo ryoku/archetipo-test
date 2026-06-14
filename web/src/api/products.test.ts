@@ -127,7 +127,15 @@ describe('createEnvironment', () => {
     expect(headers.get('Content-Type')).toBe('application/json')
   })
 
-  it('throws on non-2xx response', async () => {
+  it('throws with server error message on non-2xx response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(409, { error: 'environment slug already exists for this product' }))
+
+    await expect(
+      createEnvironment('tok', 'my-product', { name: 'staging', type: 'integration', slug: 'staging' }),
+    ).rejects.toThrow('environment slug already exists for this product')
+  })
+
+  it('falls back to status code when error body is unparseable', async () => {
     vi.stubGlobal('fetch', makeFetchStub(422))
 
     await expect(
