@@ -171,8 +171,8 @@ func insertDeployIntegrationFixtures(t *testing.T, pool *pgxpool.Pool) (productI
 	require.NoError(t, err)
 
 	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, slug, type, overlay_path) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-		productID, "dev", "dev", "dev", "apps/dev/"+slug+"/"+slug+"-helmrelease.yaml",
+		`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, $2, $3, $4) RETURNING id`,
+		productID, "dev", "dev", "dev",
 	).Scan(&envID)
 	require.NoError(t, err)
 

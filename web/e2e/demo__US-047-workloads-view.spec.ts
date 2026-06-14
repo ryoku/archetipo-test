@@ -31,7 +31,7 @@ const fakeEnvironments = [
     product_id: 'prod-1',
     name: 'staging',
     type: 'integration',
-    overlay_path: 'overlays/staging',
+    gitops_path: 'apps/staging/platform-api/platform-api-helmrelease.yaml',
     slug: 'staging',
     created_at: '2026-01-15T00:00:00Z',
   },

@@ -23,7 +23,8 @@
       "Bash(pnpm e2e *)",
       "Bash(pnpm playwright *)",
       "Bash(pnpm build *)",
-      "Bash(go vet *)"
+      "Bash(go vet *)",
+      "mcp__sonarqube__search_security_hotspots"
     ]
   },
   "hooks": {

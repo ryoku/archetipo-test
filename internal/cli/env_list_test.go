@@ -44,7 +44,7 @@ func runEnvListExpectError(t *testing.T, handler http.HandlerFunc, token string,
 
 func assertEnvListHeaders(t *testing.T, output string) {
 	t.Helper()
-	for _, header := range []string{"NAME", "TYPE", "OVERLAY PATH"} {
+	for _, header := range []string{"NAME", "TYPE", "GITOPS PATH"} {
 		if !strings.Contains(output, header) {
 			t.Errorf("output missing %q header, got:\n%s", header, output)
 		}
@@ -53,8 +53,8 @@ func assertEnvListHeaders(t *testing.T, output string) {
 
 func TestEnvListTabularOutput(t *testing.T) {
 	envs := []map[string]any{
-		{"name": "dev", "type": "dev", "overlay_path": "overlays/my-app/dev"},
-		{"name": "production", "type": "production", "overlay_path": "overlays/my-app/production"},
+		{"name": "dev", "type": "dev", "gitops_path": "apps/dev/my-app/my-app-helmrelease.yaml"},
+		{"name": "production", "type": "production", "gitops_path": "apps/production/my-app/my-app-helmrelease.yaml"},
 	}
 	output := runEnvList(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/products/my-app/environments" {
@@ -69,8 +69,8 @@ func TestEnvListTabularOutput(t *testing.T) {
 
 	assertEnvListHeaders(t, output)
 	for _, want := range []string{
-		"dev", "overlays/my-app/dev",
-		"production", "overlays/my-app/production",
+		"dev", "apps/dev/my-app/my-app-helmrelease.yaml",
+		"production", "apps/production/my-app/my-app-helmrelease.yaml",
 	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("output missing %q, got:\n%s", want, output)
@@ -79,7 +79,7 @@ func TestEnvListTabularOutput(t *testing.T) {
 }
 
 func TestEnvListJSONOutput(t *testing.T) {
-	rawJSON := `[{"name":"dev","type":"dev","overlay_path":"overlays/my-app/dev"}]`
+	rawJSON := `[{"name":"dev","type":"dev","gitops_path":"apps/dev/my-app/my-app-helmrelease.yaml"}]`
 	output := runEnvList(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

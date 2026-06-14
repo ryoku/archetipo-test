@@ -13,9 +13,9 @@ import (
 
 // environment is a minimal representation of the API response for a single environment.
 type environment struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	OverlayPath string `json:"overlay_path"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	GitopsPath string `json:"gitops_path"`
 }
 
 func listEnvironments(cmd *cobra.Command, configDir, apiURL, outputFmt, productSlug string) error {
@@ -65,11 +65,11 @@ func listEnvironments(cmd *cobra.Command, configDir, apiURL, outputFmt, productS
 	}
 
 	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-	if _, err := fmt.Fprintln(w, "NAME\tTYPE\tOVERLAY PATH"); err != nil {
+	if _, err := fmt.Fprintln(w, "NAME\tTYPE\tGITOPS PATH"); err != nil {
 		return fmt.Errorf("writing output: %w", err)
 	}
 	for _, e := range envs {
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", e.Name, e.Type, e.OverlayPath); err != nil {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", e.Name, e.Type, e.GitopsPath); err != nil {
 			return fmt.Errorf("writing output: %w", err)
 		}
 	}
