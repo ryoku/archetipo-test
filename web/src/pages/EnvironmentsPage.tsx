@@ -19,7 +19,7 @@ interface EnvFormState { name: string; type: Environment['type'] | ''; slug: str
 interface EnvFormErrors { name?: string; type?: string; slug?: string }
 
 function toEnvSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').replace(/-+$/, '')
 }
 
 function formatDate(iso: string): string {
