@@ -57,16 +57,17 @@ function makeEnvironment(overrides: Partial<Environment> = {}): Environment {
     id: 'e1',
     product_id: 'p1',
     name: 'development',
+    slug: 'development',
     type: 'dev',
-    overlay_path: 'overlays/dev',
+    gitops_path: 'apps/development/platform-api/platform-api-helmrelease.yaml',
     created_at: '2025-11-14T10:00:00Z',
     ...overrides,
   }
 }
 
 const mockEnvs: Environment[] = [
-  { id: 'e1', product_id: 'p1', name: 'development', type: 'dev', overlay_path: 'overlays/dev', created_at: '2025-11-14T10:00:00Z' },
-  { id: 'e2', product_id: 'p1', name: 'production', type: 'production', overlay_path: 'overlays/prod', created_at: '2025-11-20T10:00:00Z' },
+  { id: 'e1', product_id: 'p1', name: 'development', slug: 'development', type: 'dev', gitops_path: 'apps/development/platform-api/platform-api-helmrelease.yaml', created_at: '2025-11-14T10:00:00Z' },
+  { id: 'e2', product_id: 'p1', name: 'production', slug: 'production', type: 'production', gitops_path: 'apps/production/platform-api/platform-api-helmrelease.yaml', created_at: '2025-11-20T10:00:00Z' },
 ]
 
 function renderPage() {
@@ -225,11 +226,12 @@ describe('EnvironmentsPage — create flow (admin)', () => {
     expect(screen.getByText('New Environment')).toBeTruthy()
     expect(screen.getByLabelText('Name *')).toBeTruthy()
     expect(screen.getByLabelText('Type *')).toBeTruthy()
-    expect(screen.getByLabelText('Overlay Path *')).toBeTruthy()
+    expect(screen.getByLabelText('Slug *')).toBeTruthy()
+    expect(screen.queryByLabelText('Overlay Path *')).toBeNull()
   })
 
   it('calls createEnvironment with correct args on form submit', async () => {
-    const newEnv = makeEnvironment({ id: 'e99', name: 'staging', type: 'integration', overlay_path: 'overlays/staging' })
+    const newEnv = makeEnvironment({ id: 'e99', name: 'staging', slug: 'staging', type: 'integration', gitops_path: 'apps/staging/platform-api/platform-api-helmrelease.yaml' })
     mockCreateEnvironment.mockResolvedValue(newEnv)
 
     renderPage()
@@ -243,7 +245,7 @@ describe('EnvironmentsPage — create flow (admin)', () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'staging' } })
       fireEvent.change(screen.getByLabelText('Type *'), { target: { value: 'integration' } })
-      fireEvent.change(screen.getByLabelText('Overlay Path *'), { target: { value: 'overlays/staging' } })
+      // slug auto-derives from name as "staging"
     })
 
     await act(async () => {
@@ -254,13 +256,13 @@ describe('EnvironmentsPage — create flow (admin)', () => {
       expect(mockCreateEnvironment).toHaveBeenCalledWith('test-token', 'platform-api', {
         name: 'staging',
         type: 'integration',
-        overlay_path: 'overlays/staging',
+        slug: 'staging',
       })
     })
   })
 
   it('adds new environment to table after successful create (no page reload)', async () => {
-    const newEnv = makeEnvironment({ id: 'e99', name: 'staging', type: 'integration', overlay_path: 'overlays/staging' })
+    const newEnv = makeEnvironment({ id: 'e99', name: 'staging', slug: 'staging', type: 'integration', gitops_path: 'apps/staging/platform-api/platform-api-helmrelease.yaml' })
     mockCreateEnvironment.mockResolvedValue(newEnv)
 
     renderPage()
@@ -274,7 +276,6 @@ describe('EnvironmentsPage — create flow (admin)', () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'staging' } })
       fireEvent.change(screen.getByLabelText('Type *'), { target: { value: 'integration' } })
-      fireEvent.change(screen.getByLabelText('Overlay Path *'), { target: { value: 'overlays/staging' } })
     })
 
     await act(async () => {
@@ -308,13 +309,13 @@ describe('EnvironmentsPage — create flow (admin)', () => {
   })
 })
 
-describe('EnvironmentsPage — overlay_path validation', () => {
+describe('EnvironmentsPage — slug validation', () => {
   beforeEach(() => {
     mockLocationState = makeProduct({ my_role: 'admin' })
     mockListEnvironments.mockResolvedValue([])
   })
 
-  it('shows error and does not call createEnvironment when overlay_path starts with /', async () => {
+  it('shows error and does not call createEnvironment when slug has uppercase characters', async () => {
     renderPage()
 
     await waitFor(() => screen.getByRole('button', { name: /add environment/i }))
@@ -326,7 +327,7 @@ describe('EnvironmentsPage — overlay_path validation', () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'prod' } })
       fireEvent.change(screen.getByLabelText('Type *'), { target: { value: 'production' } })
-      fireEvent.change(screen.getByLabelText('Overlay Path *'), { target: { value: '/overlays/prod' } })
+      fireEvent.change(screen.getByLabelText('Slug *'), { target: { value: 'PROD_ENV' } })
     })
 
     await act(async () => {
@@ -334,7 +335,7 @@ describe('EnvironmentsPage — overlay_path validation', () => {
     })
 
     expect(mockCreateEnvironment).not.toHaveBeenCalled()
-    expect(screen.getByText('Path must not start with /')).toBeTruthy()
+    expect(screen.getByText('Slug must be lowercase alphanumeric and hyphens only')).toBeTruthy()
   })
 
   it('shows error when name is empty', async () => {
@@ -365,8 +366,7 @@ describe('EnvironmentsPage — overlay_path validation', () => {
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'staging' } })
-      // Leave type unselected
-      fireEvent.change(screen.getByLabelText('Overlay Path *'), { target: { value: 'overlays/staging' } })
+      // Leave type unselected; slug auto-derives to 'staging'
     })
 
     await act(async () => {
@@ -375,6 +375,25 @@ describe('EnvironmentsPage — overlay_path validation', () => {
 
     expect(mockCreateEnvironment).not.toHaveBeenCalled()
     expect(screen.getByText('Type is required')).toBeTruthy()
+  })
+
+  it('auto-derives slug from name and shows gitops path preview', async () => {
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /add environment/i }))
+
+    act(() => {
+      screen.getByRole('button', { name: /add environment/i }).click()
+    })
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'My Staging Env' } })
+    })
+
+    const slugInput = screen.getByLabelText('Slug *')
+    expect((slugInput as HTMLInputElement).value).toBe('my-staging-env')
+
+    expect(screen.getByTestId('gitops-path-preview').textContent).toContain('apps/my-staging-env/')
   })
 })
 
@@ -533,7 +552,7 @@ describe('EnvironmentsPage — API error on create', () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'staging' } })
       fireEvent.change(screen.getByLabelText('Type *'), { target: { value: 'integration' } })
-      fireEvent.change(screen.getByLabelText('Overlay Path *'), { target: { value: 'overlays/staging' } })
+      // slug auto-derives to 'staging'
     })
 
     await act(async () => {
@@ -570,15 +589,15 @@ describe('EnvironmentsPage — data loading', () => {
     })
   })
 
-  it('renders overlay paths in the table', async () => {
+  it('renders gitops paths in the table', async () => {
     mockLocationState = makeProduct({ my_role: 'admin' })
     mockListEnvironments.mockResolvedValue(mockEnvs)
 
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText('overlays/dev')).toBeTruthy()
-      expect(screen.getByText('overlays/prod')).toBeTruthy()
+      expect(screen.getByText('apps/development/platform-api/platform-api-helmrelease.yaml')).toBeTruthy()
+      expect(screen.getByText('apps/production/platform-api/platform-api-helmrelease.yaml')).toBeTruthy()
     })
   })
 

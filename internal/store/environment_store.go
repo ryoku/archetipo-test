@@ -43,10 +43,10 @@ func NewEnvironmentStore(pool *pgxpool.Pool) EnvironmentStore {
 
 func (s *pgxEnvironmentStore) Create(ctx context.Context, e *domain.Environment) error {
 	row := s.pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, slug, type, overlay_path)
-		 VALUES ($1, $2, $3, $4, $5)
+		`INSERT INTO environments (product_id, name, slug, type)
+		 VALUES ($1, $2, $3, $4)
 		 RETURNING id, created_at`,
-		e.ProductID, e.Name, e.Slug, e.Type, e.OverlayPath,
+		e.ProductID, e.Name, e.Slug, e.Type,
 	)
 	if err := row.Scan(&e.ID, &e.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
@@ -63,7 +63,7 @@ func (s *pgxEnvironmentStore) Create(ctx context.Context, e *domain.Environment)
 
 func (s *pgxEnvironmentStore) ListByProduct(ctx context.Context, productID string) ([]domain.Environment, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, product_id, name, slug, type, overlay_path, created_at
+		`SELECT id, product_id, name, slug, type, created_at
 		 FROM environments
 		 WHERE product_id = $1
 		 ORDER BY created_at ASC`,
@@ -77,7 +77,7 @@ func (s *pgxEnvironmentStore) ListByProduct(ctx context.Context, productID strin
 	environments := []domain.Environment{}
 	for rows.Next() {
 		var e domain.Environment
-		if err := rows.Scan(&e.ID, &e.ProductID, &e.Name, &e.Slug, &e.Type, &e.OverlayPath, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.ProductID, &e.Name, &e.Slug, &e.Type, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan environment: %w", err)
 		}
 		environments = append(environments, e)
@@ -91,11 +91,11 @@ func (s *pgxEnvironmentStore) ListByProduct(ctx context.Context, productID strin
 func (s *pgxEnvironmentStore) GetByID(ctx context.Context, productID, environmentID string) (*domain.Environment, error) {
 	var e domain.Environment
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, product_id, name, slug, type, overlay_path, created_at
+		`SELECT id, product_id, name, slug, type, created_at
 		 FROM environments
 		 WHERE product_id = $1 AND id = $2`,
 		productID, environmentID,
-	).Scan(&e.ID, &e.ProductID, &e.Name, &e.Slug, &e.Type, &e.OverlayPath, &e.CreatedAt)
+	).Scan(&e.ID, &e.ProductID, &e.Name, &e.Slug, &e.Type, &e.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrEnvironmentNotFound

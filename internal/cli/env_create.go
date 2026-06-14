@@ -13,10 +13,9 @@ import (
 )
 
 type createEnvRequest struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	OverlayPath string `json:"overlay_path"`
-	Slug        string `json:"slug"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+	Slug string `json:"slug"`
 }
 
 type createEnvOpts struct {
@@ -25,7 +24,6 @@ type createEnvOpts struct {
 	productSlug string
 	name        string
 	envType     string
-	overlay     string
 	slug        string
 }
 
@@ -42,7 +40,7 @@ func createEnvironment(cmd *cobra.Command, configDir string, opts createEnvOpts)
 		return fmt.Errorf("reading stored token: %w", err)
 	}
 
-	payload, err := json.Marshal(createEnvRequest{Name: opts.name, Type: opts.envType, OverlayPath: opts.overlay, Slug: opts.slug})
+	payload, err := json.Marshal(createEnvRequest{Name: opts.name, Type: opts.envType, Slug: opts.slug})
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
 	}
@@ -100,7 +98,6 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 		productSlug string
 		name        string
 		envType     string
-		overlay     string
 		slug        string
 	)
 
@@ -115,7 +112,6 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 				productSlug: productSlug,
 				name:        name,
 				envType:     envType,
-				overlay:     overlay,
 				slug:        slug,
 			})
 		},
@@ -126,9 +122,8 @@ func NewEnvCreateCmd(configDir string) *cobra.Command {
 	cmd.Flags().StringVar(&productSlug, "product", "", "Product slug")
 	cmd.Flags().StringVar(&name, "name", "", "Environment name")
 	cmd.Flags().StringVar(&envType, "type", "", "Environment type (dev, integration, production)")
-	cmd.Flags().StringVar(&overlay, "overlay", "", "Gitops overlay path (relative)")
 	cmd.Flags().StringVar(&slug, "slug", "", "Environment slug (URL-safe identifier)")
-	for _, flag := range []string{"product", "name", "type", "overlay", "slug"} {
+	for _, flag := range []string{"product", "name", "type", "slug"} {
 		if err := cmd.MarkFlagRequired(flag); err != nil {
 			panic(fmt.Sprintf("env create: MarkFlagRequired %s: %v", flag, err))
 		}

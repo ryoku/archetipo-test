@@ -1,13 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ryoku/kubegate/internal/domain"
+	"github.com/ryoku/kubegate/internal/gitops"
 	"github.com/ryoku/kubegate/internal/store"
 )
 
@@ -23,31 +24,30 @@ func NewEnvironmentHandlers(ps store.ProductStore, es store.EnvironmentStore) *E
 }
 
 type createEnvironmentRequest struct {
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Type        string `json:"type"`
-	OverlayPath string `json:"overlay_path"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+	Type string `json:"type"`
 }
 
 type environmentResponse struct {
-	ID          string `json:"id"`
-	ProductID   string `json:"product_id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	Type        string `json:"type"`
-	OverlayPath string `json:"overlay_path"`
-	CreatedAt   string `json:"created_at"`
+	ID         string `json:"id"`
+	ProductID  string `json:"product_id"`
+	Name       string `json:"name"`
+	Slug       string `json:"slug"`
+	Type       string `json:"type"`
+	GitopsPath string `json:"gitops_path"`
+	CreatedAt  string `json:"created_at"`
 }
 
-func toEnvironmentResponse(e *domain.Environment) environmentResponse {
+func toEnvironmentResponse(e *domain.Environment, productSlug string) environmentResponse {
 	return environmentResponse{
-		ID:          e.ID,
-		ProductID:   e.ProductID,
-		Name:        e.Name,
-		Slug:        e.Slug,
-		Type:        e.Type,
-		OverlayPath: e.OverlayPath,
-		CreatedAt:   e.CreatedAt.Format(time.RFC3339),
+		ID:         e.ID,
+		ProductID:  e.ProductID,
+		Name:       e.Name,
+		Slug:       e.Slug,
+		Type:       e.Type,
+		GitopsPath: gitops.HelmReleasePath(e.Slug, productSlug),
+		CreatedAt:  e.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -64,7 +64,9 @@ func (h *EnvironmentHandlers) CreateEnvironment(c *gin.Context) {
 	}
 
 	var req createEnvironmentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	dec := json.NewDecoder(c.Request.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
@@ -80,21 +82,12 @@ func (h *EnvironmentHandlers) CreateEnvironment(c *gin.Context) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 		return
 	}
-	if req.OverlayPath == "" {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "overlay_path is required"})
-		return
-	}
-	if strings.HasPrefix(req.OverlayPath, "/") || strings.Contains(req.OverlayPath, "..") {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "overlay_path must be a relative path"})
-		return
-	}
 
 	env := &domain.Environment{
-		ProductID:   product.ID,
-		Name:        req.Name,
-		Slug:        req.Slug,
-		Type:        req.Type,
-		OverlayPath: req.OverlayPath,
+		ProductID: product.ID,
+		Name:      req.Name,
+		Slug:      req.Slug,
+		Type:      req.Type,
 	}
 	if err := h.envStore.Create(c.Request.Context(), env); err != nil {
 		if errors.Is(err, store.ErrEnvironmentNameConflict) {
@@ -108,7 +101,7 @@ func (h *EnvironmentHandlers) CreateEnvironment(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
-	c.JSON(http.StatusCreated, toEnvironmentResponse(env))
+	c.JSON(http.StatusCreated, toEnvironmentResponse(env, product.Slug))
 }
 
 // ListEnvironments handles GET /api/v1/products/:productSlug/environments.
@@ -131,7 +124,7 @@ func (h *EnvironmentHandlers) ListEnvironments(c *gin.Context) {
 
 	resp := make([]environmentResponse, len(envs))
 	for i := range envs {
-		resp[i] = toEnvironmentResponse(&envs[i])
+		resp[i] = toEnvironmentResponse(&envs[i], product.Slug)
 	}
 	c.JSON(http.StatusOK, resp)
 }

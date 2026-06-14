@@ -63,11 +63,10 @@ func TestEnvironmentStore_Create(t *testing.T) {
 	es, prod := newEnvStoreTest(t, "env-create")
 
 	e := &domain.Environment{
-		ProductID:   prod.ID,
-		Name:        "dev",
-		Type:        "dev",
-		OverlayPath: "overlays/dev",
-		Slug:        "dev",
+		ProductID: prod.ID,
+		Name:      "dev",
+		Type:      "dev",
+		Slug:      "dev",
 	}
 	if err := es.Create(context.Background(), e); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -84,8 +83,8 @@ func TestEnvironmentStore_ListByProduct(t *testing.T) {
 	es, prod := newEnvStoreTest(t, "env-list")
 
 	envs := []domain.Environment{
-		{ProductID: prod.ID, Name: "dev", Type: "dev", OverlayPath: "overlays/dev", Slug: "dev"},
-		{ProductID: prod.ID, Name: "integration", Type: "integration", OverlayPath: "overlays/integration", Slug: "integration"},
+		{ProductID: prod.ID, Name: "dev", Type: "dev", Slug: "dev"},
+		{ProductID: prod.ID, Name: "integration", Type: "integration", Slug: "integration"},
 	}
 	for i := range envs {
 		if err := es.Create(context.Background(), &envs[i]); err != nil {
@@ -113,11 +112,10 @@ func TestEnvironmentStore_Delete(t *testing.T) {
 	es, prod := newEnvStoreTest(t, "env-delete")
 
 	e := &domain.Environment{
-		ProductID:   prod.ID,
-		Name:        "dev",
-		Type:        "dev",
-		OverlayPath: "overlays/dev",
-		Slug:        "dev",
+		ProductID: prod.ID,
+		Name:      "dev",
+		Type:      "dev",
+		Slug:      "dev",
 	}
 	if err := es.Create(context.Background(), e); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -163,21 +161,19 @@ func TestEnvironmentStore_Create_NameConflict(t *testing.T) {
 	es, prod := newEnvStoreTest(t, "env-conflict")
 
 	if err := es.Create(context.Background(), &domain.Environment{
-		ProductID:   prod.ID,
-		Name:        "dev",
-		Type:        "dev",
-		OverlayPath: "overlays/dev",
-		Slug:        "dev",
+		ProductID: prod.ID,
+		Name:      "dev",
+		Type:      "dev",
+		Slug:      "dev",
 	}); err != nil {
 		t.Fatalf("first Create: %v", err)
 	}
 
 	assertEnvConflict(t, es, &domain.Environment{
-		ProductID:   prod.ID,
-		Name:        "dev",
-		Type:        "dev",
-		OverlayPath: "overlays/dev-2",
-		Slug:        "dev-2",
+		ProductID: prod.ID,
+		Name:      "dev",
+		Type:      "dev",
+		Slug:      "dev-2",
 	}, store.ErrEnvironmentNameConflict)
 }
 
@@ -185,20 +181,18 @@ func TestEnvironmentStore_Create_SlugConflict(t *testing.T) {
 	es, prod := newEnvStoreTest(t, "env-slug-conflict")
 
 	if err := es.Create(context.Background(), &domain.Environment{
-		ProductID:   prod.ID,
-		Name:        "dev-env",
-		Type:        "dev",
-		OverlayPath: "overlays/dev",
-		Slug:        "dev",
+		ProductID: prod.ID,
+		Name:      "dev-env",
+		Type:      "dev",
+		Slug:      "dev",
 	}); err != nil {
 		t.Fatalf("first Create: %v", err)
 	}
 
 	assertEnvConflict(t, es, &domain.Environment{
-		ProductID:   prod.ID,
-		Name:        "dev-environment",
-		Type:        "dev",
-		OverlayPath: "overlays/dev-2",
-		Slug:        "dev",
+		ProductID: prod.ID,
+		Name:      "dev-environment",
+		Type:      "dev",
+		Slug:      "dev",
 	}, store.ErrEnvironmentSlugConflict)
 }

@@ -14,8 +14,9 @@ export interface Environment {
   id: string
   product_id: string
   name: string
+  slug: string
   type: 'dev' | 'integration' | 'production'
-  overlay_path: string
+  gitops_path: string
   created_at: string
 }
 
@@ -39,7 +40,7 @@ export async function listEnvironments(token: string, productSlug: string): Prom
 export async function createEnvironment(
   token: string,
   productSlug: string,
-  data: { name: string; type: Environment['type']; overlay_path: string }
+  data: { name: string; type: Environment['type']; slug: string }
 ): Promise<Environment> {
   const res = await apiFetch(`/api/v1/products/${productSlug}/environments`, token, {
     method: 'POST',

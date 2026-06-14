@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -15,8 +15,12 @@ import ProductSubNav from '../components/ProductSubNav'
 import ProductNotFound from '../components/ProductNotFound'
 import ConfirmDeleteFooter from '../components/ConfirmDeleteFooter'
 
-interface EnvFormState { name: string; type: Environment['type'] | ''; overlay_path: string }
-interface EnvFormErrors { name?: string; type?: string; overlay_path?: string }
+interface EnvFormState { name: string; type: Environment['type'] | ''; slug: string }
+interface EnvFormErrors { name?: string; type?: string; slug?: string }
+
+function toEnvSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
 
 function formatDate(iso: string): string {
   try {
@@ -71,7 +75,7 @@ function EnvironmentsContent({ loading, environments, canAdmin, onDelete }: Envi
           <tr>
             <th>Environment</th>
             <th>Type</th>
-            <th>Overlay Path</th>
+            <th>GitOps Path</th>
             <th>Created</th>
             {canAdmin && <th></th>}
           </tr>
@@ -85,7 +89,7 @@ function EnvironmentsContent({ loading, environments, canAdmin, onDelete }: Envi
               <td>
                 <span className={`env-type-badge env-type-${env.type}`}>{env.type}</span>
               </td>
-              <td><span className="env-path-str">{env.overlay_path}</span></td>
+              <td><span className="env-path-str">{env.gitops_path}</span></td>
               <td><span className="pd-comp-date">{formatDate(env.created_at)}</span></td>
               {canAdmin && (
                 <td>
@@ -124,11 +128,8 @@ export default function EnvironmentsPage() {
 
   // Add form state
   const [showForm, setShowForm] = useState(false)
-  const [formState, setFormState] = useState<EnvFormState>({
-    name: '',
-    type: '',
-    overlay_path: '',
-  })
+  const [formState, setFormState] = useState<EnvFormState>({ name: '', type: '', slug: '' })
+  const slugTouched = useRef(false)
   const [formErrors, setFormErrors] = useState<EnvFormErrors>({})
   const [formSubmitting, setFormSubmitting] = useState(false)
 
@@ -168,12 +169,10 @@ export default function EnvironmentsPage() {
     const errs: EnvFormErrors = {}
     if (!formState.name.trim()) errs.name = 'Name is required'
     if (!formState.type) errs.type = 'Type is required'
-    if (!formState.overlay_path.trim()) {
-      errs.overlay_path = 'Overlay path is required'
-    } else if (formState.overlay_path.startsWith('/')) {
-      errs.overlay_path = 'Path must not start with /'
-    } else if (formState.overlay_path.includes('..')) {
-      errs.overlay_path = 'Path must not contain ..'
+    if (!formState.slug.trim()) {
+      errs.slug = 'Slug is required'
+    } else if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(formState.slug)) {
+      errs.slug = 'Slug must be lowercase alphanumeric and hyphens only'
     }
     setFormErrors(errs)
     return Object.keys(errs).length === 0
@@ -187,11 +186,12 @@ export default function EnvironmentsPage() {
       const newEnv = await createEnvironment(accessToken, slug, {
         name: formState.name.trim(),
         type: formState.type as Environment['type'],
-        overlay_path: formState.overlay_path.trim(),
+        slug: formState.slug.trim(),
       })
       setEnvironments((prev) => [...prev, newEnv])
       setShowForm(false)
-      setFormState({ name: '', type: '', overlay_path: '' })
+      setFormState({ name: '', type: '', slug: '' })
+      slugTouched.current = false
       setFormErrors({})
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create environment')
@@ -202,7 +202,8 @@ export default function EnvironmentsPage() {
 
   function handleCancelForm() {
     setShowForm(false)
-    setFormState({ name: '', type: '', overlay_path: '' })
+    setFormState({ name: '', type: '', slug: '' })
+    slugTouched.current = false
     setFormErrors({})
   }
 
@@ -253,7 +254,7 @@ export default function EnvironmentsPage() {
           <div>
             <div className="pd-section-label">Deployment Environments</div>
             <div className="pd-section-sub">
-              Each environment defines a deployment target with a dedicated Kustomize overlay.
+              Each environment defines a deployment target. The GitOps path is derived automatically from the environment and product slugs.
             </div>
           </div>
           {!showForm && canAdmin && (
@@ -290,7 +291,14 @@ export default function EnvironmentsPage() {
                   className="pd-input"
                   placeholder="e.g. staging"
                   value={formState.name}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => {
+                    const name = e.target.value
+                    setFormState((prev) => ({
+                      ...prev,
+                      name,
+                      slug: slugTouched.current ? prev.slug : toEnvSlug(name),
+                    }))
+                  }}
                   autoComplete="off"
                 />
                 {formErrors.name ? (
@@ -321,25 +329,36 @@ export default function EnvironmentsPage() {
                 )}
               </div>
               <div className="pd-field">
-                <label className="pd-field-label" htmlFor="env-overlay-path">
-                  Overlay Path *
+                <label className="pd-field-label" htmlFor="env-slug">
+                  Slug *
                 </label>
                 <input
-                  id="env-overlay-path"
+                  id="env-slug"
                   type="text"
                   className="pd-input pd-input-mono"
-                  placeholder="overlays/staging"
-                  value={formState.overlay_path}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, overlay_path: e.target.value }))}
+                  placeholder="e.g. staging"
+                  value={formState.slug}
+                  onChange={(e) => {
+                    slugTouched.current = true
+                    setFormState((prev) => ({ ...prev, slug: e.target.value }))
+                  }}
                   autoComplete="off"
                 />
-                {formErrors.overlay_path ? (
-                  <span className="pd-field-error">{formErrors.overlay_path}</span>
+                {formErrors.slug ? (
+                  <span className="pd-field-error">{formErrors.slug}</span>
                 ) : (
-                  <span className="pd-field-hint">relative path, no leading slash</span>
+                  <span className="pd-field-hint">lowercase alphanumeric and hyphens</span>
                 )}
               </div>
             </div>
+            {formState.slug && (
+              <div className="pd-field pd-field-preview">
+                <span className="pd-field-label">GitOps Path</span>
+                <span className="env-path-str" data-testid="gitops-path-preview">
+                  apps/{formState.slug}/{slug}/{slug}-helmrelease.yaml
+                </span>
+              </div>
+            )}
             <div className="pd-form-actions">
               <button
                 type="button"
@@ -410,7 +429,7 @@ export default function EnvironmentsPage() {
                 <div className="pd-confirm-target-sub">
                   <span className={`env-type-badge env-type-${deleteTarget.type}`}>{deleteTarget.type}</span>
                 </div>
-                <div className="env-path-str">{deleteTarget.overlay_path}</div>
+                <div className="env-path-str">{deleteTarget.gitops_path}</div>
               </div>
               <div className="pd-confirm-warn">
                 You are about to permanently remove this environment.

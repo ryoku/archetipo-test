@@ -175,7 +175,7 @@ func TestAPIClientPostBody(t *testing.T) {
 	tok := cli.StoredToken{AccessToken: "token"}
 	client := cli.NewAPIClient(srv.URL, tok)
 
-	const payload = `{"name":"prod","type":"production","overlay_path":"overlays/prod"}`
+	const payload = `{"name":"prod","type":"production"}`
 	resp, err := client.Post(context.Background(), "/api/v1/products/x/environments", strings.NewReader(payload))
 	if err != nil {
 		t.Fatalf("Post returned unexpected error: %v", err)
