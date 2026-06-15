@@ -76,8 +76,9 @@ function makeEnvironment(overrides: Partial<Environment> = {}): Environment {
     id: 'e1',
     product_id: 'p1',
     name: 'development',
+    slug: 'development',
     type: 'dev',
-    overlay_path: 'overlays/dev',
+    gitops_path: 'apps/development/platform-api/platform-api-helmrelease.yaml',
     created_at: '2025-01-01T00:00:00Z',
     ...overrides,
   }

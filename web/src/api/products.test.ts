@@ -67,8 +67,9 @@ const mockEnv = {
   id: 'env-uuid-1',
   product_id: 'prod-uuid-1',
   name: 'staging',
+  slug: 'staging',
   type: 'integration' as const,
-  overlay_path: 'overlays/staging',
+  gitops_path: 'apps/staging/my-product/my-product-helmrelease.yaml',
   created_at: '2025-11-14T10:00:00Z',
 }
 
@@ -106,7 +107,7 @@ describe('createEnvironment', () => {
     const result = await createEnvironment('tok', 'my-product', {
       name: 'staging',
       type: 'integration',
-      overlay_path: 'overlays/staging',
+      slug: 'staging',
     })
     expect(result).toEqual(mockEnv)
   })
@@ -115,7 +116,7 @@ describe('createEnvironment', () => {
     const fetchStub = makeFetchStub(201, mockEnv)
     vi.stubGlobal('fetch', fetchStub)
 
-    const data = { name: 'staging', type: 'integration' as const, overlay_path: 'overlays/staging' }
+    const data = { name: 'staging', type: 'integration' as const, slug: 'staging' }
     await createEnvironment('tok', 'my-product', data)
 
     const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
@@ -126,11 +127,19 @@ describe('createEnvironment', () => {
     expect(headers.get('Content-Type')).toBe('application/json')
   })
 
-  it('throws on non-2xx response', async () => {
+  it('throws with server error message on non-2xx response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(409, { error: 'environment slug already exists for this product' }))
+
+    await expect(
+      createEnvironment('tok', 'my-product', { name: 'staging', type: 'integration', slug: 'staging' }),
+    ).rejects.toThrow('environment slug already exists for this product')
+  })
+
+  it('falls back to status code when error body is unparseable', async () => {
     vi.stubGlobal('fetch', makeFetchStub(422))
 
     await expect(
-      createEnvironment('tok', 'my-product', { name: 'staging', type: 'integration', overlay_path: 'overlays/staging' }),
+      createEnvironment('tok', 'my-product', { name: 'staging', type: 'integration', slug: 'staging' }),
     ).rejects.toThrow('createEnvironment: 422')
   })
 })

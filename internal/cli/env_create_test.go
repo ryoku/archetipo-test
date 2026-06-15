@@ -19,7 +19,6 @@ func baseEnvCreateArgs(apiURL string) []string {
 		"--product", "my-app",
 		"--name", "production",
 		"--type", "production",
-		"--overlay", "overlays/my-app/api/production",
 		"--slug", "production",
 	}
 }
@@ -66,7 +65,7 @@ func TestEnvCreateSuccess(t *testing.T) {
 		_ = json.Unmarshal(b, &gotBody)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"id":"abc","name":"production","type":"production","overlay_path":"overlays/my-app/api/production"}`))
+		_, _ = w.Write([]byte(`{"id":"abc","name":"production","type":"production"}`))
 	})
 
 	if gotPath != "/api/v1/products/my-app/environments" {
@@ -78,11 +77,11 @@ func TestEnvCreateSuccess(t *testing.T) {
 	if gotBody["type"] != "production" {
 		t.Errorf("request body type = %q, want 'production'", gotBody["type"])
 	}
-	if gotBody["overlay_path"] != "overlays/my-app/api/production" {
-		t.Errorf("request body overlay_path = %q, want 'overlays/my-app/api/production'", gotBody["overlay_path"])
-	}
 	if gotBody["slug"] != "production" {
 		t.Errorf("request body slug = %q, want 'production'", gotBody["slug"])
+	}
+	if _, ok := gotBody["overlay_path"]; ok {
+		t.Error("request body must not contain overlay_path")
 	}
 	if !strings.Contains(output, "production") {
 		t.Errorf("output missing confirmation message, got: %s", output)
@@ -90,7 +89,7 @@ func TestEnvCreateSuccess(t *testing.T) {
 }
 
 func TestEnvCreateJSONOutput(t *testing.T) {
-	rawJSON := `{"id":"abc","name":"production","type":"production","overlay_path":"overlays/my-app/api/production"}`
+	rawJSON := `{"id":"abc","name":"production","type":"production"}`
 	output := runEnvCreate(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)

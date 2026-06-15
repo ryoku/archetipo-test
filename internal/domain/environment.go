@@ -7,13 +7,12 @@ import (
 
 // Environment represents a deployment target for a Product (e.g. dev, integration, production).
 type Environment struct {
-	ID          string
-	ProductID   string
-	Name        string
-	Slug        string
-	Type        string
-	OverlayPath string
-	CreatedAt   time.Time
+	ID        string
+	ProductID string
+	Name      string
+	Slug      string
+	Type      string
+	CreatedAt time.Time
 }
 
 // ValidateEnvironmentType returns an error if t is not one of the allowed environment types.
