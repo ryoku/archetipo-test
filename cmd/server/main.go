@@ -55,6 +55,7 @@ func main() {
 	productStore := store.NewProductStore(pool)
 	environmentStore := store.NewEnvironmentStore(pool)
 	lockStore := store.NewDeploymentLockStore(pool)
+	deploymentStore := store.NewDeploymentStore(pool)
 	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
 
 	gcrLister, closeGCR := initGCRLister()
@@ -72,7 +73,7 @@ func main() {
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
 		router.RegisterWorkloadRoutes(productStore, environmentStore, workloadReader),
 		router.RegisterTagRoutes(productStore, environmentStore, workloadReader, gcrLister),
-		router.RegisterDeploymentRoutes(productStore, environmentStore, lockStore, gitopsApplier, tagConventionDefault),
+		router.RegisterDeploymentRoutes(productStore, environmentStore, lockStore, deploymentStore, gitopsApplier, tagConventionDefault),
 	)
 	registerSPA(r)
 
@@ -124,8 +125,8 @@ func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader) {
 
 type disabledGitOpsApplier struct{}
 
-func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) error {
-	return fmt.Errorf("%w: set GITOPS_REPO_URL to enable deployments", gitops.ErrGitOpsNotConfigured)
+func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) (string, error) {
+	return "", fmt.Errorf("%w: set GITOPS_REPO_URL to enable deployments", gitops.ErrGitOpsNotConfigured)
 }
 
 type disabledWorkloadReader struct{}

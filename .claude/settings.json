@@ -49,6 +49,7 @@
     ]
   },
   "enabledPlugins": {
-    "playwright@claude-plugins-official": true
+    "playwright@claude-plugins-official": true,
+    "engineering@knowledge-work-plugins": true
   }
 }

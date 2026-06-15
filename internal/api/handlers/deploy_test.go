@@ -44,14 +44,42 @@ func (m *mockDeploymentLockStore) GetLockInfo(ctx context.Context, productID, en
 var _ store.DeploymentLockStore = (*mockDeploymentLockStore)(nil)
 
 type mockGitOpsApplier struct {
-	applyFn func(ctx context.Context, p gitops.ApplyParams) error
+	applyFn func(ctx context.Context, p gitops.ApplyParams) (string, error)
 }
 
-func (m *mockGitOpsApplier) Apply(ctx context.Context, p gitops.ApplyParams) error {
+func (m *mockGitOpsApplier) Apply(ctx context.Context, p gitops.ApplyParams) (string, error) {
+	if m.applyFn == nil {
+		panic("mockGitOpsApplier.Apply called unexpectedly")
+	}
 	return m.applyFn(ctx, p)
 }
 
 var _ handlers.GitOpsApplier = (*mockGitOpsApplier)(nil)
+
+type mockDeploymentStore struct {
+	createFn  func(ctx context.Context, d *domain.Deployment) error
+	getByIDFn func(ctx context.Context, id string) (*domain.Deployment, error)
+}
+
+func (m *mockDeploymentStore) Create(ctx context.Context, d *domain.Deployment) error {
+	if m.createFn != nil {
+		return m.createFn(ctx, d)
+	}
+	d.ID = "test-deployment-id"
+	return nil
+}
+func (m *mockDeploymentStore) GetByID(ctx context.Context, id string) (*domain.Deployment, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, store.ErrDeploymentNotFound
+}
+
+var _ store.DeploymentStore = (*mockDeploymentStore)(nil)
+
+func noopDeploymentStore() *mockDeploymentStore {
+	return &mockDeploymentStore{}
+}
 
 func newDeployRouter(
 	ps store.ProductStore,
@@ -62,7 +90,7 @@ func newDeployRouter(
 ) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := handlers.NewDeploymentHandlers(ps, es, ls, applier, "")
+	h := handlers.NewDeploymentHandlers(ps, es, ls, noopDeploymentStore(), applier, "")
 
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
@@ -140,7 +168,7 @@ func heldLockStore(holder *domain.DeploymentLock) *mockDeploymentLockStore {
 
 func successApplier() *mockGitOpsApplier {
 	return &mockGitOpsApplier{
-		applyFn: func(_ context.Context, _ gitops.ApplyParams) error { return nil },
+		applyFn: func(_ context.Context, _ gitops.ApplyParams) (string, error) { return "abc123", nil },
 	}
 }
 
@@ -171,12 +199,89 @@ func TestDeploy_Success(t *testing.T) {
 		"tag":      "v1.2.3",
 	})
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 	var resp map[string]string
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, "v1.2.3", resp["tag"])
-	assert.Equal(t, "Sara DevOps", resp["deployed_by"])
-	assert.Equal(t, "main", resp["workload"])
+	assert.NotEmpty(t, resp["deployment_id"])
+}
+
+func TestDeploy_Returns202WithDeploymentID(t *testing.T) {
+	var storedCommitSHA string
+	ds := &mockDeploymentStore{
+		createFn: func(_ context.Context, d *domain.Deployment) error {
+			storedCommitSHA = d.CommitSHA
+			d.ID = "deploy-uuid-001"
+			return nil
+		},
+	}
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := handlers.NewDeploymentHandlers(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		ds,
+		&mockGitOpsApplier{applyFn: func(_ context.Context, _ gitops.ApplyParams) (string, error) {
+			return "deadbeef", nil
+		}},
+		"",
+	)
+	injectIdentity := func(c *gin.Context) {
+		c.Set(domain.IdentityContextKey, editorIdentityForDeploy("my-service"))
+		c.Next()
+	}
+	api := r.Group("/api/v1", injectIdentity)
+	api.POST("/products/:productSlug/environments/:environmentID/deployments",
+		middleware.RequireRole(domain.RoleEditor), h.Deploy)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v1.2.3",
+	})
+
+	assert.Equal(t, http.StatusAccepted, w.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "deploy-uuid-001", resp["deployment_id"])
+	assert.Equal(t, "deadbeef", storedCommitSHA)
+}
+
+func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
+	var storedOutcome string
+	ds := &mockDeploymentStore{
+		createFn: func(_ context.Context, d *domain.Deployment) error {
+			storedOutcome = d.Outcome
+			d.ID = "deploy-fail-id"
+			return nil
+		},
+	}
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := handlers.NewDeploymentHandlers(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		ds,
+		&mockGitOpsApplier{applyFn: func(_ context.Context, _ gitops.ApplyParams) (string, error) {
+			return "", errors.New("push failed: auth error")
+		}},
+		"",
+	)
+	injectIdentity := func(c *gin.Context) {
+		c.Set(domain.IdentityContextKey, editorIdentityForDeploy("my-service"))
+		c.Next()
+	}
+	api := r.Group("/api/v1", injectIdentity)
+	api.POST("/products/:productSlug/environments/:environmentID/deployments",
+		middleware.RequireRole(domain.RoleEditor), h.Deploy)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v1.2.3",
+	})
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, domain.OutcomeFailure, storedOutcome)
 }
 
 func TestDeploy_ApplyParamsUsesHelmReleasePath(t *testing.T) {
@@ -185,9 +290,9 @@ func TestDeploy_ApplyParamsUsesHelmReleasePath(t *testing.T) {
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
 		acquiringLockStore(),
-		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) error {
+		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) (string, error) {
 			captured = p
-			return nil
+			return "sha123", nil
 		}},
 		editorIdentityForDeploy("my-service"),
 	)
@@ -285,8 +390,8 @@ func TestDeploy_GitOpsError_Returns500(t *testing.T) {
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
 		acquiringLockStore(),
-		&mockGitOpsApplier{applyFn: func(_ context.Context, _ gitops.ApplyParams) error {
-			return errors.New("push failed")
+		&mockGitOpsApplier{applyFn: func(_ context.Context, _ gitops.ApplyParams) (string, error) {
+			return "", errors.New("push failed")
 		}},
 		editorIdentityForDeploy("my-service"),
 	)
@@ -304,8 +409,8 @@ func TestDeploy_WorkloadNotInHelmRelease_Returns422(t *testing.T) {
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
 		acquiringLockStore(),
-		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) error {
-			return &gitops.HelmReleasePathError{Path: "spec.values." + p.Workload, Reason: "key not found"}
+		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) (string, error) {
+			return "", &gitops.HelmReleasePathError{Path: "spec.values." + p.Workload, Reason: "key not found"}
 		}},
 		editorIdentityForDeploy("my-service"),
 	)
@@ -326,8 +431,8 @@ func TestDeploy_HelmReleaseNotFound_Returns422(t *testing.T) {
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
 		acquiringLockStore(),
-		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) error {
-			return &gitops.HelmReleaseNotFoundError{Path: p.HelmReleasePath}
+		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) (string, error) {
+			return "", &gitops.HelmReleaseNotFoundError{Path: p.HelmReleasePath}
 		}},
 		editorIdentityForDeploy("my-service"),
 	)
@@ -471,7 +576,7 @@ func newDeployRouterWithConvention(
 ) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := handlers.NewDeploymentHandlers(ps, es, ls, applier, defaultTagConvention)
+	h := handlers.NewDeploymentHandlers(ps, es, ls, noopDeploymentStore(), applier, defaultTagConvention)
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
 			c.Set(domain.IdentityContextKey, identity)
@@ -507,7 +612,7 @@ func TestDeploy_ProductionEnv_NonConformingTag_Returns422(t *testing.T) {
 	assert.NotEmpty(t, resp["message"])
 }
 
-func TestDeploy_ProductionEnv_ConformingTag_Returns200(t *testing.T) {
+func TestDeploy_ProductionEnv_ConformingTag_Returns202(t *testing.T) {
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureProdEnv),
@@ -522,10 +627,10 @@ func TestDeploy_ProductionEnv_ConformingTag_Returns200(t *testing.T) {
 		"tag":      "v1.2.3",
 	})
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 }
 
-func TestDeploy_DevEnv_NonConformingTag_NotValidated_Returns200(t *testing.T) {
+func TestDeploy_DevEnv_NonConformingTag_NotValidated_Returns202(t *testing.T) {
 	r := newDeployRouterWithConvention(
 		productStoreWithProduct(deployFixtureProduct),
 		envStoreWithEnv(deployFixtureEnv),
@@ -540,7 +645,7 @@ func TestDeploy_DevEnv_NonConformingTag_NotValidated_Returns200(t *testing.T) {
 		"tag":      "latest",
 	})
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 }
 
 func TestDeploy_ProductionEnv_ProductRegex_OverridesDefault_Returns422(t *testing.T) {
@@ -597,7 +702,7 @@ func TestDeploy_ProductionEnv_InvalidStoredRegex_Returns500(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns200(t *testing.T) {
+func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns202(t *testing.T) {
 	productRegex := `^release-\d+$`
 	productWithRegex := &domain.Product{
 		ID:                 "prod-id-1",
@@ -619,5 +724,5 @@ func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns200(t *testing.T
 		"tag":      "release-42",
 	})
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 }

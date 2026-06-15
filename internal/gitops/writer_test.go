@@ -91,7 +91,7 @@ func TestWriter_HappyPath(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	if err := w.Apply(context.Background(), ApplyParams{
+	if _, err := w.Apply(context.Background(), ApplyParams{
 		HelmReleasePath: helmReleasePath,
 		Workload:        "test-service",
 		NewTag:          "v2.0.0",
@@ -160,7 +160,7 @@ func TestWriter_HelmReleaseNotFound(t *testing.T) {
 	}
 
 	missingPath := "apps/production/other/other-helmrelease.yaml"
-	err = w.Apply(context.Background(), ApplyParams{
+	_, err = w.Apply(context.Background(), ApplyParams{
 		HelmReleasePath: missingPath,
 		Workload:        "svc",
 		NewTag:          "v2.0.0",
@@ -189,7 +189,7 @@ func TestWriter_Cleanup(t *testing.T) {
 
 	before := kubegateGitopsDirCount(t)
 
-	_ = w.Apply(context.Background(), ApplyParams{
+	_, _ = w.Apply(context.Background(), ApplyParams{
 		HelmReleasePath: helmReleasePath,
 		Workload:        "test-service",
 		NewTag:          "v2.0.0",
@@ -201,7 +201,7 @@ func TestWriter_Cleanup(t *testing.T) {
 		t.Errorf("temp dir leaked after success: count before=%d, after=%d", before, got)
 	}
 
-	_ = w.Apply(context.Background(), ApplyParams{
+	_, _ = w.Apply(context.Background(), ApplyParams{
 		HelmReleasePath: "apps/production/does/not/exist.yaml",
 		Workload:        "svc",
 		NewTag:          "v2.0.0",
@@ -285,7 +285,7 @@ func TestWriter_IdempotentRedeployNoError(t *testing.T) {
 		EnvName:         "e",
 		Actor:           "user",
 	}
-	if err := w.Apply(context.Background(), p); err != nil {
+	if _, err := w.Apply(context.Background(), p); err != nil {
 		t.Errorf("Apply with same tag should return nil, got: %v", err)
 	}
 }
@@ -306,7 +306,7 @@ func TestWriter_PathTraversalRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	err = w.Apply(context.Background(), ApplyParams{
+	_, err = w.Apply(context.Background(), ApplyParams{
 		HelmReleasePath: "../../etc/hostname",
 		Workload:        "svc",
 		NewTag:          "v2.0.0",
@@ -351,7 +351,7 @@ func TestApply_RequiredParamValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := base
 			tc.mutate(&p)
-			err := w.Apply(context.Background(), p)
+			_, err := w.Apply(context.Background(), p)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
@@ -371,7 +371,7 @@ func TestNew_SSHKeyPathNotFound(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	// buildAuth is called inside Apply; trigger it directly via Apply to cover the error path.
-	err = w.Apply(context.Background(), ApplyParams{
+	_, err = w.Apply(context.Background(), ApplyParams{
 		HelmReleasePath: "apps/e/p/p-helmrelease.yaml",
 		Workload:        "s",
 		NewTag:          "v1",

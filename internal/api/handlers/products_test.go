@@ -23,6 +23,7 @@ type mockProductStore struct {
 	createFn             func(ctx context.Context, p *domain.Product) error
 	listFn               func(ctx context.Context, opts store.ListOptions) ([]domain.Product, error)
 	getBySlugFn          func(ctx context.Context, slug string) (*domain.Product, error)
+	getByIDFn            func(ctx context.Context, id string) (*domain.Product, error)
 	updateFn             func(ctx context.Context, slug, name, description string) (*domain.Product, error)
 	archiveFn            func(ctx context.Context, slug string) error
 	getTagConventionFn   func(ctx context.Context, slug string) (*string, error)
@@ -38,6 +39,12 @@ func (m *mockProductStore) List(ctx context.Context, opts store.ListOptions) ([]
 }
 func (m *mockProductStore) GetBySlug(ctx context.Context, slug string) (*domain.Product, error) {
 	return m.getBySlugFn(ctx, slug)
+}
+func (m *mockProductStore) GetByID(ctx context.Context, id string) (*domain.Product, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, store.ErrNotFound
 }
 func (m *mockProductStore) Update(ctx context.Context, slug, name, description string) (*domain.Product, error) {
 	return m.updateFn(ctx, slug, name, description)

@@ -90,6 +90,7 @@ func NewWriterFromEnv() (*Writer, error) {
 // Apply clones the gitops repo into a temp directory, patches spec.values.[workload].image.tag
 // in the HelmRelease file, commits with a structured message, pushes, and removes the temp directory.
 // The temp directory is always removed, even on error.
+// Returns the commit SHA of the created commit, or an empty string when the repo was already up-to-date.
 //
 // Each call performs a fresh clone rather than reusing a cached local copy; this avoids
 // stale-state bugs at the cost of a full clone per deployment, which is acceptable for
@@ -98,29 +99,29 @@ func NewWriterFromEnv() (*Writer, error) {
 // IMPORTANT: This function is not safe for concurrent use against the same branch. Callers
 // must hold a deployment lock (e.g. a PostgreSQL advisory lock on the product+environment)
 // before calling Apply to prevent non-fast-forward push failures.
-func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
+func (w *Writer) Apply(ctx context.Context, p ApplyParams) (string, error) {
 	if p.HelmReleasePath == "" {
-		return fmt.Errorf("gitops writer: HelmReleasePath must not be empty")
+		return "", fmt.Errorf("gitops writer: HelmReleasePath must not be empty")
 	}
 	if p.Workload == "" {
-		return fmt.Errorf("gitops writer: Workload must not be empty")
+		return "", fmt.Errorf("gitops writer: Workload must not be empty")
 	}
 	if p.NewTag == "" {
-		return fmt.Errorf("gitops writer: NewTag must not be empty")
+		return "", fmt.Errorf("gitops writer: NewTag must not be empty")
 	}
 	if p.Actor == "" {
-		return fmt.Errorf("gitops writer: Actor must not be empty")
+		return "", fmt.Errorf("gitops writer: Actor must not be empty")
 	}
 
 	tmpDir, err := os.MkdirTemp("", "kubegate-gitops-*")
 	if err != nil {
-		return fmt.Errorf("gitops writer: create temp dir: %w", err)
+		return "", fmt.Errorf("gitops writer: create temp dir: %w", err)
 	}
 	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort cleanup of temp clone; errors here are non-actionable
 
 	auth, err := w.buildAuth()
 	if err != nil {
-		return fmt.Errorf("gitops writer: build auth: %w", err)
+		return "", fmt.Errorf("gitops writer: build auth: %w", err)
 	}
 
 	repo, err := git.PlainCloneContext(ctx, tmpDir, false, &git.CloneOptions{
@@ -128,16 +129,16 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) error {
 		Auth: auth,
 	})
 	if err != nil {
-		return fmt.Errorf("gitops writer: clone: %w", err)
+		return "", fmt.Errorf("gitops writer: clone: %w", err)
 	}
 
 	worktree, err := repo.Worktree()
 	if err != nil {
-		return fmt.Errorf("gitops writer: get worktree: %w", err)
+		return "", fmt.Errorf("gitops writer: get worktree: %w", err)
 	}
 
 	if err := patchAndStage(tmpDir, worktree, p); err != nil {
-		return err
+		return "", err
 	}
 
 	msg := fmt.Sprintf("deploy(%s/%s/%s): %s by %s",
@@ -217,10 +218,10 @@ func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
 }
 
 // commitAndPush creates a commit authored by the KubeGate system identity and pushes it.
-// ErrEmptyCommit (no staged changes — e.g. HelmRelease already has the requested tag)
-// and NoErrAlreadyUpToDate are treated as no-ops.
-func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Worktree, auth transport.AuthMethod, msg string) error {
-	_, err := worktree.Commit(msg, &git.CommitOptions{
+// Returns the commit SHA of the new commit, or an empty string when there was nothing to commit
+// (ErrEmptyCommit) or the remote was already up-to-date.
+func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Worktree, auth transport.AuthMethod, msg string) (string, error) {
+	hash, err := worktree.Commit(msg, &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  "KubeGate",
 			Email: "noreply@kubegate.local",
@@ -229,17 +230,17 @@ func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Work
 	})
 	if err != nil {
 		if errors.Is(err, git.ErrEmptyCommit) {
-			return nil
+			return "", nil
 		}
-		return fmt.Errorf("gitops writer: commit: %w", err)
+		return "", fmt.Errorf("gitops writer: commit: %w", err)
 	}
 	if err := repo.PushContext(ctx, &git.PushOptions{Auth: auth}); err != nil {
 		if errors.Is(err, git.NoErrAlreadyUpToDate) {
-			return nil
+			return hash.String(), nil
 		}
-		return fmt.Errorf("gitops writer: push: %w", err)
+		return "", fmt.Errorf("gitops writer: push: %w", err)
 	}
-	return nil
+	return hash.String(), nil
 }
 
 // buildAuth returns the transport.AuthMethod derived from WriterConfig.
