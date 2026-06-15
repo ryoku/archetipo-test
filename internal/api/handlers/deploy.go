@@ -119,14 +119,14 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 	if applyErrMsg != "" {
 		// Internal gitops failure: persist a failure record (best-effort) then return.
 		// applyGitOps has already written the HTTP 500 response.
-		_, _ = h.createDeploymentRecord(c, product, env, identity.Sub, req.Workload, req.Tag, "", applyErrMsg)
+		_, _ = h.createDeploymentRecord(c, product, env, identity.Sub, req.Workload, req.Tag, gitopsResult{errorMessage: applyErrMsg})
 		return
 	}
 	if !ok {
 		return
 	}
 
-	deploymentID, err := h.createDeploymentRecord(c, product, env, identity.Sub, req.Workload, req.Tag, commitSHA, "")
+	deploymentID, err := h.createDeploymentRecord(c, product, env, identity.Sub, req.Workload, req.Tag, gitopsResult{commitSHA: commitSHA})
 	if err != nil {
 		return
 	}
@@ -252,16 +252,22 @@ func actorName(identity *domain.UserIdentity) string {
 	return identity.Email
 }
 
+type gitopsResult struct {
+	commitSHA    string
+	errorMessage string
+}
+
 // createDeploymentRecord persists a deployment record. Returns the new deployment ID on success.
 // On error it writes the appropriate HTTP response and returns ("", non-nil error).
 func (h *DeploymentHandlers) createDeploymentRecord(
 	c *gin.Context,
 	product *domain.Product,
 	env *domain.Environment,
-	actorSub, workload, tag, commitSHA, errorMessage string,
+	actorSub, workload, tag string,
+	result gitopsResult,
 ) (string, error) {
 	outcome := domain.OutcomeSuccess
-	if errorMessage != "" {
+	if result.errorMessage != "" {
 		outcome = domain.OutcomeFailure
 	}
 	d := &domain.Deployment{
@@ -270,9 +276,9 @@ func (h *DeploymentHandlers) createDeploymentRecord(
 		EnvironmentID: env.ID,
 		Workload:      workload,
 		Tag:           tag,
-		CommitSHA:     commitSHA,
+		CommitSHA:     result.commitSHA,
 		Outcome:       outcome,
-		ErrorMessage:  errorMessage,
+		ErrorMessage:  result.errorMessage,
 	}
 	if err := h.deploymentStore.Create(c.Request.Context(), d); err != nil {
 		log.Printf("createDeploymentRecord product=%s env=%s: %v", product.Slug, env.Name, err)

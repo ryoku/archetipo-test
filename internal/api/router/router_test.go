@@ -37,7 +37,7 @@ func (noopProductStore) GetTagConvention(_ context.Context, _ string) (*string, 
 	return nil, nil
 }
 func (noopProductStore) SetTagConvention(_ context.Context, _, _ string) error { return nil }
-func (noopProductStore) ClearTagConvention(_ context.Context, _ string) error { return nil }
+func (noopProductStore) ClearTagConvention(_ context.Context, _ string) error  { return nil }
 func (noopProductStore) GetByID(_ context.Context, _ string) (*domain.Product, error) {
 	return nil, nil
 }
