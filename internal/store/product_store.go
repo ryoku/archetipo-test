@@ -31,6 +31,8 @@ type ProductStore interface {
 	Create(ctx context.Context, p *domain.Product) error
 	List(ctx context.Context, opts ListOptions) ([]domain.Product, error)
 	GetBySlug(ctx context.Context, slug string) (*domain.Product, error)
+	// GetByID returns the product with the given UUID, or ErrNotFound.
+	GetByID(ctx context.Context, id string) (*domain.Product, error)
 	Update(ctx context.Context, slug string, name, description string) (*domain.Product, error)
 	Archive(ctx context.Context, slug string) error
 	// GetTagConvention returns the tag convention regex for the product identified by slug.
@@ -136,6 +138,21 @@ func (s *pgxProductStore) GetBySlug(ctx context.Context, slug string) (*domain.P
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("get product by slug: %w", err)
+	}
+	return &p, nil
+}
+
+func (s *pgxProductStore) GetByID(ctx context.Context, id string) (*domain.Product, error) {
+	var p domain.Product
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, name, slug, description, archived_at, created_at, tag_convention_regex FROM products WHERE id = $1`,
+		id,
+	).Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt, &p.TagConventionRegex)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || isInvalidUUIDSyntax(err) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get product by id: %w", err)
 	}
 	return &p, nil
 }
