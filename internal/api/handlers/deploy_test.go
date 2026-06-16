@@ -246,11 +246,44 @@ func TestDeploy_Returns202WithDeploymentID(t *testing.T) {
 	assert.Equal(t, "deadbeef", storedCommitSHA)
 }
 
+func TestDeploy_DeploymentStoreError_Returns500(t *testing.T) {
+	ds := &mockDeploymentStore{
+		createFn: func(_ context.Context, _ *domain.Deployment) error {
+			return errors.New("db connection lost")
+		},
+	}
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	h := handlers.NewDeploymentHandlers(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		ds,
+		successApplier(),
+		"",
+	)
+	injectIdentity := func(c *gin.Context) {
+		c.Set(domain.IdentityContextKey, editorIdentityForDeploy("my-service"))
+		c.Next()
+	}
+	api := r.Group("/api/v1", injectIdentity)
+	api.POST("/products/:productSlug/environments/:environmentID/deployments",
+		middleware.RequireRole(domain.RoleEditor), h.Deploy)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v1.2.3",
+	})
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
-	var storedOutcome string
+	var storedOutcome, storedErrorMessage string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
 			storedOutcome = d.Outcome
+			storedErrorMessage = d.ErrorMessage
 			d.ID = "deploy-fail-id"
 			return nil
 		},
@@ -282,6 +315,7 @@ func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Equal(t, domain.OutcomeFailure, storedOutcome)
+	assert.NotEmpty(t, storedErrorMessage)
 }
 
 func TestDeploy_ApplyParamsUsesHelmReleasePath(t *testing.T) {

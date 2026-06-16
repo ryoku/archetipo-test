@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -90,7 +91,8 @@ func NewWriterFromEnv() (*Writer, error) {
 // Apply clones the gitops repo into a temp directory, patches spec.values.[workload].image.tag
 // in the HelmRelease file, commits with a structured message, pushes, and removes the temp directory.
 // The temp directory is always removed, even on error.
-// Returns the commit SHA of the created commit, or an empty string when the repo was already up-to-date.
+// Returns the commit SHA of the created commit, or an empty string when the tag was already set
+// to the requested value and there was nothing to commit (ErrEmptyCommit).
 //
 // Each call performs a fresh clone rather than reusing a cached local copy; this avoids
 // stale-state bugs at the cost of a full clone per deployment, which is acceptable for
@@ -218,8 +220,10 @@ func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
 }
 
 // commitAndPush creates a commit authored by the KubeGate system identity and pushes it.
-// Returns the commit SHA of the new commit, or an empty string when there was nothing to commit
-// (ErrEmptyCommit) or the remote was already up-to-date.
+// Returns the commit SHA on success or an empty string when ErrEmptyCommit fires (the tag
+// was already set — nothing to commit). When a commit was created locally but the remote
+// reports NoErrAlreadyUpToDate, the local commit SHA is still returned (the remote was
+// already in sync); a warning is logged since this may indicate a race with advisory locking.
 func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Worktree, auth transport.AuthMethod, msg string) (string, error) {
 	hash, err := worktree.Commit(msg, &git.CommitOptions{
 		Author: &object.Signature{
@@ -236,6 +240,7 @@ func commitAndPush(ctx context.Context, repo *git.Repository, worktree *git.Work
 	}
 	if err := repo.PushContext(ctx, &git.PushOptions{Auth: auth}); err != nil {
 		if errors.Is(err, git.NoErrAlreadyUpToDate) {
+			log.Printf("commitAndPush: commit %s created locally but push reported already-up-to-date — possible advisory lock race", hash.String())
 			return hash.String(), nil
 		}
 		return "", fmt.Errorf("gitops writer: push: %w", err)

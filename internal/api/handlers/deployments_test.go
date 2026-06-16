@@ -89,6 +89,7 @@ func TestGetDeployment_Success(t *testing.T) {
 	assert.Equal(t, domain.OutcomeSuccess, resp["outcome"])
 	assert.Equal(t, fixtureDeployment.Tag, resp["tag"])
 	assert.Equal(t, fixtureDeployment.Workload, resp["workload"])
+	assert.Equal(t, "2026-06-15T10:00:00Z", resp["deployed_at"])
 }
 
 func TestGetDeployment_NotFound_Returns404(t *testing.T) {
@@ -147,4 +148,25 @@ func TestGetDeployment_AdminBypassesProductCheck(t *testing.T) {
 	w := doGetDeployment(t, r, fixtureDeployment.ID)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGetDeployment_NoIdentity_Returns401(t *testing.T) {
+	// GET /deployments/:id has no RequireRole middleware — auth is enforced inside the handler
+	// via checkProductAccess. This test ensures that path returns 401 when no identity is set,
+	// so a future refactor of checkProductAccess cannot silently open the endpoint.
+	ds := &mockDeploymentStore{
+		getByIDFn: func(_ context.Context, _ string) (*domain.Deployment, error) {
+			return fixtureDeployment, nil
+		},
+	}
+	ps := &mockProductStore{
+		getByIDFn: func(_ context.Context, _ string) (*domain.Product, error) {
+			return &domain.Product{ID: "prod-id-1", Slug: "my-service"}, nil
+		},
+	}
+
+	r := newGetDeploymentRouter(ps, ds, nil) // nil identity — simulates unauthenticated request
+	w := doGetDeployment(t, r, fixtureDeployment.ID)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
