@@ -149,7 +149,7 @@ func (s *pgxProductStore) GetByID(ctx context.Context, id string) (*domain.Produ
 		id,
 	).Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt, &p.TagConventionRegex)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) || isInvalidUUIDSyntax(err) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("get product by id: %w", err)

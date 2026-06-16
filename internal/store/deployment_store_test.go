@@ -76,3 +76,11 @@ func TestDeploymentStore_GetByID_NotFound(t *testing.T) {
 	_, err := s.GetByID(context.Background(), "00000000-0000-0000-0000-000000000000")
 	assert.ErrorIs(t, err, store.ErrDeploymentNotFound)
 }
+
+func TestDeploymentStore_GetByID_MalformedUUID_Returns404Sentinel(t *testing.T) {
+	pool := newTestPool(t)
+	s := store.NewDeploymentStore(pool)
+
+	_, err := s.GetByID(context.Background(), "not-a-uuid")
+	assert.ErrorIs(t, err, store.ErrDeploymentNotFound)
+}

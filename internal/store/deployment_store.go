@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ryoku/kubegate/internal/domain"
 )
@@ -58,10 +59,18 @@ func (s *pgxDeploymentStore) GetByID(ctx context.Context, id string) (*domain.De
 		&d.Outcome, &d.ErrorMessage,
 	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) || isInvalidUUIDSyntax(err) {
 			return nil, ErrDeploymentNotFound
 		}
 		return nil, fmt.Errorf("get deployment: %w", err)
 	}
 	return &d, nil
+}
+
+// isInvalidUUIDSyntax reports whether err is a PostgreSQL invalid text representation
+// error for a UUID column (SQLSTATE 22P02). This occurs when a non-UUID string is passed
+// as a UUID parameter, which should be treated as not-found rather than a server error.
+func isInvalidUUIDSyntax(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "22P02"
 }
