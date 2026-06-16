@@ -37,8 +37,13 @@ vi.mock('../components/ProductNotFound', () => ({
   ),
 }))
 
+let capturedOnDeploySuccess: ((tag: string, sha: string) => void) | undefined
+
 vi.mock('../components/DeployDialog', () => ({
-  DeployDialog: () => <div data-testid="deploy-dialog" />,
+  DeployDialog: ({ onDeploySuccess }: { onDeploySuccess?: (tag: string, sha: string) => void }) => {
+    capturedOnDeploySuccess = onDeploySuccess
+    return <div data-testid="deploy-dialog" />
+  },
 }))
 
 let capturedNavigate: Mock
@@ -116,7 +121,10 @@ beforeEach(() => {
   mockListWorkloads.mockResolvedValue([])
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 
 // ─── Tests ────────────────────────────────────────────────────
 
@@ -357,6 +365,94 @@ describe('ProductDetailPage — RBAC: Deploy button', () => {
     })
 
     expect(screen.getByTestId('deploy-dialog')).toBeTruthy()
+  })
+})
+
+describe('ProductDetailPage — deploy toast', () => {
+  it('shows deploy toast with tag and sha after onDeploySuccess is called', async () => {
+    mockLocationState = makeProduct({ my_role: 'editor' })
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /Deploy api/i }))
+
+    act(() => {
+      screen.getByRole('button', { name: /Deploy api/i }).click()
+    })
+
+    await waitFor(() => screen.getByTestId('deploy-dialog'))
+
+    act(() => {
+      capturedOnDeploySuccess?.('v1.14.2', 'abc1234')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('deploy-toast')).toBeTruthy()
+      expect(screen.getByText(/v1\.14\.2/)).toBeTruthy()
+      expect(screen.getByText(/abc1234/)).toBeTruthy()
+    })
+  })
+
+  it('hides deploy toast after 6 seconds', async () => {
+    mockLocationState = makeProduct({ my_role: 'editor' })
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /Deploy api/i }))
+
+    vi.useFakeTimers()
+
+    act(() => {
+      screen.getByRole('button', { name: /Deploy api/i }).click()
+    })
+
+    act(() => {
+      capturedOnDeploySuccess?.('v2.0.0', 'deadbeef')
+    })
+
+    expect(screen.getByTestId('deploy-toast')).toBeTruthy()
+
+    act(() => {
+      vi.advanceTimersByTime(6000)
+    })
+
+    expect(screen.queryByTestId('deploy-toast')).toBeNull()
+  })
+
+  it('hides deploy toast when close button is clicked', async () => {
+    mockLocationState = makeProduct({ my_role: 'editor' })
+    const env = makeEnvironment({ id: 'e1' })
+    const workload = makeWorkload({ name: 'api' })
+    mockListEnvironments.mockResolvedValue([env])
+    mockListWorkloads.mockResolvedValue([workload])
+
+    renderPage()
+
+    await waitFor(() => screen.getByRole('button', { name: /Deploy api/i }))
+
+    act(() => {
+      screen.getByRole('button', { name: /Deploy api/i }).click()
+    })
+
+    act(() => {
+      capturedOnDeploySuccess?.('v1.0.0', 'cafebabe')
+    })
+
+    await waitFor(() => screen.getByTestId('deploy-toast'))
+
+    act(() => {
+      screen.getByRole('button', { name: /Chiudi notifica/i }).click()
+    })
+
+    await waitFor(() => expect(screen.queryByTestId('deploy-toast')).toBeNull())
   })
 })
 

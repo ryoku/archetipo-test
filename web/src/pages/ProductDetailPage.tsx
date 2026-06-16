@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -115,6 +115,10 @@ export default function ProductDetailPage() {
   const [workloadsNotFound, setWorkloadsNotFound] = useState(false)
   const [selectedWorkload, setSelectedWorkload] = useState<Workload | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [deploySuccess, setDeploySuccess] = useState<{ tag: string; sha: string } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current) }, [])
 
   useEffect(() => {
     if (!slug || !accessToken) return
@@ -227,7 +231,33 @@ export default function ProductDetailPage() {
           workload={selectedWorkload}
           environmentId={selectedEnvId}
           onClose={() => setSelectedWorkload(null)}
+          onDeploySuccess={(tag, sha) => {
+            if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current)
+            setDeploySuccess({ tag, sha })
+            toastTimerRef.current = setTimeout(() => setDeploySuccess(null), 6000)
+          }}
         />
+      )}
+
+      {deploySuccess && (
+        <div className="pd-toast" role="status" aria-live="polite" data-testid="deploy-toast">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M2.5 7L5.5 10L11.5 4" />
+          </svg>
+          <div className="pd-toast-body">
+            <div className="pd-toast-title">Deployed <span className="pd-toast-tag">{deploySuccess.tag}</span></div>
+            <div className="pd-toast-sub">commit {deploySuccess.sha}</div>
+          </div>
+          <button
+            className="pd-toast-close"
+            aria-label="Chiudi notifica"
+            onClick={() => setDeploySuccess(null)}
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 1l8 8M9 1L1 9" />
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   )
