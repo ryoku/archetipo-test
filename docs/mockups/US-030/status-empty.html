@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-030 · Status Matrix (stato vuoto)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ─── Empty state illustration ─── */
+.empty-matrix-shell {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Ghosted table header to provide context even in empty state */
+.empty-matrix-header {
+  display: grid;
+  grid-template-columns: 200px 1fr 1fr 1fr;
+  border-bottom: 1px solid var(--border-subtle);
+  opacity: 0.35;
+}
+.empty-col-head {
+  padding: 10px 16px;
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border-faint);
+  white-space: nowrap;
+}
+.empty-col-head:last-child { border-right: none; }
+.empty-col-head.col-env { text-align: center; }
+
+/* Empty state content */
+.empty-state-padded {
+  padding: 52px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.empty-icon-large {
+  width: 52px; height: 52px;
+  border-radius: var(--r-xl);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.empty-title-lg {
+  font-size: 15px; font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+.empty-sub-lg {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  max-width: 380px;
+  line-height: 1.65;
+}
+.empty-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-code);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+}
+.empty-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  margin-top: 4px;
+  padding: 14px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  max-width: 360px;
+  width: 100%;
+}
+.empty-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.check-bullet {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.api-url-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 2px 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ─────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Editor — new-product</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Page top -->
+    <div class="page-top">
+      <div class="breadcrumb">
+        <a href="#" class="bc-link">Products</a>
+        <span class="bc-sep">/</span>
+        <span>new-product</span>
+      </div>
+
+      <div class="product-hero">
+        <div class="hero-icon" style="background:linear-gradient(135deg,#374e64 0%,#1d2f4a 100%);color:var(--text-secondary);">NP</div>
+        <div>
+          <div class="hero-name">New Product</div>
+          <div class="hero-meta">
+            <span class="tag-chip">new-product</span>
+            <span class="badge badge-default">Backend Team</span>
+          </div>
+          <div class="hero-desc">Nuovo servizio — HelmRelease non ancora sincronizzata sul cluster.</div>
+        </div>
+      </div>
+
+      <nav class="page-subnav">
+        <a href="#" class="subnav-link">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 3h10a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/>
+            <path d="M4 3V2M10 3V2M1 7h12"/>
+          </svg>
+          Environments
+          <span class="nav-badge" style="margin-left:2px;font-size:9px;">2</span>
+        </a>
+        <a href="#" class="subnav-link active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="7" cy="7" r="5.5"/>
+            <path d="M7 4.5v3l2 1.5"/>
+          </svg>
+          Status
+        </a>
+      </nav>
+    </div>
+
+    <!-- Body -->
+    <div class="page-body">
+
+      <!-- Section header -->
+      <div class="section-head">
+        <div class="section-head-left">
+          <div>
+            <div class="section-label">Deployment Status</div>
+            <div class="section-sub" style="margin-top:3px;">
+              Tag immagine attualmente deployati per workload e ambiente
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+            <span class="api-url-hint">GET /api/v1/products/new-product/status</span>
+          </div>
+          <button class="btn btn-outline btn-sm" disabled>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M10.5 6A4.5 4.5 0 113.5 2.5" stroke-linecap="round"/>
+              <path d="M3.5 1v2H1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty state shell (ghosted header + centered message) -->
+      <div class="empty-matrix-shell">
+        <!-- Ghosted column headers for visual framing -->
+        <div class="empty-matrix-header">
+          <div class="empty-col-head">Workload</div>
+          <div class="empty-col-head col-env">Dev</div>
+          <div class="empty-col-head col-env">Integration</div>
+          <div class="empty-col-head col-env">Production</div>
+        </div>
+
+        <!-- Empty content -->
+        <div class="empty-state-padded">
+          <div class="empty-icon-large">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4">
+              <circle cx="11" cy="11" r="9"/>
+              <path d="M11 7v5l3 2"/>
+              <path d="M7 17.5c1.1-.8 2.5-1.3 4-1.3s2.9.5 4 1.3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="empty-title-lg">Nessun workload rilevato</div>
+          <div class="empty-sub-lg">
+            Lo stato deployment non è disponibile perché nessun workload
+            è stato ancora scoperto dalla HelmRelease di questo prodotto.
+            La matrice si popolerà automaticamente dopo il primo deploy.
+          </div>
+
+          <!-- Checklist: possible causes -->
+          <div class="empty-checklist">
+            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:4px;">
+              Possibili cause
+            </div>
+            <div class="empty-checklist-item">
+              <div class="check-bullet">
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.3">
+                  <path d="M2 4l1.5 1.5L6 2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <span>
+                La <span class="empty-code">HelmRelease</span> non è ancora stata sincronizzata sul cluster
+              </span>
+            </div>
+            <div class="empty-checklist-item">
+              <div class="check-bullet">
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.3">
+                  <path d="M2 4l1.5 1.5L6 2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <span>
+                Il path <span class="empty-code">spec.values.[workload].image.tag</span> non è impostato
+              </span>
+            </div>
+            <div class="empty-checklist-item">
+              <div class="check-bullet">
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.3">
+                  <path d="M2 4l1.5 1.5L6 2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <span>
+                Nessun ambiente configurato per questo prodotto
+              </span>
+            </div>
+          </div>
+
+          <button class="btn btn-outline btn-sm" style="margin-top:4px;" onclick="alert('Simulazione: re-fetch inviato')">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M10.5 6A4.5 4.5 0 113.5 2.5" stroke-linecap="round"/>
+              <path d="M3.5 1v2H1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Riprova
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Demo nav -->
+<div style="position:fixed;bottom:16px;right:16px;z-index:200;">
+  <a href="index.html" style="
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 12px;
+    background:var(--bg-overlay);border:1px solid var(--border-strong);
+    border-radius:20px;font-size:11px;color:var(--text-secondary);
+    transition:all var(--t);
+  " onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-secondary)'">
+    ← indice US-030
+  </a>
+</div>
+
+</body>
+</html>
