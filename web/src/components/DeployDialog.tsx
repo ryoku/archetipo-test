@@ -3,8 +3,8 @@ import { deployTag, DeployApiError, listTags, type DeployError, type Tag, type W
 import './DeployDialog.css'
 
 type DeployDialogProps =
-  | { open: false; token: string | null; productSlug: string; environmentId: string; workload: Workload | null; onClose: () => void; onDeploySuccess?: (tag: string, commitSha: string) => void }
-  | { open: true;  token: string | null; productSlug: string; environmentId: string; workload: Workload;        onClose: () => void; onDeploySuccess?: (tag: string, commitSha: string) => void }
+  | { open: false; token: string | null; productSlug: string; environmentId: string; workload: Workload | null; onClose: () => void; onDeploySuccess?: (tag: string, deploymentId: string) => void }
+  | { open: true;  token: string | null; productSlug: string; environmentId: string; workload: Workload;        onClose: () => void; onDeploySuccess?: (tag: string, deploymentId: string) => void }
 
 function formatPushedAt(iso: string): string {
   const d = new Date(iso)
@@ -93,11 +93,11 @@ export function DeployDialog({
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && deployState !== 'loading') onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  }, [open, onClose, deployState])
 
   const handleLoadMore = () => {
     void fetchTags({ filter, pageToken: nextPageToken, append: true })
@@ -111,7 +111,11 @@ export function DeployDialog({
     deployTag(token, productSlug, environmentId, workload.name, tag)
       .then((result) => {
         setDeployState('idle')
-        onDeploySuccess?.(tag, result.deployment_id)
+        try {
+          onDeploySuccess?.(tag, result.deployment_id)
+        } catch (cbErr: unknown) {
+          console.error('[DeployDialog] onDeploySuccess callback threw:', cbErr)
+        }
         onClose()
       })
       .catch((err: unknown) => {
@@ -120,6 +124,7 @@ export function DeployDialog({
           else setDeployState('tag_error')
           setDeployErrorData(err.detail)
         } else {
+          console.error('[DeployDialog] deployTag unexpected error:', err)
           setDeployState('general_error')
         }
       })
@@ -185,6 +190,7 @@ export function DeployDialog({
         className="dd-backdrop-dismiss"
         aria-label="Close dialog"
         onClick={onClose}
+        disabled={deployState === 'loading'}
       />
       <dialog className="dd-modal" open aria-labelledby="dd-dialog-title">
         {/* Header */}
@@ -298,9 +304,14 @@ export function DeployDialog({
               </svg>
             </div>
             <div className="dd-deploy-error-body">
-              <div className="dd-deploy-error-msg">Deployment in corso da <span className="dd-deploy-error-detail">{deployErrorData.lock_holder}</span></div>
+              <div className="dd-deploy-error-msg">
+                Deployment in corso{deployErrorData.lock_holder ? <> da <span className="dd-deploy-error-detail">{deployErrorData.lock_holder}</span></> : null}
+              </div>
               <div className="dd-deploy-error-sub">
-                Dal {new Date(deployErrorData.locked_since).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}. Riprova tra qualche istante.
+                {deployErrorData.locked_since
+                  ? <>Dal {new Date(deployErrorData.locked_since).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}. </>
+                  : null}
+                Riprova tra qualche istante.
               </div>
             </div>
           </div>
@@ -318,8 +329,8 @@ export function DeployDialog({
             </div>
             <div className="dd-deploy-error-body">
               <div className="dd-deploy-error-msg">Tag non valido per questo ambiente</div>
-              <div className="dd-deploy-error-sub">{deployErrorData.message}</div>
-              <code className="dd-deploy-error-regex">{deployErrorData.applied_regex}</code>
+              {deployErrorData.message && <div className="dd-deploy-error-sub">{deployErrorData.message}</div>}
+              {deployErrorData.applied_regex && <code className="dd-deploy-error-regex">{deployErrorData.applied_regex}</code>}
             </div>
           </div>
         )}

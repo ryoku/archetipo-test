@@ -144,15 +144,15 @@ export interface DeployResult {
 
 export interface DeployConflictError {
   type: 'conflict'
-  lock_holder: string
-  locked_since: string
+  lock_holder: string | undefined
+  locked_since: string | undefined
 }
 
 export interface DeployTagConventionError {
   type: 'tag_convention'
   rejected_tag: string
-  applied_regex: string
-  message: string
+  applied_regex: string | undefined
+  message: string | undefined
 }
 
 export type DeployError = DeployConflictError | DeployTagConventionError
@@ -160,7 +160,8 @@ export type DeployError = DeployConflictError | DeployTagConventionError
 export class DeployApiError extends Error {
   readonly detail: DeployError
   constructor(detail: DeployError) {
-    super(detail.type)
+    super(`deploy failed: ${detail.type}`)
+    this.name = 'DeployApiError'
     this.detail = detail
   }
 }
@@ -182,30 +183,32 @@ export async function deployTag(
     },
   )
   if (res.status === 202 || res.status === 200) {
-    return (await res.json()) as DeployResult
+    const body: unknown = await res.json().catch((err: unknown) => {
+      throw new Error(`deployTag: response body not valid JSON (status ${res.status}): ${String(err)}`)
+    })
+    return body as DeployResult
   }
   if (res.status === 409) {
-    const body = (await res.json().catch(() => null)) as {
-      lock_holder?: string
-      locked_since?: string
-    } | null
+    const body = (await res.json().catch((err: unknown) => {
+      console.warn('[deployTag] failed to parse 409 body:', err)
+      return null
+    })) as { lock_holder?: string; locked_since?: string } | null
     throw new DeployApiError({
       type: 'conflict',
-      lock_holder: body?.lock_holder ?? 'unknown',
-      locked_since: body?.locked_since ?? '',
+      lock_holder: body?.lock_holder,
+      locked_since: body?.locked_since,
     })
   }
   if (res.status === 422) {
-    const body = (await res.json().catch(() => null)) as {
-      rejected_tag?: string
-      applied_regex?: string
-      message?: string
-    } | null
+    const body = (await res.json().catch((err: unknown) => {
+      console.warn('[deployTag] failed to parse 422 body:', err)
+      return null
+    })) as { rejected_tag?: string; applied_regex?: string; message?: string } | null
     throw new DeployApiError({
       type: 'tag_convention',
       rejected_tag: body?.rejected_tag ?? tag,
-      applied_regex: body?.applied_regex ?? '',
-      message: body?.message ?? 'Tag non conforme alla tag convention',
+      applied_regex: body?.applied_regex,
+      message: body?.message,
     })
   }
   throw new Error(`deployTag: ${res.status}`)

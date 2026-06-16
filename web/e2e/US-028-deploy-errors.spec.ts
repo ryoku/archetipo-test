@@ -128,6 +128,23 @@ test('deploy-422: modal stays open and shows tag convention banner', async ({ pa
   await expect(page.locator('.dd-deploy-error-banner--tag-error')).toContainText('Tag non conforme alla tag convention')
 })
 
+test('deploy-5xx: modal stays open and shows generic error banner on server error', async ({ page }) => {
+  await setupPage(page, fakeEditorUser, fakeProductEditor, {
+    status: 500,
+    body: {},
+  })
+
+  await openDeployDialog(page)
+  await page.locator('.dd-btn-deploy').click()
+
+  // Dialog stays open
+  await expect(page.getByRole('dialog')).toBeVisible()
+
+  // Generic error banner visible
+  await expect(page.locator('.dd-deploy-error-banner--conflict')).toBeVisible()
+  await expect(page.locator('.dd-deploy-error-banner--conflict')).toContainText('Errore durante il deploy')
+})
+
 test('viewer-no-deploy: viewer role sees no Deploy button in the workloads table', async ({ page }) => {
   await setupPage(page, fakeViewerUser, fakeProductViewer, {
     status: 200,

@@ -460,4 +460,68 @@ describe('DeployDialog — deploy states', () => {
 
     vi.useRealTimers()
   })
+
+  it('resets deploy state when dialog closes and reopens', async () => {
+    vi.useFakeTimers()
+    mockListTags.mockResolvedValue({
+      tags: [{ name: 'v1.0.0', digest: 'd', pushed_at: '2026-06-01T10:00:00Z' }],
+      next_page_token: '',
+    })
+    mockDeployTag.mockRejectedValue(new Error('Network error'))
+
+    const { rerender } = render(<DeployDialog {...defaultProps} open={true} />)
+
+    await act(async () => { await Promise.resolve() })
+
+    fireEvent.click(screen.getByText('v1.0.0'))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Deploy/i }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // General error banner is visible
+    expect(screen.getByText(/Errore durante il deploy/i)).toBeInTheDocument()
+
+    // Close the dialog
+    rerender(<DeployDialog {...defaultProps} open={false} />)
+    // Reopen — should be back to idle state, no error banner
+    rerender(<DeployDialog {...defaultProps} open={true} />)
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(screen.queryByText(/Errore durante il deploy/i)).not.toBeInTheDocument()
+
+    vi.useRealTimers()
+  })
+
+  it('backdrop dismiss is disabled while deploy is in-flight', async () => {
+    vi.useFakeTimers()
+    mockListTags.mockResolvedValue({
+      tags: [{ name: 'v1.0.0', digest: 'd', pushed_at: '2026-06-01T10:00:00Z' }],
+      next_page_token: '',
+    })
+    mockDeployTag.mockReturnValue(new Promise(() => { /* never resolves */ }))
+
+    const onClose = vi.fn()
+    render(<DeployDialog {...defaultProps} onClose={onClose} />)
+
+    await act(async () => { await Promise.resolve() })
+
+    fireEvent.click(screen.getByText('v1.0.0'))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Deploy/i }))
+      await Promise.resolve()
+    })
+
+    // Backdrop dismiss button should be disabled during loading
+    const backdrop = document.querySelector('.dd-backdrop-dismiss') as HTMLButtonElement
+    expect(backdrop).toBeDisabled()
+
+    // Escape key should not call onClose during loading
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+
+    vi.useRealTimers()
+  })
 })

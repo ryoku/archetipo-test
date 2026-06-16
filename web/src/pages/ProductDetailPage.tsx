@@ -231,10 +231,13 @@ export default function ProductDetailPage() {
           workload={selectedWorkload}
           environmentId={selectedEnvId}
           onClose={() => setSelectedWorkload(null)}
-          onDeploySuccess={(tag, sha) => {
+          onDeploySuccess={(tag, deploymentId) => {
             if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current)
-            setDeploySuccess({ tag, sha })
-            toastTimerRef.current = setTimeout(() => setDeploySuccess(null), 6000)
+            setDeploySuccess({ tag, sha: deploymentId })
+            toastTimerRef.current = setTimeout(() => {
+              setDeploySuccess(null)
+              toastTimerRef.current = null
+            }, 6000)
           }}
         />
       )}

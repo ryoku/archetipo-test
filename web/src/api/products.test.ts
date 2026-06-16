@@ -439,6 +439,8 @@ describe('deployTag', () => {
     expect(url).toBe('/api/v1/products/my-product/environments/env-id/deployments')
     expect(init.method).toBe('POST')
     expect(init.body).toBe(JSON.stringify({ workload: 'api', tag: 'v1.0.0' }))
+    const headers = new Headers(init.headers)
+    expect(headers.get('Authorization')).toBe('Bearer tok')
   })
 
   it('throws DeployApiError with conflict detail on 409', async () => {
