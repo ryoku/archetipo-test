@@ -138,6 +138,82 @@ export interface ListTagsResponse {
   next_page_token?: string
 }
 
+export interface DeployResult {
+  deployment_id: string
+}
+
+export interface DeployConflictError {
+  type: 'conflict'
+  lock_holder: string | undefined
+  locked_since: string | undefined
+}
+
+export interface DeployTagConventionError {
+  type: 'tag_convention'
+  rejected_tag: string
+  applied_regex: string | undefined
+  message: string | undefined
+}
+
+export type DeployError = DeployConflictError | DeployTagConventionError
+
+export class DeployApiError extends Error {
+  readonly detail: DeployError
+  constructor(detail: DeployError) {
+    super(`deploy failed: ${detail.type}`)
+    this.name = 'DeployApiError'
+    this.detail = detail
+  }
+}
+
+export async function deployTag(
+  token: string,
+  productSlug: string,
+  environmentId: string,
+  workload: string,
+  tag: string,
+): Promise<DeployResult> {
+  const res = await apiFetch(
+    `/api/v1/products/${productSlug}/environments/${environmentId}/deployments`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workload, tag }),
+    },
+  )
+  if (res.status === 202 || res.status === 200) {
+    const body: unknown = await res.json().catch((err: unknown) => {
+      throw new Error(`deployTag: response body not valid JSON (status ${res.status}): ${String(err)}`)
+    })
+    return body as DeployResult
+  }
+  if (res.status === 409) {
+    const body = (await res.json().catch((err: unknown) => {
+      console.warn('[deployTag] failed to parse 409 body:', err)
+      return null
+    })) as { lock_holder?: string; locked_since?: string } | null
+    throw new DeployApiError({
+      type: 'conflict',
+      lock_holder: body?.lock_holder,
+      locked_since: body?.locked_since,
+    })
+  }
+  if (res.status === 422) {
+    const body = (await res.json().catch((err: unknown) => {
+      console.warn('[deployTag] failed to parse 422 body:', err)
+      return null
+    })) as { rejected_tag?: string; applied_regex?: string; message?: string } | null
+    throw new DeployApiError({
+      type: 'tag_convention',
+      rejected_tag: body?.rejected_tag ?? tag,
+      applied_regex: body?.applied_regex,
+      message: body?.message,
+    })
+  }
+  throw new Error(`deployTag: ${res.status}`)
+}
+
 export async function listTags(
   token: string,
   productSlug: string,

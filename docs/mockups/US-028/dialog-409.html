@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-028 · Errore 409: lock attivo</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.meta-bar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 16px; background: var(--bg-elevated);
+  border: 1px solid var(--border-faint); border-radius: var(--r-md);
+  margin-bottom: 24px; flex-wrap: wrap;
+}
+.meta-bar-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); }
+.meta-bar-item strong { color: var(--text-secondary); font-weight: 500; }
+.meta-sep { width: 1px; height: 14px; background: var(--border-subtle); flex-shrink: 0; }
+.page-nav { position: fixed; bottom: 20px; left: calc(var(--sidebar-w) + 20px); z-index: 300;
+  background: var(--bg-overlay); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 9px 14px; font-size: 11.5px;
+  color: var(--text-secondary); box-shadow: var(--shadow-md);
+  display: flex; align-items: center; gap: 10px; }
+.page-nav a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Lock holder info block inside banner */
+.lock-info {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: rgba(224,85,85,0.06);
+  border: 1px solid rgba(224,85,85,0.18);
+  border-radius: var(--r-md);
+  font-size: 12px;
+}
+.lock-avatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: linear-gradient(135deg, #e05555, #a03030);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.lock-user { font-weight: 600; color: #f08080; }
+.lock-time { color: rgba(240,128,128,.7); margin-left: auto; font-family: var(--font-mono); font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Editor · platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="page-top">
+      <div>
+        <div class="breadcrumb">
+          <a href="#" class="bc-link">Prodotti</a>
+          <span class="bc-sep">/</span>
+          <span>platform-api</span>
+        </div>
+        <div class="product-hero">
+          <div class="hero-icon">PA</div>
+          <div class="hero-info">
+            <div class="hero-name">Platform API</div>
+            <div class="hero-meta">
+              <span class="tag-chip">platform-api</span>
+              <span class="badge badge-default">Platform Team</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="tabs"><button class="tab-btn active">Panoramica</button><button class="tab-btn">Componenti</button><button class="tab-btn">Ambienti</button></div>
+      <div class="meta-bar">
+        <div class="meta-bar-item">Ultimo deploy <strong>14 min fa</strong></div>
+        <div class="meta-sep"></div>
+        <div class="meta-bar-item"><strong>3</strong> ambienti attivi</div>
+      </div>
+      <div class="detail-grid">
+        <div class="section-card">
+          <div class="section-card-head"><div class="section-title" style="margin-bottom:0;">Componenti</div></div>
+          <div class="comp-list">
+            <div class="comp-row" style="gap:10px;">
+              <div class="comp-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="10" height="10" rx="2"/><path d="M2 6h10"/><path d="M6 2v10"/></svg></div>
+              <div style="flex:1;min-width:0;"><div class="comp-name">api</div><div class="comp-path-label">…/acme/platform/api</div></div>
+              <div class="badge badge-ok">attivo</div>
+              <button class="btn-deploy"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5.5 1L9 4.5H7V9H4V4.5H2L5.5 1Z"/></svg>Deploy</button>
+            </div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-card-head"><div class="section-title" style="margin-bottom:0;">Ambienti</div></div>
+          <div class="env-list">
+            <div class="env-row env-row-intg"><div class="dot dot-ok"></div><div style="flex:1;"><div class="env-name">integration</div></div><span class="badge badge-intg">intg</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DEPLOY DIALOG — Risposta 409: lock attivo da altro utente
+════════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop">
+  <div class="modal">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-comp-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6">
+          <rect x="2" y="2" width="14" height="14" rx="3"/><path d="M2 8h14"/><path d="M8 2v14"/>
+        </svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="modal-title">Seleziona tag — api</div>
+        <div class="modal-subtitle">europe-west1-docker.pkg.dev/acme/platform/api</div>
+      </div>
+      <button class="modal-close" onclick="this.closest('.modal-backdrop').style.display='none';">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2l10 10M12 2L2 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Current tag info bar -->
+    <div class="modal-current-bar">
+      <span class="modal-current-label">Tag attuale:</span>
+      <span class="tag-chip">v1.14.1</span>
+      <span class="modal-current-label" style="margin-left:8px;">Ambiente:</span>
+      <span class="modal-current-env modal-current-env-intg">integration</span>
+    </div>
+
+    <!-- 409 Error banner -->
+    <div class="modal-banner modal-banner-danger">
+      <div class="modal-banner-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#e05555" stroke-width="1.6">
+          <rect x="2" y="4" width="12" height="9" rx="1.5"/>
+          <path d="M5 4V3a3 3 0 016 0v1"/>
+          <circle cx="8" cy="8.5" r="1" fill="#e05555"/>
+          <path d="M8 10.5v1"/>
+        </svg>
+      </div>
+      <div class="modal-banner-body">
+        <div class="modal-banner-title">Deployment in corso — ambiente bloccato</div>
+        <div class="modal-banner-sub">Un altro utente ha acquisito il lock di deployment. Riprova tra qualche istante.</div>
+
+        <!-- Lock holder info -->
+        <div class="lock-info">
+          <div class="lock-avatar">FT</div>
+          <div>
+            <span class="lock-user">Fabio Trentini</span>
+            <span style="font-size:11px;color:rgba(240,128,128,.6);"> · fabio.trentini@acme.io</span>
+          </div>
+          <div class="lock-time">dal 16 giu 16:03</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter input (still accessible, user can change selection) -->
+    <div class="modal-filter">
+      <div class="input-wrap">
+        <svg class="input-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l2.5 2.5"/>
+        </svg>
+        <input type="text" class="input has-icon" placeholder="Filtra per prefisso tag (es. v1.2)" value="v1.14">
+      </div>
+    </div>
+
+    <!-- Tag list -->
+    <div class="modal-tag-list">
+      <div class="tag-row selected">
+        <svg class="tag-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 7L5.5 10L11.5 4"/></svg>
+        <span class="tag-name">v1.14.2-rc.1</span>
+        <span class="tag-date">09 giu 2026</span>
+      </div>
+      <div class="tag-row">
+        <svg class="tag-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 7L5.5 10L11.5 4"/></svg>
+        <span class="tag-name">v1.14.1</span>
+        <span class="tag-date">07 giu 2026</span>
+      </div>
+      <div class="tag-row">
+        <svg class="tag-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 7L5.5 10L11.5 4"/></svg>
+        <span class="tag-name">v1.14.1-rc.2</span>
+        <span class="tag-date">06 giu 2026</span>
+      </div>
+    </div>
+
+    <!-- Footer — deploy disabled while locked -->
+    <div class="modal-footer">
+      <div class="selected-indicator">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="6.5" cy="6.5" r="5"/><path d="M4.5 6.5l1.5 1.5 3-3"/>
+        </svg>
+        Selezionato:
+        <span class="tag-chip">v1.14.2-rc.1</span>
+      </div>
+      <button class="btn-deploy-action" disabled style="background:rgba(224,85,85,.12);color:#f08080;border:1px solid rgba(224,85,85,.28);cursor:not-allowed;">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="5.5" width="7" height="5.5" rx="1"/>
+          <path d="M4.5 5.5V4a2 2 0 014 0v1.5"/>
+        </svg>
+        Bloccato
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<div class="page-nav">
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="5.5"/><path d="M6.5 5.5v4M6.5 4h.01"/></svg>
+  Schermo 4/6 — 409 Conflict: lock attivo con titolare e orario
+  &nbsp;|&nbsp;
+  <a href="dialog-success.html">← Precedente</a>
+  &nbsp;|&nbsp;
+  <a href="dialog-422.html">Prossimo →</a>
+</div>
+</body>
+</html>

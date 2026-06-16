@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-028 · Pagina componente — Ruolo Viewer</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.meta-bar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 16px; background: var(--bg-elevated);
+  border: 1px solid var(--border-faint); border-radius: var(--r-md);
+  margin-bottom: 24px; flex-wrap: wrap;
+}
+.meta-bar-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); }
+.meta-bar-item strong { color: var(--text-secondary); font-weight: 500; }
+.meta-sep { width: 1px; height: 14px; background: var(--border-subtle); flex-shrink: 0; }
+.page-nav { position: fixed; bottom: 20px; left: calc(var(--sidebar-w) + 20px); z-index: 300;
+  background: var(--bg-overlay); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 9px 14px; font-size: 11.5px;
+  color: var(--text-secondary); box-shadow: var(--shadow-md);
+  display: flex; align-items: center; gap: 10px; }
+.page-nav a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Viewer notice banner */
+.viewer-notice {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px;
+  background: rgba(55, 78, 100, 0.18);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.viewer-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 600; white-space: nowrap;
+  background: rgba(123,156,232,.1);
+  border: 1px solid rgba(123,156,232,.25);
+  color: var(--env-intg);
+  font-family: var(--font-mono);
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR — Viewer user -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#7b6cf0,#c060f0);">LP</div>
+        <div>
+          <div class="user-name">Lucia Parisi</div>
+          <div class="user-role">Viewer · platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="page-top">
+      <div>
+        <div class="breadcrumb">
+          <a href="#" class="bc-link">Prodotti</a>
+          <span class="bc-sep">/</span>
+          <span>platform-api</span>
+        </div>
+        <div class="product-hero">
+          <div class="hero-icon">PA</div>
+          <div class="hero-info">
+            <div class="hero-name">Platform API</div>
+            <div class="hero-meta">
+              <span class="tag-chip">platform-api</span>
+              <span class="badge badge-default">Platform Team</span>
+              <!-- Viewer role badge -->
+              <span class="badge" style="background:rgba(123,156,232,.08);border-color:rgba(123,156,232,.22);color:var(--env-intg);">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="5" cy="5" r="3.5"/>
+                  <path d="M1 5s1.5-2.5 4-2.5S9 5 9 5s-1.5 2.5-4 2.5S1 5 1 5"/>
+                </svg>
+                Viewer
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- NOTE: No action buttons in header for Viewer -->
+    </div>
+
+    <div class="page-body">
+      <div class="tabs">
+        <button class="tab-btn active">Panoramica</button>
+        <button class="tab-btn">Componenti</button>
+        <button class="tab-btn">Ambienti</button>
+      </div>
+
+      <div class="meta-bar">
+        <div class="meta-bar-item">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><path d="M6 3v3l2 1.5"/></svg>
+          Ultimo deploy <strong>14 min fa</strong>
+        </div>
+        <div class="meta-sep"></div>
+        <div class="meta-bar-item"><strong>3</strong> ambienti attivi</div>
+        <div class="meta-sep"></div>
+        <div class="meta-bar-item">Ruolo: <strong>Viewer</strong></div>
+      </div>
+
+      <!-- Viewer notice -->
+      <div class="viewer-notice">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;">
+          <circle cx="7" cy="7" r="5.5"/>
+          <path d="M3.5 7s1.2-2 3.5-2 3.5 2 3.5 2-1.2 2-3.5 2-3.5-2-3.5-2"/>
+          <circle cx="7" cy="7" r="1.2" fill="currentColor"/>
+        </svg>
+        <span>Stai visualizzando il prodotto con il ruolo</span>
+        <span class="viewer-badge">VIEWER</span>
+        <span>— i controlli di deployment non sono disponibili.</span>
+      </div>
+
+      <div class="detail-grid">
+        <div class="section-card">
+          <div class="section-card-head">
+            <div class="section-title" style="margin-bottom:0;">Componenti</div>
+            <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">3 componenti</span>
+          </div>
+          <div class="comp-list">
+
+            <!-- NO Deploy button for Viewer — note the missing action -->
+            <div class="comp-row" style="gap:10px;">
+              <div class="comp-icon">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="10" height="10" rx="2"/><path d="M2 6h10"/><path d="M6 2v10"/></svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div class="comp-name">api</div>
+                <div class="comp-path-label">europe-west1-docker.pkg.dev/acme/platform/api</div>
+              </div>
+              <div class="badge badge-ok">attivo</div>
+              <!-- No Deploy button here -->
+            </div>
+
+            <div class="comp-row" style="gap:10px;">
+              <div class="comp-icon">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5"/><path d="M7 4v4l2.5 1.5"/></svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div class="comp-name">worker</div>
+                <div class="comp-path-label">europe-west1-docker.pkg.dev/acme/platform/worker</div>
+              </div>
+              <div class="badge badge-ok">attivo</div>
+              <!-- No Deploy button -->
+            </div>
+
+            <div class="comp-row" style="gap:10px;">
+              <div class="comp-icon">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="10" height="7" rx="1.5"/><path d="M5 4V3a2 2 0 014 0v1"/></svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div class="comp-name">frontend</div>
+                <div class="comp-path-label">europe-west1-docker.pkg.dev/acme/platform/frontend</div>
+              </div>
+              <div class="badge badge-ok">attivo</div>
+              <!-- No Deploy button -->
+            </div>
+
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-card-head">
+            <div class="section-title" style="margin-bottom:0;">Ambienti</div>
+          </div>
+          <div class="env-list">
+            <div class="env-row env-row-prod">
+              <div class="dot dot-ok"></div>
+              <div style="flex:1;"><div class="env-name">production</div><div class="env-slug">apps/prod/platform-api/helmrelease.yaml</div></div>
+              <span class="badge badge-prod">prod</span>
+            </div>
+            <div class="env-row env-row-intg">
+              <div class="dot dot-ok"></div>
+              <div style="flex:1;"><div class="env-name">integration</div><div class="env-slug">apps/integration/platform-api/helmrelease.yaml</div></div>
+              <span class="badge badge-intg">intg</span>
+            </div>
+            <div class="env-row env-row-dev">
+              <div class="dot dot-ok"></div>
+              <div style="flex:1;"><div class="env-name">development</div><div class="env-slug">apps/dev/platform-api/helmrelease.yaml</div></div>
+              <span class="badge badge-dev">dev</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-nav">
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="5.5"/><path d="M6.5 5.5v4M6.5 4h.01"/></svg>
+  Schermo 6/6 — Ruolo Viewer: nessun controllo di deployment
+  &nbsp;|&nbsp;
+  <a href="dialog-422.html">← Precedente</a>
+  &nbsp;|&nbsp;
+  <a href="index.html">↑ Indice</a>
+</div>
+</body>
+</html>

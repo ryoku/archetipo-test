@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-028 · Errore 422: tag rifiutato</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.meta-bar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 16px; background: var(--bg-elevated);
+  border: 1px solid var(--border-faint); border-radius: var(--r-md);
+  margin-bottom: 24px; flex-wrap: wrap;
+}
+.meta-bar-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); }
+.meta-bar-item strong { color: var(--text-secondary); font-weight: 500; }
+.meta-sep { width: 1px; height: 14px; background: var(--border-subtle); flex-shrink: 0; }
+.page-nav { position: fixed; bottom: 20px; left: calc(var(--sidebar-w) + 20px); z-index: 300;
+  background: var(--bg-overlay); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 9px 14px; font-size: 11.5px;
+  color: var(--text-secondary); box-shadow: var(--shadow-md);
+  display: flex; align-items: center; gap: 10px; }
+.page-nav a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Regex code block inside the banner */
+.regex-block {
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: rgba(7, 10, 18, 0.45);
+  border: 1px solid rgba(68,136,221,0.2);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #9fc5f8;
+  display: flex; align-items: flex-start; gap: 8px;
+  word-break: break-all;
+}
+.regex-label {
+  font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: rgba(154,197,248,.55);
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding-top: 1px;
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Editor · platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="page-top">
+      <div>
+        <div class="breadcrumb">
+          <a href="#" class="bc-link">Prodotti</a>
+          <span class="bc-sep">/</span>
+          <span>platform-api</span>
+        </div>
+        <div class="product-hero">
+          <div class="hero-icon">PA</div>
+          <div class="hero-info">
+            <div class="hero-name">Platform API</div>
+            <div class="hero-meta">
+              <span class="tag-chip">platform-api</span>
+              <span class="badge badge-default">Platform Team</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="tabs"><button class="tab-btn active">Panoramica</button><button class="tab-btn">Componenti</button><button class="tab-btn">Ambienti</button></div>
+      <div class="meta-bar">
+        <div class="meta-bar-item">Ultimo deploy <strong>14 min fa</strong></div>
+        <div class="meta-sep"></div>
+        <div class="meta-bar-item"><strong>3</strong> ambienti attivi</div>
+      </div>
+      <div class="detail-grid">
+        <div class="section-card">
+          <div class="section-card-head"><div class="section-title" style="margin-bottom:0;">Componenti</div></div>
+          <div class="comp-list">
+            <div class="comp-row" style="gap:10px;">
+              <div class="comp-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="10" height="10" rx="2"/><path d="M2 6h10"/><path d="M6 2v10"/></svg></div>
+              <div style="flex:1;min-width:0;"><div class="comp-name">api</div><div class="comp-path-label">…/acme/platform/api</div></div>
+              <div class="badge badge-ok">attivo</div>
+              <button class="btn-deploy"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5.5 1L9 4.5H7V9H4V4.5H2L5.5 1Z"/></svg>Deploy</button>
+            </div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-card-head"><div class="section-title" style="margin-bottom:0;">Ambienti</div></div>
+          <div class="env-list">
+            <div class="env-row env-row-prod"><div class="dot dot-ok"></div><div style="flex:1;"><div class="env-name">production</div></div><span class="badge badge-prod">prod</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DEPLOY DIALOG — Risposta 422: tag rifiutato dalla regex
+     Scenario: l'utente ha selezionato un tag rc per production
+════════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop">
+  <div class="modal">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-comp-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6">
+          <rect x="2" y="2" width="14" height="14" rx="3"/><path d="M2 8h14"/><path d="M8 2v14"/>
+        </svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="modal-title">Seleziona tag — api</div>
+        <div class="modal-subtitle">europe-west1-docker.pkg.dev/acme/platform/api</div>
+      </div>
+      <button class="modal-close" onclick="this.closest('.modal-backdrop').style.display='none';">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2l10 10M12 2L2 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Current tag info bar — production environment -->
+    <div class="modal-current-bar">
+      <span class="modal-current-label">Tag attuale:</span>
+      <span class="tag-chip">v1.14.1</span>
+      <span class="modal-current-label" style="margin-left:8px;">Ambiente:</span>
+      <span class="modal-current-env modal-current-env-prod">production</span>
+    </div>
+
+    <!-- 422 Error banner -->
+    <div class="modal-banner modal-banner-info">
+      <div class="modal-banner-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#7ab0f5" stroke-width="1.6">
+          <circle cx="8" cy="8" r="6.5"/>
+          <path d="M8 5v4.5"/>
+          <circle cx="8" cy="11.5" r=".6" fill="#7ab0f5"/>
+        </svg>
+      </div>
+      <div class="modal-banner-body">
+        <div class="modal-banner-title">Tag non conforme alla tag convention</div>
+        <div class="modal-banner-sub">
+          Il tag <span style="font-family:var(--font-mono);font-size:11px;color:#9fc5f8;">main-20260508-a3f21c</span> non rispetta
+          il pattern richiesto per l'ambiente <strong>production</strong>.
+          I tag di produzione devono seguire la convezione di versioning semantico.
+        </div>
+        <div class="regex-block">
+          <span class="regex-label">Regex</span>
+          <span>^v\d+\.\d+\.\d+$</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter input -->
+    <div class="modal-filter">
+      <div class="input-wrap">
+        <svg class="input-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l2.5 2.5"/>
+        </svg>
+        <input type="text" class="input has-icon" placeholder="Filtra per prefisso tag (es. v1.2)" value="main-">
+      </div>
+    </div>
+
+    <!-- Tag list — non-conformant tag selected, highlighted with warning border -->
+    <div class="modal-tag-list">
+
+      <div class="tag-row selected" style="border-left-color: rgba(68,136,221,0.6); background: rgba(68,136,221,0.05);">
+        <svg class="tag-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7ab0f5" stroke-width="2" style="opacity:1;"><path d="M2.5 7L5.5 10L11.5 4"/></svg>
+        <span class="tag-name" style="color:#7ab0f5;">main-20260508-a3f21c</span>
+        <span class="tag-date">08 mag 2026</span>
+      </div>
+
+      <div class="tag-row">
+        <svg class="tag-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 7L5.5 10L11.5 4"/></svg>
+        <span class="tag-name">main-20260501-b99d12</span>
+        <span class="tag-date">01 mag 2026</span>
+      </div>
+
+    </div>
+
+    <!-- Footer — deploy disabled, suggest valid tag -->
+    <div class="modal-footer">
+      <div class="selected-indicator">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#7ab0f5" stroke-width="1.5">
+          <circle cx="6.5" cy="6.5" r="5"/><path d="M4.5 6.5l1.5 1.5 3-3"/>
+        </svg>
+        <span style="color:#7ab0f5;">Selezionato:</span>
+        <span class="tag-chip" style="border-color:rgba(68,136,221,.35);color:#9fc5f8;">main-20260508-a3f21c</span>
+      </div>
+      <button class="btn-deploy-action" disabled style="background:rgba(68,136,221,.1);color:#7ab0f5;border:1px solid rgba(68,136,221,.3);cursor:not-allowed;gap:7px;">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="6.5" cy="6.5" r="5.5"/>
+          <path d="M6.5 4v3.5M6.5 9h.01"/>
+        </svg>
+        Tag non valido
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<div class="page-nav">
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="5.5"/><path d="M6.5 5.5v4M6.5 4h.01"/></svg>
+  Schermo 5/6 — 422 Unprocessable: tag rifiutato con regex
+  &nbsp;|&nbsp;
+  <a href="dialog-409.html">← Precedente</a>
+  &nbsp;|&nbsp;
+  <a href="page-viewer.html">Prossimo →</a>
+</div>
+</body>
+</html>

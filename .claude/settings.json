@@ -24,7 +24,8 @@
       "Bash(pnpm playwright *)",
       "Bash(pnpm build *)",
       "Bash(go vet *)",
-      "mcp__sonarqube__search_security_hotspots"
+      "mcp__sonarqube__search_security_hotspots",
+      "Bash(make web:lint)"
     ]
   },
   "hooks": {

@@ -10,6 +10,8 @@ import {
   setTagConvention,
   clearTagConvention,
   listTags,
+  deployTag,
+  DeployApiError,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -408,5 +410,99 @@ describe('listTags', () => {
     vi.stubGlobal('fetch', makeFetchStub(502))
 
     await expect(listTags('token', 'my-product', 'env-id', 'wl-name')).rejects.toThrow('listTags: 502')
+  })
+})
+
+// ─── deployTag ─────────────────────────────────────────────────
+describe('deployTag', () => {
+  it('returns deployment_id on 202', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(202, { deployment_id: 'dep-123' }))
+
+    const result = await deployTag('tok', 'my-product', 'env-id', 'api', 'v1.0.0')
+    expect(result).toEqual({ deployment_id: 'dep-123' })
+  })
+
+  it('also accepts 200 for backwards compatibility', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(200, { deployment_id: 'dep-456' }))
+
+    const result = await deployTag('tok', 'my-product', 'env-id', 'api', 'v1.0.0')
+    expect(result).toEqual({ deployment_id: 'dep-456' })
+  })
+
+  it('sends POST to correct URL with workload and tag in body', async () => {
+    const fetchStub = makeFetchStub(202, { deployment_id: 'dep-789' })
+    vi.stubGlobal('fetch', fetchStub)
+
+    await deployTag('tok', 'my-product', 'env-id', 'api', 'v1.0.0')
+
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/my-product/environments/env-id/deployments')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({ workload: 'api', tag: 'v1.0.0' }))
+    const headers = new Headers(init.headers)
+    expect(headers.get('Authorization')).toBe('Bearer tok')
+  })
+
+  it('throws DeployApiError with conflict detail on 409', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(409, { lock_holder: 'alice', locked_since: '2026-06-16T10:00:00Z' }))
+
+    let caught: unknown
+    try {
+      await deployTag('tok', 'my-product', 'env-id', 'api', 'v1.0.0')
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(DeployApiError)
+    expect((caught as DeployApiError).detail.type).toBe('conflict')
+  })
+
+  it('includes lock_holder and locked_since in conflict error', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(409, { lock_holder: 'alice', locked_since: '2026-06-16T10:00:00Z' }))
+
+    let caught: unknown
+    try {
+      await deployTag('tok', 'my-product', 'env-id', 'api', 'v1.0.0')
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(DeployApiError)
+    const detail = (caught as DeployApiError).detail as import('./products').DeployConflictError
+    expect(detail.lock_holder).toBe('alice')
+    expect(detail.locked_since).toBe('2026-06-16T10:00:00Z')
+  })
+
+  it('throws DeployApiError with tag_convention detail on 422', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(422, { rejected_tag: 'latest', applied_regex: String.raw`^v\d+`, message: 'Tag non conforme' }))
+
+    let caught: unknown
+    try {
+      await deployTag('tok', 'my-product', 'env-id', 'api', 'latest')
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(DeployApiError)
+    expect((caught as DeployApiError).detail.type).toBe('tag_convention')
+  })
+
+  it('includes rejected_tag, applied_regex, message in tag_convention error', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(422, { rejected_tag: 'latest', applied_regex: String.raw`^v\d+`, message: 'Tag non conforme' }))
+
+    let caught: unknown
+    try {
+      await deployTag('tok', 'my-product', 'env-id', 'api', 'latest')
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(DeployApiError)
+    const detail = (caught as DeployApiError).detail as import('./products').DeployTagConventionError
+    expect(detail.rejected_tag).toBe('latest')
+    expect(detail.applied_regex).toBe(String.raw`^v\d+`)
+    expect(detail.message).toBe('Tag non conforme')
+  })
+
+  it('throws generic error on 500', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(500))
+
+    await expect(deployTag('tok', 'my-product', 'env-id', 'api', 'v1.0.0')).rejects.toThrow('deployTag: 500')
   })
 })
