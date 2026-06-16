@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-035 · All Products (Admin Dashboard)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+/* ─── DESIGN TOKENS ──────────────────────────────────────────── */
+:root {
+  --bg-base:       #070a12;
+  --bg-surface:    #0b0f1c;
+  --bg-elevated:   #101626;
+  --bg-overlay:    #151d30;
+  --bg-hover:      #1a2438;
+  --bg-input:      #0e1422;
+
+  --border-faint:  #111928;
+  --border-subtle: #16233a;
+  --border-default:#1d2f4a;
+  --border-strong: #263d5e;
+  --border-accent: rgba(0, 195, 170, 0.35);
+
+  --text-primary:  #dde6f2;
+  --text-secondary:#6b859e;
+  --text-muted:    #374e64;
+  --text-code:     #90d0c8;
+
+  --accent:        #00c3aa;
+  --accent-hover:  #00ddc0;
+  --accent-glow:   rgba(0, 195, 170, 0.18);
+  --accent-dim:    rgba(0, 195, 170, 0.08);
+
+  --ok:            #00c97a;
+  --warn:          #f0a030;
+  --danger:        #e05555;
+  --info:          #4488dd;
+
+  --env-prod:      #f07840;
+  --env-prod-brd:  rgba(240,120,64,.35);
+  --env-intg:      #8860f0;
+  --env-intg-brd:  rgba(136,96,240,.3);
+  --env-dev:       #4488dd;
+  --env-dev-brd:   rgba(68,136,221,.3);
+
+  --font-ui:       'Space Grotesk', system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', 'Courier New', monospace;
+
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+
+  --shadow-sm:    0 1px 4px rgba(0,0,0,.5);
+  --shadow-md:    0 4px 20px rgba(0,0,0,.6);
+  --shadow-lg:    0 8px 48px rgba(0,0,0,.7);
+
+  --sidebar-w: 220px;
+  --t: 140ms ease;
+}
+
+/* ─── RESET ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+input, select { font-family: inherit; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ─── APP SHELL ──────────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ─── SIDEBAR ────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.logo-mark {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent) 0%, #0080f0 100%);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-name { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; }
+.logo-version { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+.sidebar-nav { padding: 10px 8px; flex: 1; }
+.nav-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 8px 4px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--t);
+  cursor: pointer;
+  position: relative;
+}
+.nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.nav-item.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 1px 6px;
+  color: var(--text-muted);
+}
+.sidebar-footer {
+  padding: 12px 10px;
+  border-top: 1px solid var(--border-faint);
+}
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  color: var(--bg-base);
+  flex-shrink: 0;
+  letter-spacing: -0.5px;
+}
+.user-name { font-size: 12px; font-weight: 600; }
+.user-role {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 3px;
+}
+
+/* ─── MAIN AREA ──────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── PAGE TOP ───────────────────────────────────────────────── */
+.page-top {
+  padding: 28px 32px 0;
+}
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  margin-bottom: 3px;
+}
+.spec-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  background: var(--accent-dim);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--r-sm);
+  color: var(--accent);
+  margin-left: 10px;
+  vertical-align: middle;
+  position: relative;
+  top: -2px;
+}
+.page-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ─── PAGE BODY ──────────────────────────────────────────────── */
+.page-body {
+  padding: 24px 32px 40px;
+  flex: 1;
+}
+
+/* ─── STATS BAR ──────────────────────────────────────────────── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--t);
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background var(--t);
+}
+.stat-card.accent-left::before  { background: var(--accent); }
+.stat-card.ok-left::before      { background: var(--ok); }
+.stat-card.info-left::before    { background: var(--info); }
+.stat-card.prod-left::before    { background: var(--env-prod); }
+
+.stat-card.accent-left  { border-color: var(--border-accent); }
+.stat-card.ok-left      { border-color: rgba(0,201,122,.3); }
+.stat-card.info-left    { border-color: rgba(68,136,221,.3); }
+.stat-card.prod-left    { border-color: var(--env-prod-brd); }
+
+.stat-val {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin-bottom: 3px;
+}
+.stat-card.accent-left .stat-val { color: var(--accent); }
+.stat-card.ok-left     .stat-val { color: var(--ok); }
+.stat-card.info-left   .stat-val { color: var(--info); }
+.stat-card.prod-left   .stat-val { color: var(--env-prod); }
+
+.stat-key {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ─── TABLE SECTION ──────────────────────────────────────────── */
+.table-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.table-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.table-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.table-count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 1px 7px;
+}
+.table-search-wrap {
+  flex: 1;
+  max-width: 260px;
+  margin-left: auto;
+  position: relative;
+}
+.table-search-icon {
+  position: absolute;
+  left: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.table-search-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 6px 10px 6px 30px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--t);
+}
+.table-search-input::placeholder { color: var(--text-muted); }
+.table-search-input:focus { border-color: var(--border-accent); }
+
+/* Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table thead tr {
+  border-bottom: 1px solid var(--border-faint);
+}
+.data-table th {
+  padding: 9px 18px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: left;
+  white-space: nowrap;
+  user-select: none;
+}
+.data-table th.sortable {
+  cursor: pointer;
+  transition: color var(--t);
+}
+.data-table th.sortable:hover { color: var(--text-secondary); }
+.data-table th.sort-active { color: var(--accent); }
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sort-arrow {
+  display: inline-flex;
+  opacity: 0.4;
+  transition: opacity var(--t), transform var(--t);
+}
+.data-table th.sort-active .sort-arrow { opacity: 1; }
+.data-table th.sort-active.sort-desc .sort-arrow { transform: rotate(180deg); }
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border-faint);
+  transition: background var(--t);
+  cursor: pointer;
+}
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--bg-elevated); }
+
+.data-table td {
+  padding: 13px 18px;
+  vertical-align: middle;
+}
+
+/* Product name cell */
+.product-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.p-icon {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--bg-base);
+  flex-shrink: 0;
+}
+.p-icon-a { background: linear-gradient(135deg, #00c3aa, #0077cc); }
+.p-icon-b { background: linear-gradient(135deg, #7b6cf0, #c060f0); }
+.p-icon-c { background: linear-gradient(135deg, #f09030, #e04060); }
+.p-icon-d { background: linear-gradient(135deg, #40c060, #0080a0); }
+
+.p-name-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.p-slug-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Env count cell */
+.env-count-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.env-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.env-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.env-dot-prod { background: var(--env-prod); }
+.env-dot-intg { background: var(--env-intg); }
+.env-dot-dev  { background: var(--env-dev); }
+.env-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Last deployment cell */
+.deploy-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.deploy-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.deploy-dot-ok   { background: var(--ok); box-shadow: 0 0 5px rgba(0,201,122,.5); }
+.deploy-dot-warn { background: var(--warn); box-shadow: 0 0 5px rgba(240,160,48,.4); }
+.deploy-dot-muted { background: var(--text-muted); }
+
+.deploy-date { font-size: 12.5px; color: var(--text-secondary); }
+.deploy-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-code);
+  background: rgba(144,208,200,.08);
+  border: 1px solid rgba(144,208,200,.15);
+  border-radius: var(--r-sm);
+  padding: 1px 6px;
+}
+.never-text { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+
+/* Manage button */
+.btn-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: all var(--t);
+  white-space: nowrap;
+}
+.btn-manage:hover {
+  border-color: var(--border-accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* ─── SKELETON SHIMMER ───────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+.skeleton {
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg,
+    var(--bg-elevated) 25%,
+    var(--bg-overlay) 50%,
+    var(--bg-elevated) 75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite;
+}
+.skel-row td { padding: 13px 18px; }
+.skel-name { height: 12px; width: 140px; margin-bottom: 5px; }
+.skel-slug { height: 9px; width: 90px; }
+.skel-num  { height: 12px; width: 40px; }
+.skel-date { height: 12px; width: 110px; }
+
+/* ─── EMPTY STATE ────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 64px 24px;
+  text-align: center;
+}
+.empty-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--r-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.empty-title { font-size: 14px; font-weight: 500; }
+.empty-sub   { font-size: 12px; color: var(--text-muted); }
+
+/* ─── ACCESS DENIED OVERLAY ──────────────────────────────────── */
+.access-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7,10,18,.88);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.access-card {
+  background: var(--bg-surface);
+  border: 1px solid rgba(224,85,85,.35);
+  border-radius: var(--r-xl);
+  padding: 36px 40px;
+  max-width: 380px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0,0,0,.8);
+}
+.access-icon-wrap {
+  width: 48px; height: 48px;
+  border-radius: var(--r-lg);
+  background: rgba(224,85,85,.1);
+  border: 1px solid rgba(224,85,85,.3);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--danger);
+}
+.access-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+}
+.access-sub {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+.btn-redirect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--t);
+}
+.btn-redirect:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* ─── DEMO SWITCHER ──────────────────────────────────────────── */
+.demo-switcher {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 300;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+.demo-switcher-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 0 2px 2px;
+}
+.demo-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.demo-pill {
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--t);
+}
+.demo-pill:hover { color: var(--text-secondary); border-color: var(--border-strong); }
+.demo-pill.active {
+  background: var(--accent-dim);
+  border-color: var(--border-accent);
+  color: var(--accent);
+}
+.demo-pill.state-empty.active {
+  background: rgba(68,136,221,.08);
+  border-color: rgba(68,136,221,.3);
+  color: var(--info);
+}
+.demo-pill.state-loading.active {
+  background: rgba(240,160,48,.08);
+  border-color: rgba(240,160,48,.3);
+  color: var(--warn);
+}
+.demo-pill.state-viewer.active {
+  background: rgba(224,85,85,.08);
+  border-color: rgba(224,85,85,.3);
+  color: var(--danger);
+}
+
+/* ─── SKELETON STAT CARDS ────────────────────────────────────── */
+.stat-skel .stat-val-skel {
+  height: 28px; width: 52px;
+  margin-bottom: 8px;
+}
+.stat-skel .stat-key-skel {
+  height: 10px; width: 100px;
+}
+
+/* ─── UTILS ──────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+.text-muted { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+.text-mono { font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     APP SHELL
+════════════════════════════════════════════════════════════ -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/>
+          <path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin Dashboard
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="2"/>
+          <path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.5 3.5l.7.7M11.8 11.8l.7.7M3.5 12.5l.7-.7M11.8 4.2l.7-.7"/>
+        </svg>
+        Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#f09030,#e04060);">SB</div>
+        <div>
+          <div class="user-name">Sara Bianchi</div>
+          <div class="user-role">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <path d="M4 .5L7 2v3C7 6.5 5.5 7.5 4 8 2.5 7.5 1 6.5 1 5V2L4 .5Z" fill="#f0c042"/>
+            </svg>
+            DevOps Admin
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- Page top -->
+    <div class="page-top">
+      <div>
+        <div class="page-title">
+          All Products — Admin
+          <span class="spec-tag">US-035</span>
+        </div>
+        <div class="page-desc">
+          Platform-wide product inventory. All products registered across every team, with environment coverage and latest deployment status.
+        </div>
+      </div>
+    </div>
+
+    <!-- Page body -->
+    <div class="page-body">
+
+      <!-- ── STATS BAR ──────────────────────────────────────────── -->
+      <div class="stats-bar" id="statsBar">
+        <!-- Loaded state -->
+        <div class="stat-card accent-left" id="statProducts">
+          <div class="stat-val">4</div>
+          <div class="stat-key">Total products</div>
+        </div>
+        <div class="stat-card info-left" id="statEnvs">
+          <div class="stat-val">11</div>
+          <div class="stat-key">Total environments</div>
+        </div>
+        <div class="stat-card ok-left" id="statWithDeploy">
+          <div class="stat-val">3</div>
+          <div class="stat-key">With deployments</div>
+        </div>
+        <div class="stat-card prod-left" id="statProdEnvs">
+          <div class="stat-val">3</div>
+          <div class="stat-key">Production envs</div>
+        </div>
+      </div>
+
+      <!-- ── TABLE SECTION ──────────────────────────────────────── -->
+      <div class="table-section">
+        <div class="table-header">
+          <span class="table-header-title">Products</span>
+          <span class="table-count" id="tableCount">4 products</span>
+          <div class="table-search-wrap">
+            <svg class="table-search-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l2.5 2.5"/>
+            </svg>
+            <input type="text" class="table-search-input" placeholder="Search products…"
+                   oninput="filterTable(this.value)" id="searchInput">
+          </div>
+        </div>
+
+        <!-- ── LOADED STATE ──────────────────────────────────────── -->
+        <div id="tableLoaded">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="sortable sort-active" id="th-name" onclick="sortBy('name')" style="width:38%;">
+                  <span class="sort-indicator">
+                    Name
+                    <span class="sort-arrow">
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M4 1v6M1.5 4.5L4 7l2.5-2.5"/>
+                      </svg>
+                    </span>
+                  </span>
+                </th>
+                <th class="sortable" id="th-envs" onclick="sortBy('envs')" style="width:20%;">
+                  <span class="sort-indicator">
+                    Environments
+                    <span class="sort-arrow">
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M4 1v6M1.5 4.5L4 7l2.5-2.5"/>
+                      </svg>
+                    </span>
+                  </span>
+                </th>
+                <th class="sortable" id="th-deploy" onclick="sortBy('deploy')" style="width:32%;">
+                  <span class="sort-indicator">
+                    Last Deployment
+                    <span class="sort-arrow">
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M4 1v6M1.5 4.5L4 7l2.5-2.5"/>
+                      </svg>
+                    </span>
+                  </span>
+                </th>
+                <th style="width:10%;"></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <!-- rows rendered by JS -->
+            </tbody>
+          </table>
+          <!-- Empty search result -->
+          <div class="empty-state hidden" id="emptySearch">
+            <div class="empty-icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4">
+                <circle cx="8.5" cy="8.5" r="6.5"/><path d="M14 14l4 4"/>
+              </svg>
+            </div>
+            <div class="empty-title">No products match</div>
+            <div class="empty-sub">Try a different search term</div>
+          </div>
+        </div>
+
+        <!-- ── LOADING STATE (skeleton) ─────────────────────────── -->
+        <div id="tableLoading" class="hidden">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:38%;">Name</th>
+                <th style="width:20%;">Environments</th>
+                <th style="width:32%;">Last Deployment</th>
+                <th style="width:10%;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="skel-row">
+                <td><div class="skeleton skel-name"></div><div class="skeleton skel-slug" style="margin-top:5px;"></div></td>
+                <td><div class="skeleton skel-num"></div></td>
+                <td><div class="skeleton skel-date"></div></td>
+                <td></td>
+              </tr>
+              <tr class="skel-row">
+                <td><div class="skeleton skel-name" style="width:120px;"></div><div class="skeleton skel-slug" style="margin-top:5px;width:75px;"></div></td>
+                <td><div class="skeleton skel-num" style="width:32px;"></div></td>
+                <td><div class="skeleton skel-date" style="width:90px;"></div></td>
+                <td></td>
+              </tr>
+              <tr class="skel-row">
+                <td><div class="skeleton skel-name" style="width:160px;"></div><div class="skeleton skel-slug" style="margin-top:5px;width:110px;"></div></td>
+                <td><div class="skeleton skel-num" style="width:28px;"></div></td>
+                <td><div class="skeleton skel-date" style="width:100px;"></div></td>
+                <td></td>
+              </tr>
+              <tr class="skel-row">
+                <td><div class="skeleton skel-name" style="width:108px;"></div><div class="skeleton skel-slug" style="margin-top:5px;width:80px;"></div></td>
+                <td><div class="skeleton skel-num" style="width:36px;"></div></td>
+                <td><div class="skeleton skel-date" style="width:78px;"></div></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ── EMPTY STATE (no products) ────────────────────────── -->
+        <div id="tableEmpty" class="hidden">
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="12" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="12" width="7" height="7" rx="1.5"/>
+                <rect x="12" y="12" width="7" height="7" rx="1.5"/>
+              </svg>
+            </div>
+            <div class="empty-title">No products registered</div>
+            <div class="empty-sub">Create the first product to get started</div>
+          </div>
+        </div>
+
+      </div><!-- /table-section -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ════════════════════════════════════════════════════════════
+     ACCESS DENIED OVERLAY (Viewer state)
+════════════════════════════════════════════════════════════ -->
+<div class="access-overlay hidden" id="accessOverlay">
+  <div class="access-card">
+    <div class="access-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="5" y="10" width="12" height="10" rx="2"/>
+        <path d="M8 10V7a3 3 0 016 0v3"/>
+        <path d="M11 14v2"/>
+      </svg>
+    </div>
+    <div class="access-title">Access Restricted</div>
+    <div class="access-sub">
+      The Admin Dashboard is only accessible to users with the <strong>DevOps Admin</strong> role.
+      You will be redirected to your product list.
+    </div>
+    <button class="btn-redirect" onclick="dismissOverlay()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M2 6.5h9M8 3.5l3 3-3 3"/>
+      </svg>
+      Go to Products
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     DEMO SWITCHER
+════════════════════════════════════════════════════════════ -->
+<div class="demo-switcher">
+  <div class="demo-switcher-label">Demo state</div>
+  <div class="demo-pills">
+    <button class="demo-pill active"         id="pill-loaded"  onclick="setState('loaded')">Loaded</button>
+    <button class="demo-pill state-empty"    id="pill-empty"   onclick="setState('empty')">Empty</button>
+    <button class="demo-pill state-loading"  id="pill-loading" onclick="setState('loading')">Loading</button>
+    <button class="demo-pill state-viewer"   id="pill-viewer"  onclick="setState('viewer')">Viewer</button>
+  </div>
+</div>
+
+<script>
+/* ─── DATA ───────────────────────────────────────────────────── */
+const PRODUCTS = [
+  {
+    id: 'platform-api',
+    name: 'Platform API',
+    slug: 'platform-api',
+    icon: 'a',
+    initials: 'PA',
+    envs: 3,
+    hasProd: true,
+    lastDeployDate: '14 Jun 2026',
+    lastDeployTag: 'v1.14.1',
+    deployStatus: 'ok',
+    deploySortKey: 20260614,
+  },
+  {
+    id: 'customer-app',
+    name: 'Customer App',
+    slug: 'customer-app',
+    icon: 'b',
+    initials: 'CA',
+    envs: 3,
+    hasProd: true,
+    lastDeployDate: '10 Jun 2026',
+    lastDeployTag: 'v3.2.0',
+    deployStatus: 'ok',
+    deploySortKey: 20260610,
+  },
+  {
+    id: 'data-sync',
+    name: 'Data Sync',
+    slug: 'data-sync',
+    icon: 'c',
+    initials: 'DS',
+    envs: 4,
+    hasProd: true,
+    lastDeployDate: '28 May 2026',
+    lastDeployTag: 'v0.9.3',
+    deployStatus: 'warn',
+    deploySortKey: 20260528,
+  },
+  {
+    id: 'nexus-gateway',
+    name: 'Nexus Gateway',
+    slug: 'nexus-gateway',
+    icon: 'd',
+    initials: 'NG',
+    envs: 1,
+    hasProd: false,
+    lastDeployDate: null,
+    lastDeployTag: null,
+    deployStatus: 'never',
+    deploySortKey: 0,
+  },
+];
+
+/* ─── STATE ──────────────────────────────────────────────────── */
+let sortCol = 'name';
+let sortDir = 'asc';
+let filterVal = '';
+
+/* ─── SORT ───────────────────────────────────────────────────── */
+function sortBy(col) {
+  if (sortCol === col) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortCol = col;
+    sortDir = 'asc';
+  }
+  updateSortHeaders();
+  renderRows();
+}
+
+function updateSortHeaders() {
+  ['name', 'envs', 'deploy'].forEach(col => {
+    const th = document.getElementById('th-' + col);
+    th.classList.remove('sort-active', 'sort-desc');
+  });
+  const active = document.getElementById('th-' + sortCol);
+  active.classList.add('sort-active');
+  if (sortDir === 'desc') active.classList.add('sort-desc');
+}
+
+function sortedProducts() {
+  const list = [...PRODUCTS].filter(p =>
+    !filterVal || p.name.toLowerCase().includes(filterVal) || p.slug.includes(filterVal)
+  );
+  list.sort((a, b) => {
+    let cmp = 0;
+    if (sortCol === 'name')   cmp = a.name.localeCompare(b.name);
+    if (sortCol === 'envs')   cmp = a.envs - b.envs;
+    if (sortCol === 'deploy') cmp = a.deploySortKey - b.deploySortKey;
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+  return list;
+}
+
+/* ─── RENDER ROWS ────────────────────────────────────────────── */
+function deployCell(p) {
+  if (p.deployStatus === 'never') {
+    return `<td><span class="never-text">Never</span></td>`;
+  }
+  const dotClass = p.deployStatus === 'ok' ? 'deploy-dot-ok' : 'deploy-dot-warn';
+  return `
+    <td>
+      <div class="deploy-cell">
+        <div class="deploy-dot ${dotClass}"></div>
+        <span class="deploy-date">${p.lastDeployDate}</span>
+        <span class="deploy-tag">${p.lastDeployTag}</span>
+      </div>
+    </td>`;
+}
+
+function envDots(p) {
+  let dots = '';
+  if (p.hasProd) dots += '<div class="env-dot env-dot-prod" title="production"></div>';
+  if (p.envs >= 2) dots += '<div class="env-dot env-dot-intg" title="integration"></div>';
+  if (p.envs >= 3) dots += '<div class="env-dot env-dot-dev" title="development"></div>';
+  if (p.envs >= 4) dots += '<div class="env-dot env-dot-dev" title="staging"></div>';
+  return dots;
+}
+
+function renderRows() {
+  const products = sortedProducts();
+  const tbody = document.getElementById('tableBody');
+  const emptySearch = document.getElementById('emptySearch');
+
+  if (products.length === 0) {
+    tbody.innerHTML = '';
+    emptySearch.classList.remove('hidden');
+    return;
+  }
+  emptySearch.classList.add('hidden');
+
+  tbody.innerHTML = products.map(p => `
+    <tr onclick="alert('Navigate to product: ${p.slug}')">
+      <td>
+        <div class="product-name-cell">
+          <div class="p-icon p-icon-${p.icon}">${p.initials}</div>
+          <div>
+            <div class="p-name-text">${p.name}</div>
+            <div class="p-slug-text">${p.slug}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="env-count-cell">
+          <div class="env-dots">${envDots(p)}</div>
+          <span class="env-num">${p.envs}</span>
+        </div>
+      </td>
+      ${deployCell(p)}
+      <td>
+        <button class="btn-manage" onclick="event.stopPropagation(); alert('Manage: ${p.slug}')">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="5" cy="5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="8.5" cy="5" r="1"/>
+          </svg>
+          Manage
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+/* ─── FILTER ─────────────────────────────────────────────────── */
+function filterTable(val) {
+  filterVal = val.trim().toLowerCase();
+  renderRows();
+}
+
+/* ─── DEMO STATE SWITCHER ────────────────────────────────────── */
+function setState(state) {
+  // Update pills
+  ['loaded', 'empty', 'loading', 'viewer'].forEach(s => {
+    document.getElementById('pill-' + s).classList.remove('active');
+  });
+  document.getElementById('pill-' + state).classList.add('active');
+
+  // Reset search
+  document.getElementById('searchInput').value = '';
+  filterVal = '';
+
+  // Hide all panels
+  document.getElementById('tableLoaded').classList.add('hidden');
+  document.getElementById('tableLoading').classList.add('hidden');
+  document.getElementById('tableEmpty').classList.add('hidden');
+  document.getElementById('accessOverlay').classList.add('hidden');
+
+  if (state === 'loaded') {
+    setStatsLoaded();
+    document.getElementById('tableLoaded').classList.remove('hidden');
+    document.getElementById('tableCount').textContent = '4 products';
+    renderRows();
+  }
+
+  else if (state === 'empty') {
+    setStatsEmpty();
+    document.getElementById('tableEmpty').classList.remove('hidden');
+    document.getElementById('tableCount').textContent = '0 products';
+  }
+
+  else if (state === 'loading') {
+    setStatsLoading();
+    document.getElementById('tableLoading').classList.remove('hidden');
+    document.getElementById('tableCount').textContent = '— products';
+  }
+
+  else if (state === 'viewer') {
+    setStatsLoaded();
+    document.getElementById('tableLoaded').classList.remove('hidden');
+    document.getElementById('tableCount').textContent = '4 products';
+    renderRows();
+    // Show overlay after brief delay for effect
+    setTimeout(() => {
+      document.getElementById('accessOverlay').classList.remove('hidden');
+    }, 200);
+  }
+}
+
+function setStatsLoaded() {
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card accent-left">
+      <div class="stat-val">4</div>
+      <div class="stat-key">Total products</div>
+    </div>
+    <div class="stat-card info-left">
+      <div class="stat-val">11</div>
+      <div class="stat-key">Total environments</div>
+    </div>
+    <div class="stat-card ok-left">
+      <div class="stat-val">3</div>
+      <div class="stat-key">With deployments</div>
+    </div>
+    <div class="stat-card prod-left">
+      <div class="stat-val">3</div>
+      <div class="stat-key">Production envs</div>
+    </div>`;
+}
+
+function setStatsEmpty() {
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card accent-left">
+      <div class="stat-val">0</div>
+      <div class="stat-key">Total products</div>
+    </div>
+    <div class="stat-card info-left">
+      <div class="stat-val">0</div>
+      <div class="stat-key">Total environments</div>
+    </div>
+    <div class="stat-card ok-left">
+      <div class="stat-val">0</div>
+      <div class="stat-key">With deployments</div>
+    </div>
+    <div class="stat-card prod-left">
+      <div class="stat-val">0</div>
+      <div class="stat-key">Production envs</div>
+    </div>`;
+}
+
+function setStatsLoading() {
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card">
+      <div class="skeleton" style="height:28px;width:52px;margin-bottom:8px;border-radius:4px;"></div>
+      <div class="skeleton" style="height:10px;width:100px;border-radius:4px;"></div>
+    </div>
+    <div class="stat-card">
+      <div class="skeleton" style="height:28px;width:52px;margin-bottom:8px;border-radius:4px;"></div>
+      <div class="skeleton" style="height:10px;width:120px;border-radius:4px;"></div>
+    </div>
+    <div class="stat-card">
+      <div class="skeleton" style="height:28px;width:52px;margin-bottom:8px;border-radius:4px;"></div>
+      <div class="skeleton" style="height:10px;width:108px;border-radius:4px;"></div>
+    </div>
+    <div class="stat-card">
+      <div class="skeleton" style="height:28px;width:52px;margin-bottom:8px;border-radius:4px;"></div>
+      <div class="skeleton" style="height:10px;width:90px;border-radius:4px;"></div>
+    </div>`;
+}
+
+function dismissOverlay() {
+  document.getElementById('accessOverlay').classList.add('hidden');
+  setState('loaded');
+  document.getElementById('pill-loaded').classList.add('active');
+  ['empty','loading','viewer'].forEach(s =>
+    document.getElementById('pill-' + s).classList.remove('active')
+  );
+}
+
+/* ─── INIT ───────────────────────────────────────────────────── */
+renderRows();
+</script>
+</body>
+</html>
