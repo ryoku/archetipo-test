@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Product } from '../api/products'
 
 interface Props {
-  readonly activeTab: 'workloads' | 'environments' | 'settings'
+  readonly activeTab: 'workloads' | 'environments' | 'settings' | 'status'
   readonly product: Product
 }
 
@@ -32,6 +32,17 @@ export default function ProductSubNav({ activeTab, product }: Props) {
           <path d="M4 3V2M10 3V2M1 7h12"/>
         </svg>
         Environments
+      </button>
+      <button
+        type="button"
+        className={`pd-subnav-link${activeTab === 'status' ? ' pd-subnav-link--active' : ''}`}
+        onClick={activeTab === 'status' ? undefined : () => navigate(`/products/${product.slug}/status`, { state: product })}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="7" cy="7" r="5.5"/>
+          <path d="M7 4.5v3l2 1.5" strokeLinecap="round"/>
+        </svg>
+        Status
       </button>
       <button
         type="button"

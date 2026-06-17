@@ -231,3 +231,15 @@ export async function listTags(
   if (!res.ok) throw new Error(`listTags: ${res.status}`)
   return (await res.json()) as ListTagsResponse
 }
+
+export interface ProductStatus {
+  workloads: Record<string, Record<string, string>>
+  fetched_at: string
+  stale: boolean
+}
+
+export async function getProductStatus(token: string, productSlug: string): Promise<ProductStatus> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/status`, token)
+  if (!res.ok) throw new Error(`getProductStatus: ${res.status}`)
+  return (await res.json()) as ProductStatus
+}

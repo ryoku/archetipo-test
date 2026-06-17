@@ -7,6 +7,7 @@ import OidcCallbackPage from './pages/OidcCallbackPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import EnvironmentsPage from './pages/EnvironmentsPage'
 import ProductSettingsPage from './pages/ProductSettingsPage'
+import StatusPage from './pages/StatusPage'
 
 export default function App() {
   return (
@@ -36,6 +37,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <EnvironmentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:slug/status"
+            element={
+              <ProtectedRoute>
+                <StatusPage />
               </ProtectedRoute>
             }
           />
