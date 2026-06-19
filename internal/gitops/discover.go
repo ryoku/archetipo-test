@@ -9,6 +9,13 @@ import (
 	"github.com/ryoku/kubegate/internal/domain"
 )
 
+const (
+	// TagMissing is the sentinel value written when a workload's image.tag field is absent.
+	// It appears in both ExtractCurrentTags (gitops layer) and fillGaps (handler layer);
+	// using the same constant prevents silent divergence if the sentinel ever changes.
+	TagMissing = "N/A"
+)
+
 var (
 	// ErrHelmReleaseNotFound is returned when the HelmRelease file does not exist at the expected path.
 	ErrHelmReleaseNotFound = errors.New("helmrelease not found")
@@ -172,7 +179,7 @@ func ExtractCurrentTags(data []byte) (map[string]string, error) {
 		}
 		tag := imageTag(workloadMap)
 		if tag == "" {
-			tag = "N/A"
+			tag = TagMissing
 		}
 		tags[name] = tag
 	}

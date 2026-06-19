@@ -222,7 +222,10 @@ export interface StatusResponse {
 
 export async function getProductStatus(token: string, productSlug: string): Promise<StatusResponse> {
   const res = await apiFetch(`/api/v1/products/${productSlug}/status`, token)
-  if (!res.ok) throw new Error(`getProductStatus: ${res.status}`)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `getProductStatus: ${res.status}`)
+  }
   return (await res.json()) as StatusResponse
 }
 

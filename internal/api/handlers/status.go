@@ -19,6 +19,9 @@ import (
 	"github.com/ryoku/kubegate/internal/store"
 )
 
+// statusFetchTimeout caps the gitops clone+read so a hung git server cannot block indefinitely.
+const statusFetchTimeout = 30 * time.Second
+
 // StatusResponse is the shape returned by GET /products/:productSlug/status.
 type StatusResponse struct {
 	Workloads map[string]map[string]string `json:"workloads"`
@@ -109,9 +112,14 @@ func (h *StatusHandlers) GetStatus(c *gin.Context) {
 	}
 
 	// Coalesce concurrent cache misses: only one goroutine performs the fetch;
-	// the rest wait and share the result.
+	// the rest wait and share the result. context.Background() is used here so the
+	// cache-fill work survives the triggering request's cancellation — a client
+	// disconnect should not abort a fetch that other waiters are sharing.
+	// A 30s timeout prevents a hung git server from blocking indefinitely.
+	fetchCtx, cancel := context.WithTimeout(context.Background(), statusFetchTimeout)
+	defer cancel()
 	v, err, _ := h.sf.Do(productSlug, func() (any, error) {
-		return h.fetchAndCache(context.Background(), product.ID, product.Slug)
+		return h.fetchAndCache(fetchCtx, product.ID, product.Slug)
 	})
 	if err != nil {
 		var fetchErr *statusFetchError
@@ -124,14 +132,18 @@ func (h *StatusHandlers) GetStatus(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, v.(StatusResponse))
+	resp, ok := v.(StatusResponse)
+	if !ok {
+		log.Printf("GetStatus product=%s: unexpected singleflight result type %T", productSlug, v)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // fetchAndCache performs the full gitops read for a product, stores the result in the
 // cache, and returns the StatusResponse. Returns *statusFetchError for predictable HTTP
 // status codes (503, 404, etc.) and plain errors for unexpected failures.
-// Uses context.Background() so the work is not tied to any single request's lifecycle;
-// this prevents a client disconnect from cancelling in-flight fetches shared via singleflight.
 func (h *StatusHandlers) fetchAndCache(ctx context.Context, productID, productSlug string) (StatusResponse, error) {
 	envs, err := h.envStore.ListByProduct(ctx, productID)
 	if err != nil {
@@ -182,20 +194,22 @@ func (h *StatusHandlers) lookupCache(productSlug string) (StatusResponse, bool) 
 }
 
 // collectTags calls ReadCurrentTags for each environment and aggregates results.
-// ErrHelmReleaseNotFound skips the environment (cells become "N/A" via fillGaps).
+// ErrHelmReleaseNotFound and ErrHelmReleaseParseFailed skip the environment; workloads
+// seen in other environments will show gitops.TagMissing for that column via fillGaps.
+// Workloads exclusive to a skipped environment are omitted entirely.
 // Returns *statusFetchError for service-level errors (503) and plain errors for infra failures.
 func (h *StatusHandlers) collectTags(ctx context.Context, productSlug string, envs []domain.Environment) (map[string]map[string]string, error) {
 	workloadTags := make(map[string]map[string]string)
 	for _, env := range envs {
 		tags, err := h.reader.ReadCurrentTags(ctx, productSlug, env.Slug)
 		if err != nil {
-			if errors.Is(err, gitops.ErrHelmReleaseNotFound) {
+			skip, fatal := classifyTagReadError(err, productSlug, env.Slug)
+			if fatal != nil {
+				return nil, fatal
+			}
+			if skip {
 				continue
 			}
-			if errors.Is(err, gitops.ErrGitOpsNotConfigured) {
-				return nil, &statusFetchError{code: http.StatusServiceUnavailable, message: "deployment status is not available on this server"}
-			}
-			return nil, fmt.Errorf("env=%s: %w", env.Slug, err)
 		}
 		for workload, tag := range tags {
 			if workloadTags[workload] == nil {
@@ -207,12 +221,29 @@ func (h *StatusHandlers) collectTags(ctx context.Context, productSlug string, en
 	return workloadTags, nil
 }
 
-// fillGaps writes "N/A" for every workload×environment cell that is absent from the map.
+// classifyTagReadError maps a ReadCurrentTags error to a skip decision or a fatal error.
+// skip=true means the environment is silently excluded from the matrix.
+// fatal!=nil means the entire status fetch must be aborted.
+func classifyTagReadError(err error, productSlug, envSlug string) (skip bool, fatal error) {
+	switch {
+	case errors.Is(err, gitops.ErrHelmReleaseNotFound):
+		log.Printf("collectTags product=%s env=%s: helmrelease not found, skipping", productSlug, envSlug)
+		return true, nil
+	case errors.Is(err, gitops.ErrHelmReleaseParseFailed):
+		log.Printf("collectTags product=%s env=%s: helmrelease parse failed, skipping: %v", productSlug, envSlug, err)
+		return true, nil
+	case errors.Is(err, gitops.ErrGitOpsNotConfigured):
+		return false, &statusFetchError{code: http.StatusServiceUnavailable, message: "deployment status is not available on this server"}
+	default:
+		return false, fmt.Errorf("env=%s: %w", envSlug, err)
+	}
+}
+
 func fillGaps(workloadTags map[string]map[string]string, envs []domain.Environment) {
 	for workload := range workloadTags {
 		for _, env := range envs {
 			if _, exists := workloadTags[workload][env.Slug]; !exists {
-				workloadTags[workload][env.Slug] = "N/A"
+				workloadTags[workload][env.Slug] = gitops.TagMissing
 			}
 		}
 	}

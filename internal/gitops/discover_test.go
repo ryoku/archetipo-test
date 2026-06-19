@@ -208,8 +208,8 @@ spec:
 	if err != nil {
 		t.Fatalf("ExtractCurrentTags: %v", err)
 	}
-	if tags["api"] != "N/A" {
-		t.Errorf("api tag = %q, want %q", tags["api"], "N/A")
+	if tags["api"] != TagMissing {
+		t.Errorf("api tag = %q, want %q", tags["api"], TagMissing)
 	}
 }
 
@@ -252,6 +252,28 @@ func TestExtractCurrentTags_EmptyData_ReturnsParseError(t *testing.T) {
 	}
 	if !errors.Is(err, ErrHelmReleaseParseFailed) {
 		t.Errorf("expected ErrHelmReleaseParseFailed, got %v", err)
+	}
+}
+
+func TestParseHelmRelease_NonMappingRoot_ReturnsParseError(t *testing.T) {
+	// A syntactically valid YAML list at the document root triggers the "root must be a
+	// mapping" guard in parseHelmRelease; both DiscoverWorkloads and ExtractCurrentTags
+	// share this helper, so one fixture covers both entry points.
+	listAtRoot := []byte("- foo\n- bar\n")
+	_, err := DiscoverWorkloads(listAtRoot)
+	if err == nil {
+		t.Fatal("DiscoverWorkloads: expected error for non-mapping root, got nil")
+	}
+	if !errors.Is(err, ErrHelmReleaseParseFailed) {
+		t.Errorf("DiscoverWorkloads: expected ErrHelmReleaseParseFailed, got %v", err)
+	}
+
+	_, err = ExtractCurrentTags(listAtRoot)
+	if err == nil {
+		t.Fatal("ExtractCurrentTags: expected error for non-mapping root, got nil")
+	}
+	if !errors.Is(err, ErrHelmReleaseParseFailed) {
+		t.Errorf("ExtractCurrentTags: expected ErrHelmReleaseParseFailed, got %v", err)
 	}
 }
 

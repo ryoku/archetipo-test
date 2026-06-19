@@ -368,4 +368,20 @@ func TestGetStatus_NewStatusHandlers_ReadsEnvTTL(t *testing.T) {
 			t.Fatal("expected non-nil handler")
 		}
 	})
+	t.Run("zero TTL defaults", func(t *testing.T) {
+		// n <= 0 guard: zero is a valid integer but must fall back to the default 60s TTL.
+		t.Setenv("STATUS_CACHE_TTL_SECONDS", "0")
+		reader := &mockStatusReader{
+			readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+				return map[string]string{"api": "v1.0.0"}, nil
+			},
+		}
+		r := newStatusRouter(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader, viewerIdentity("status-product"))
+		// Two back-to-back requests must still hit cache (TTL defaulted to 60s, not 0).
+		doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+		doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+		if reader.callCount != 1 {
+			t.Errorf("reader.callCount = %d, want 1 (zero TTL should default to 60s, not disable cache)", reader.callCount)
+		}
+	})
 }
