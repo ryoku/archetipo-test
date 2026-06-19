@@ -452,6 +452,70 @@ func TestWriter_ListWorkloads_ParseError(t *testing.T) {
 	}
 }
 
+func TestWriter_ReadCurrentTags_HappyPath(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		helmReleasePath: seedHelmRelease,
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	tags, err := w.ReadCurrentTags(context.Background(), "my-product", "production")
+	if err != nil {
+		t.Fatalf("ReadCurrentTags: %v", err)
+	}
+	if len(tags) != 1 {
+		t.Fatalf("expected 1 tag entry, got %d: %v", len(tags), tags)
+	}
+	if tags["test-service"] != "v1.0.0" {
+		t.Errorf("test-service tag = %q, want %q", tags["test-service"], "v1.0.0")
+	}
+}
+
+func TestWriter_ReadCurrentTags_HelmReleaseNotFound(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		helmReleasePath: seedHelmRelease,
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	_, err = w.ReadCurrentTags(context.Background(), "other-product", "production")
+	if !errors.Is(err, ErrHelmReleaseNotFound) {
+		t.Fatalf("expected ErrHelmReleaseNotFound, got %T: %v", err, err)
+	}
+}
+
+func TestWriter_ReadCurrentTags_NoTagReturnsNA(t *testing.T) {
+	const helmReleaseNoTag = `apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: my-product
+spec:
+  values:
+    test-service:
+      image:
+        repository: gcr.io/test-project/test-service
+`
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{
+		helmReleasePath: helmReleaseNoTag,
+	})
+	w, err := New(WriterConfig{RepoURL: repoURL})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	tags, err := w.ReadCurrentTags(context.Background(), "my-product", "production")
+	if err != nil {
+		t.Fatalf("ReadCurrentTags: %v", err)
+	}
+	if tags["test-service"] != "N/A" {
+		t.Errorf("test-service tag = %q, want %q", tags["test-service"], "N/A")
+	}
+}
+
 func TestHelmReleaseNotFoundError_Unwrap(t *testing.T) {
 	err := &HelmReleaseNotFoundError{Path: "apps/production/svc/svc-helmrelease.yaml"}
 	if !errors.Is(err, ErrHelmReleaseNotFound) {

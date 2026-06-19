@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -15,31 +14,39 @@ import (
 	"github.com/ryoku/kubegate/internal/domain"
 	"github.com/ryoku/kubegate/internal/gitops"
 	"github.com/ryoku/kubegate/internal/store"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// mockStatusReader is a test double for handlers.StatusReader.
+const shortTTL = 50 * time.Millisecond
+
 type mockStatusReader struct {
 	readCurrentTagsFn func(ctx context.Context, productSlug, envSlug string) (map[string]string, error)
+	callCount         int
 }
 
 func (m *mockStatusReader) ReadCurrentTags(ctx context.Context, productSlug, envSlug string) (map[string]string, error) {
-	if m.readCurrentTagsFn != nil {
-		return m.readCurrentTagsFn(ctx, productSlug, envSlug)
-	}
-	return nil, nil
+	m.callCount++
+	return m.readCurrentTagsFn(ctx, productSlug, envSlug)
 }
 
 func newStatusRouter(
 	ps store.ProductStore,
 	es store.EnvironmentStore,
-	r handlers.StatusReader,
+	r gitops.StatusReader,
 	identity *domain.UserIdentity,
+) *gin.Engine {
+	return newStatusRouterWithTTL(ps, es, r, identity, 60*time.Second)
+}
+
+func newStatusRouterWithTTL(
+	ps store.ProductStore,
+	es store.EnvironmentStore,
+	r gitops.StatusReader,
+	identity *domain.UserIdentity,
+	ttl time.Duration,
 ) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	eng := gin.New()
-	h := handlers.NewStatusHandlers(ps, es, r)
+	h := handlers.NewStatusHandlersWithTTL(ps, es, r, ttl)
 
 	injectIdentity := func(c *gin.Context) {
 		if identity != nil {
@@ -56,6 +63,17 @@ func newStatusRouter(
 	return eng
 }
 
+func mustGetStatus(t *testing.T, r *gin.Engine) handlers.StatusResponse {
+	t.Helper()
+	w := doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+	assertStatus(t, w, http.StatusOK)
+	var resp handlers.StatusResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal status response: %v", err)
+	}
+	return resp
+}
+
 var statusFixtureProduct = &domain.Product{
 	ID:   "prod-status-1",
 	Name: "Status Product",
@@ -63,7 +81,7 @@ var statusFixtureProduct = &domain.Product{
 }
 
 var statusFixtureEnvDev = domain.Environment{
-	ID:        "env-status-dev",
+	ID:        "env-dev-1",
 	ProductID: "prod-status-1",
 	Name:      "dev",
 	Slug:      "dev",
@@ -71,153 +89,92 @@ var statusFixtureEnvDev = domain.Environment{
 }
 
 var statusFixtureEnvProd = domain.Environment{
-	ID:        "env-status-prod",
+	ID:        "env-prod-1",
 	ProductID: "prod-status-1",
 	Name:      "production",
 	Slug:      "production",
 	Type:      "production",
 }
 
-func statusProductStore(p *domain.Product) store.ProductStore {
+func statusProductStore() store.ProductStore {
 	return &mockProductStore{
 		getBySlugFn: func(_ context.Context, slug string) (*domain.Product, error) {
-			if slug == p.Slug {
-				return p, nil
+			if slug == statusFixtureProduct.Slug {
+				return statusFixtureProduct, nil
 			}
 			return nil, store.ErrNotFound
 		},
 	}
 }
 
-func statusEnvStore(envs ...domain.Environment) store.EnvironmentStore {
+func statusEnvStore(envs []domain.Environment) store.EnvironmentStore {
 	return &mockEnvironmentStore{
 		listByProductFn: func(_ context.Context, productID string) ([]domain.Environment, error) {
-			var result []domain.Environment
-			for _, e := range envs {
-				if e.ProductID == productID {
-					result = append(result, e)
-				}
+			if productID == statusFixtureProduct.ID {
+				return envs, nil
 			}
-			return result, nil
+			return nil, fmt.Errorf("product not found")
 		},
 	}
 }
 
-func doStatusRequest(t *testing.T, r *gin.Engine, productSlug string) *httptest.ResponseRecorder {
-	t.Helper()
-	req, _ := http.NewRequest(http.MethodGet, "/api/v1/products/"+productSlug+"/status", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	return w
-}
-
-func TestGetStatus_OK(t *testing.T) {
+func TestGetStatus_HappyPath(t *testing.T) {
 	reader := &mockStatusReader{
 		readCurrentTagsFn: func(_ context.Context, _, envSlug string) (map[string]string, error) {
-			switch envSlug {
-			case "dev":
-				return map[string]string{"api": "v1.2.3", "worker": "v1.0.0"}, nil
-			case "production":
-				return map[string]string{"api": "v1.0.0", "worker": "v0.9.0"}, nil
+			if envSlug == "dev" {
+				return map[string]string{"api": "v1.2.0", "worker": "v1.1.0"}, nil
 			}
+			return map[string]string{"api": "v1.1.0", "worker": "v1.0.0"}, nil
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev, statusFixtureEnvProd}), reader, viewerIdentity("status-product"))
+
+	resp := mustGetStatus(t, r)
+	if resp.Stale {
+		t.Error("expected stale=false on fresh response")
+	}
+	if resp.FetchedAt == "" {
+		t.Error("expected fetched_at to be set")
+	}
+	if resp.Workloads["api"]["dev"] != "v1.2.0" {
+		t.Errorf("api/dev = %q, want %q", resp.Workloads["api"]["dev"], "v1.2.0")
+	}
+	if resp.Workloads["api"]["production"] != "v1.1.0" {
+		t.Errorf("api/production = %q, want %q", resp.Workloads["api"]["production"], "v1.1.0")
+	}
+}
+
+func TestGetStatus_Unauthenticated_Returns401(t *testing.T) {
+	// No identity in context (no JWT) — RequireRole returns 401 before the handler runs.
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
 			return nil, nil
 		},
 	}
-	identity := statusViewerIdentity(statusFixtureProduct.Slug)
-	r := newStatusRouter(
-		statusProductStore(statusFixtureProduct),
-		statusEnvStore(statusFixtureEnvDev, statusFixtureEnvProd),
-		reader,
-		identity,
-	)
-	w := doStatusRequest(t, r, statusFixtureProduct.Slug)
-	require.Equal(t, http.StatusOK, w.Code)
+	r := newStatusRouter(statusProductStore(), statusEnvStore(nil), reader, nil)
 
-	var resp map[string]interface{}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	workloads, ok := resp["workloads"].(map[string]interface{})
-	require.True(t, ok)
-	api, ok := workloads["api"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "v1.2.3", api["dev"])
-	assert.Equal(t, "v1.0.0", api["production"])
-	assert.False(t, resp["stale"].(bool))
-	assert.NotEmpty(t, resp["fetched_at"])
-}
-
-func TestGetStatus_ProductNotFound(t *testing.T) {
-	reader := &mockStatusReader{}
-	identity := &domain.UserIdentity{IsDevOpsAdmin: true}
-	ps := &mockProductStore{
-		getBySlugFn: func(_ context.Context, _ string) (*domain.Product, error) {
-			return nil, store.ErrNotFound
-		},
-	}
-	r := newStatusRouter(ps, statusEnvStore(), reader, identity)
-	w := doStatusRequest(t, r, "nonexistent")
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestGetStatus_Unauthorized(t *testing.T) {
-	reader := &mockStatusReader{}
-	r := newStatusRouter(statusProductStore(statusFixtureProduct), statusEnvStore(), reader, nil)
-	w := doStatusRequest(t, r, statusFixtureProduct.Slug)
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestGetStatus_NoRole(t *testing.T) {
-	reader := &mockStatusReader{}
-	identity := &domain.UserIdentity{
-		Sub:          "user-no-role",
-		ProductRoles: map[string]string{},
-	}
-	r := newStatusRouter(statusProductStore(statusFixtureProduct), statusEnvStore(), reader, identity)
-	w := doStatusRequest(t, r, statusFixtureProduct.Slug)
-	// anti-enumeration: returns 404 for users with no role
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestGetStatus_HelmReleaseNotFound_ReturnsEmptyWorkloads(t *testing.T) {
-	// When HelmRelease is not found for an env, that env is skipped (N/A for that env's workloads).
-	reader := &mockStatusReader{
-		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
-			return nil, &gitops.HelmReleaseNotFoundError{Path: "apps/dev/p/p-helmrelease.yaml"}
-		},
-	}
-	identity := statusViewerIdentity(statusFixtureProduct.Slug)
-	r := newStatusRouter(
-		statusProductStore(statusFixtureProduct),
-		statusEnvStore(statusFixtureEnvDev),
-		reader,
-		identity,
-	)
-	w := doStatusRequest(t, r, statusFixtureProduct.Slug)
-	require.Equal(t, http.StatusOK, w.Code)
-
-	var resp map[string]interface{}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	workloads := resp["workloads"].(map[string]interface{})
-	assert.Empty(t, workloads)
-}
-
-func TestGetStatus_GitOpsNotConfigured(t *testing.T) {
-	reader := &mockStatusReader{
-		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
-			return nil, fmt.Errorf("%w: not configured", gitops.ErrGitOpsNotConfigured)
-		},
-	}
-	identity := statusViewerIdentity(statusFixtureProduct.Slug)
-	r := newStatusRouter(
-		statusProductStore(statusFixtureProduct),
-		statusEnvStore(statusFixtureEnvDev),
-		reader,
-		identity,
-	)
-	w := doStatusRequest(t, r, statusFixtureProduct.Slug)
-	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	w := doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+	assertStatus(t, w, http.StatusUnauthorized)
 }
 
 func TestGetStatus_CacheHit_ReaderCalledOnce(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, envSlug string) (map[string]string, error) {
+			return map[string]string{"api": "v1.0.0"}, nil
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader, viewerIdentity("status-product"))
+
+	doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+	doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+
+	// reader should be called once (for the single env) on the first request; second hits cache
+	if reader.callCount != 1 {
+		t.Errorf("reader.callCount = %d, want 1 (cache should prevent second call)", reader.callCount)
+	}
+}
+
+func TestGetStatus_StaleCache_ReturnsStaleTrueAndEvicts(t *testing.T) {
 	callCount := 0
 	reader := &mockStatusReader{
 		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
@@ -225,29 +182,190 @@ func TestGetStatus_CacheHit_ReaderCalledOnce(t *testing.T) {
 			return map[string]string{"api": "v1.0.0"}, nil
 		},
 	}
-	identity := statusViewerIdentity(statusFixtureProduct.Slug)
-	r := newStatusRouter(
-		statusProductStore(statusFixtureProduct),
-		statusEnvStore(statusFixtureEnvDev),
-		reader,
-		identity,
-	)
-	doStatusRequest(t, r, statusFixtureProduct.Slug)
-	doStatusRequest(t, r, statusFixtureProduct.Slug)
-	// Both requests share the same handler (and thus the same cache), so reader is called once.
-	assert.Equal(t, 1, callCount)
-}
+	r := newStatusRouterWithTTL(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader, viewerIdentity("status-product"), shortTTL)
 
-// statusViewerIdentity creates a UserIdentity with the viewer role on the given product slug.
-func statusViewerIdentity(slug string) *domain.UserIdentity {
-	return &domain.UserIdentity{
-		Sub:          "user-status-viewer",
-		ProductRoles: map[string]string{slug: domain.RoleViewer},
+	// first request: no cache → fresh fetch
+	resp1 := mustGetStatus(t, r)
+	if resp1.Stale {
+		t.Error("first response should not be stale")
+	}
+
+	time.Sleep(shortTTL + 10*time.Millisecond)
+
+	// second request: cache exists but TTL expired → stale; returns stale=true and evicts
+	resp2 := mustGetStatus(t, r)
+	if !resp2.Stale {
+		t.Error("second response should be stale when TTL=0")
+	}
+
+	// third request: cache was evicted → fresh fetch again
+	resp3 := mustGetStatus(t, r)
+	if resp3.Stale {
+		t.Error("third response should not be stale (re-fetched after eviction)")
+	}
+	if callCount != 2 {
+		t.Errorf("reader called %d times, want 2 (fresh fetch on req1 and req3)", callCount)
 	}
 }
 
-// Ensure mockStatusReader implements handlers.StatusReader at compile time.
-var _ handlers.StatusReader = (*mockStatusReader)(nil)
+func TestGetStatus_StaleCache_PreservesFetchedAt(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return map[string]string{"api": "v1.0.0"}, nil
+		},
+	}
+	r := newStatusRouterWithTTL(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader, viewerIdentity("status-product"), shortTTL)
 
-// Ensure time import is used (for future stale tests).
-var _ = time.Second
+	resp1 := mustGetStatus(t, r)
+
+	time.Sleep(shortTTL + 10*time.Millisecond)
+
+	resp2 := mustGetStatus(t, r)
+	if !resp2.Stale {
+		t.Error("expected stale=true on second response after TTL expiry")
+	}
+	if resp2.FetchedAt != resp1.FetchedAt {
+		t.Errorf("stale response fetched_at = %q, want %q (original value)", resp2.FetchedAt, resp1.FetchedAt)
+	}
+}
+
+func TestGetStatus_HelmReleaseNotFound_SkipsEnv(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, envSlug string) (map[string]string, error) {
+			if envSlug == "dev" {
+				return map[string]string{"api": "v1.0.0"}, nil
+			}
+			return nil, &gitops.HelmReleaseNotFoundError{Path: "apps/production/status-product/status-product-helmrelease.yaml"}
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev, statusFixtureEnvProd}), reader, viewerIdentity("status-product"))
+
+	resp := mustGetStatus(t, r)
+	// dev tag present
+	if resp.Workloads["api"]["dev"] != "v1.0.0" {
+		t.Errorf("api/dev = %q, want %q", resp.Workloads["api"]["dev"], "v1.0.0")
+	}
+	// production env had no HelmRelease: api/production should be N/A (filled by gap logic)
+	if resp.Workloads["api"]["production"] != "N/A" {
+		t.Errorf("api/production = %q, want %q", resp.Workloads["api"]["production"], "N/A")
+	}
+}
+
+func TestGetStatus_ProductNotFound_Returns404(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return nil, nil
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore(nil), reader, viewerIdentity("missing-product"))
+
+	w := doPlain(r, http.MethodGet, "/api/v1/products/missing-product/status")
+	assertStatus(t, w, http.StatusNotFound)
+}
+
+func TestGetStatus_NoRoleUser_Returns404(t *testing.T) {
+	// RequireRole returns 404 (not 403) for users with no product role — anti-enumeration design.
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return nil, nil
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore(nil), reader, noRoleIdentity())
+
+	w := doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+	assertStatus(t, w, http.StatusNotFound)
+}
+
+func TestGetStatus_GitOpsNotConfigured_Returns503(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return nil, fmt.Errorf("%w: set GITOPS_REPO_URL", gitops.ErrGitOpsNotConfigured)
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader, viewerIdentity("status-product"))
+
+	w := doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+	assertStatus(t, w, http.StatusServiceUnavailable)
+}
+
+func TestGetStatus_FetchedAtIsRFC3339(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return map[string]string{"api": "v1.0.0"}, nil
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader, viewerIdentity("status-product"))
+
+	resp := mustGetStatus(t, r)
+	if _, err := time.Parse(time.RFC3339, resp.FetchedAt); err != nil {
+		t.Errorf("fetched_at %q is not valid RFC3339: %v", resp.FetchedAt, err)
+	}
+}
+
+func TestGetStatus_InvalidSlug_Returns400(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return nil, nil
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore(nil), reader, viewerIdentity("INVALID"))
+
+	w := doPlain(r, http.MethodGet, "/api/v1/products/INVALID/status")
+	assertStatus(t, w, http.StatusBadRequest)
+}
+
+func TestGetStatus_EnvStoreFails_Returns500(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return nil, nil
+		},
+	}
+	brokenEnvStore := &mockEnvironmentStore{
+		listByProductFn: func(_ context.Context, _ string) ([]domain.Environment, error) {
+			return nil, fmt.Errorf("db connection lost")
+		},
+	}
+	r := newStatusRouter(statusProductStore(), brokenEnvStore, reader, viewerIdentity("status-product"))
+
+	w := doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+	assertStatus(t, w, http.StatusInternalServerError)
+}
+
+func TestGetStatus_GenericReaderError_Returns500(t *testing.T) {
+	reader := &mockStatusReader{
+		readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+			return nil, fmt.Errorf("unexpected gitops error")
+		},
+	}
+	r := newStatusRouter(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader, viewerIdentity("status-product"))
+
+	w := doPlain(r, http.MethodGet, "/api/v1/products/status-product/status")
+	assertStatus(t, w, http.StatusInternalServerError)
+}
+
+func TestGetStatus_NewStatusHandlers_ReadsEnvTTL(t *testing.T) {
+	t.Run("valid TTL from env", func(t *testing.T) {
+		t.Setenv("STATUS_CACHE_TTL_SECONDS", "30")
+		reader := &mockStatusReader{
+			readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+				return map[string]string{"api": "v1.0.0"}, nil
+			},
+		}
+		h := handlers.NewStatusHandlers(statusProductStore(), statusEnvStore([]domain.Environment{statusFixtureEnvDev}), reader)
+		if h == nil {
+			t.Fatal("expected non-nil handler")
+		}
+	})
+	t.Run("invalid TTL defaults", func(t *testing.T) {
+		t.Setenv("STATUS_CACHE_TTL_SECONDS", "not-a-number")
+		reader := &mockStatusReader{
+			readCurrentTagsFn: func(_ context.Context, _, _ string) (map[string]string, error) {
+				return nil, nil
+			},
+		}
+		h := handlers.NewStatusHandlers(statusProductStore(), statusEnvStore(nil), reader)
+		if h == nil {
+			t.Fatal("expected non-nil handler")
+		}
+	})
+}

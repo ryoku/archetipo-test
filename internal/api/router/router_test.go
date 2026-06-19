@@ -225,6 +225,26 @@ func TestRegisterDeploymentRoutes_RoutesRegistered(t *testing.T) {
 	})
 }
 
+type noopStatusReader struct{}
+
+func (noopStatusReader) ReadCurrentTags(_ context.Context, _, _ string) (map[string]string, error) {
+	return nil, nil
+}
+
+var _ gitops.StatusReader = noopStatusReader{}
+
+// TestRegisterStatusRoutes_RoutesRegistered verifies that RegisterStatusRoutes registers the
+// expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is present,
+// confirming the route exists (a missing route returns 404 instead).
+func TestRegisterStatusRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterStatusRoutes(noopProductStore{}, noopEnvironmentStore{}, noopStatusReader{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/products/some-slug/status"},
+	})
+}
+
 func TestRouterHealthzBypassesAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(alwaysDenyVerifier{})

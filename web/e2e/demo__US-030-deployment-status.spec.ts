@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test'
 
 const SESSION_KEY = 'oidc.user:http://localhost:8080/realms/kubegate:kubegate-frontend'
 
-const fakeViewerUser = {
-  profile: { sub: 'test-viewer-1', name: 'Marco Andreoli', email: 'marco@example.com' },
+const fakeAdminUser = {
+  profile: { sub: 'test-admin-1', name: 'Sara Ferrario', email: 'sara@example.com' },
   session_state: null,
   access_token: 'fake-access-token',
   refresh_token: null,
@@ -19,93 +19,174 @@ const fakeProduct = {
   slug: 'platform-api',
   description: 'Core platform API service',
   created_at: '2026-01-01T00:00:00Z',
-  my_role: 'viewer',
+  my_role: 'admin',
 }
-
-const fakeEnvironments = [
-  {
-    id: 'env-dev',
-    product_id: 'prod-1',
-    name: 'dev',
-    slug: 'dev',
-    type: 'dev',
-    gitops_path: 'apps/dev/platform-api/platform-api-helmrelease.yaml',
-    created_at: '2026-01-01T00:00:00Z',
-  },
-  {
-    id: 'env-prod',
-    product_id: 'prod-1',
-    name: 'production',
-    slug: 'production',
-    type: 'production',
-    gitops_path: 'apps/production/platform-api/platform-api-helmrelease.yaml',
-    created_at: '2026-01-01T00:00:00Z',
-  },
-]
 
 const fakeStatus = {
   workloads: {
-    api: { dev: 'v2.14.3-rc.7', production: 'v2.12.0' },
-    worker: { dev: 'v1.4.1', production: 'N/A' },
+    api: { dev: 'v1.14.2', production: 'v1.12.0' },
+    worker: { dev: 'v1.10.0', production: 'N/A' },
   },
-  fetched_at: '2026-06-17T12:00:00Z',
+  fetched_at: new Date().toISOString(),
   stale: false,
 }
 
-// Demo scenario — video on for this file only; global config keeps video: 'off'.
+const fakeStatusStale = { ...fakeStatus, stale: true }
+
+// Demo scenario — video on for this file only.
 test.use({
   video: 'on',
   viewport: { width: 1280, height: 720 },
   launchOptions: { slowMo: 300 },
 })
 
-test('demo: user navigates to Status tab and sees deployment matrix with current tags', async ({ page }) => {
-  // Stall OIDC discovery so the library does not attempt network validation.
+test('demo: product detail Status tab shows workload × environment deployment matrix', async ({ page }) => {
   await page.route('**/openid-configuration', () => {})
 
-  // Inject a valid session so the SPA treats the user as authenticated.
   await page.addInitScript(
     ({ key, value }) => sessionStorage.setItem(key, JSON.stringify(value)),
-    { key: SESSION_KEY, value: fakeViewerUser },
+    { key: SESSION_KEY, value: fakeAdminUser },
   )
 
-  // Mock API responses.
   await page.route('**/api/v1/**', async (route) => {
     const url = route.request().url()
-    if (url.includes('/products') && !url.includes('/status') && !url.includes('/environments') && url.endsWith('/products')) {
+
+    if (url.includes('/api/v1/products') && !url.includes('/platform-api')) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([fakeProduct]) })
-    } else if (url.includes('/environments')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fakeEnvironments) })
-    } else if (url.includes('/status')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fakeStatus) })
-    } else {
-      await route.continue()
+      return
     }
+    if (url.includes('/platform-api/status')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fakeStatus) })
+      return
+    }
+    if (url.includes('/platform-api/environments')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+      return
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   })
 
-  // Step 1: navigate to home — user is already authenticated via sessionStorage.
+  // Navigate to the product list (home page)
   await page.goto('/')
   await expect(page.getByText('Platform API')).toBeVisible()
 
-  // Step 2: navigate to the product detail page.
+  // Navigate to product detail by clicking the product card
   await page.getByText('Platform API').click()
-  await expect(page.getByText('Workloads')).toBeVisible()
+  await expect(page.getByText('Status')).toBeVisible()
 
-  // Step 3: click the Status tab.
+  // Click the Status tab
   await page.getByRole('button', { name: 'Status' }).click()
-  await expect(page).toHaveURL(/\/products\/platform-api\/status/)
-
-  // Step 4: verify the matrix is rendered with correct tags.
   await expect(page.getByTestId('status-matrix')).toBeVisible()
-  await expect(page.getByText('api')).toBeVisible()
-  await expect(page.getByText('worker')).toBeVisible()
-  await expect(page.getByText('v2.14.3-rc.7')).toBeVisible()
-  await expect(page.getByText('v2.12.0')).toBeVisible()
 
-  // Step 5: N/A is visible for environments where tag is not set.
-  const naElements = await page.getByText('N/A').all()
-  expect(naElements.length).toBeGreaterThan(0)
+  // Verify the matrix shows correct tags
+  await expect(page.getByTestId('tag-api-dev')).toHaveText('v1.14.2')
+  await expect(page.getByTestId('tag-api-production')).toHaveText('v1.12.0')
+  await expect(page.getByTestId('tag-worker-dev')).toHaveText('v1.10.0')
+  await expect(page.getByTestId('tag-worker-production')).toHaveText('N/A')
 
-  // Hold the final state visible for at least 1.5 s so the video captures the outcome.
+  // Hold the final state visible
+  await page.waitForTimeout(1500)
+})
+
+test('status tab shows stale badge and refreshes on click', async ({ page }) => {
+  await page.route('**/openid-configuration', () => {})
+
+  await page.addInitScript(
+    ({ key, value }) => sessionStorage.setItem(key, JSON.stringify(value)),
+    { key: SESSION_KEY, value: fakeAdminUser },
+  )
+
+  let callCount = 0
+  await page.route('**/api/v1/**', async (route) => {
+    const url = route.request().url()
+
+    if (url.includes('/api/v1/products') && !url.includes('/platform-api')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([fakeProduct]) })
+      return
+    }
+    if (url.includes('/platform-api/status')) {
+      callCount++
+      const body = callCount === 1 ? fakeStatusStale : fakeStatus
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+      return
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+
+  await page.goto('/')
+  await page.getByText('Platform API').click()
+  await page.getByRole('button', { name: 'Status' }).click()
+  await expect(page.getByTestId('stale-badge')).toBeVisible()
+
+  // Refresh clears the stale badge
+  await page.getByTestId('status-refresh').click()
+  await expect(page.getByTestId('stale-badge')).not.toBeVisible()
+  await expect(page.getByTestId('status-matrix')).toBeVisible()
+
+  await page.waitForTimeout(1500)
+})
+
+test('status tab shows N/A for environments without HelmRelease', async ({ page }) => {
+  await page.route('**/openid-configuration', () => {})
+
+  await page.addInitScript(
+    ({ key, value }) => sessionStorage.setItem(key, JSON.stringify(value)),
+    { key: SESSION_KEY, value: fakeAdminUser },
+  )
+
+  const naStatus = {
+    workloads: { api: { dev: 'v1.0.0', production: 'N/A' } },
+    fetched_at: new Date().toISOString(),
+    stale: false,
+  }
+
+  await page.route('**/api/v1/**', async (route) => {
+    const url = route.request().url()
+    if (url.includes('/api/v1/products') && !url.includes('/platform-api')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([fakeProduct]) })
+      return
+    }
+    if (url.includes('/platform-api/status')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(naStatus) })
+      return
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+
+  await page.goto('/')
+  await page.getByText('Platform API').click()
+  await page.getByRole('button', { name: 'Status' }).click()
+  await expect(page.getByTestId('tag-api-production')).toHaveText('N/A')
+
+  await page.waitForTimeout(1500)
+})
+
+test('status tab shows error message on fetch failure', async ({ page }) => {
+  await page.route('**/openid-configuration', () => {})
+
+  await page.addInitScript(
+    ({ key, value }) => sessionStorage.setItem(key, JSON.stringify(value)),
+    { key: SESSION_KEY, value: fakeAdminUser },
+  )
+
+  await page.route('**/api/v1/**', async (route) => {
+    const url = route.request().url()
+    if (url.includes('/api/v1/products') && !url.includes('/platform-api')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([fakeProduct]) })
+      return
+    }
+    if (url.includes('/platform-api/status')) {
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'internal error' }) })
+      return
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+  })
+
+  await page.goto('/')
+  await page.getByText('Platform API').click()
+  await page.getByRole('button', { name: 'Status' }).click()
+  await expect(page.getByTestId('status-error')).toBeVisible()
+  await expect(page.getByTestId('status-retry')).toBeVisible()
+
   await page.waitForTimeout(1500)
 })

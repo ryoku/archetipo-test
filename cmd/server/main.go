@@ -115,7 +115,7 @@ func initGCRLister() (gcr.Lister, func()) {
 }
 
 // GITOPS_REPO_URL is optional; all deploy, workload, and status requests fail with a clear error when absent.
-func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader, handlers.StatusReader) {
+func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader, gitops.StatusReader) {
 	w, err := gitops.NewWriterFromEnv()
 	if err != nil {
 		log.Printf("GitOps writer unavailable (deployments, workload discovery, and status disabled): %v", err)
