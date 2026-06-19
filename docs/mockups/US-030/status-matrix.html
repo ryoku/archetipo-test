@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-030 · Status Matrix (popolata)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ─── page-specific tweaks ─── */
+.refresh-spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.refreshing-overlay {
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity .2s;
+}
+.api-url-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 2px 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ─────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Editor — platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Page top -->
+    <div class="page-top">
+      <div class="breadcrumb">
+        <a href="#" class="bc-link">Products</a>
+        <span class="bc-sep">/</span>
+        <span>platform-api</span>
+      </div>
+
+      <div class="product-hero">
+        <div class="hero-icon">PL</div>
+        <div>
+          <div class="hero-name">Platform API</div>
+          <div class="hero-meta">
+            <span class="tag-chip">platform-api</span>
+            <span class="badge badge-default">Platform Team</span>
+          </div>
+          <div class="hero-desc">Core API layer — auth, routing e service mesh.</div>
+        </div>
+      </div>
+
+      <!-- Sub-navigation -->
+      <nav class="page-subnav">
+        <a href="#" class="subnav-link">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 3h10a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/>
+            <path d="M4 3V2M10 3V2M1 7h12"/>
+          </svg>
+          Environments
+          <span class="nav-badge" style="margin-left:2px;font-size:9px;">3</span>
+        </a>
+        <a href="#" class="subnav-link active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="7" cy="7" r="5.5"/>
+            <path d="M7 4.5v3l2 1.5"/>
+          </svg>
+          Status
+        </a>
+      </nav>
+    </div>
+
+    <!-- Body -->
+    <div class="page-body">
+
+      <!-- Section header -->
+      <div class="section-head">
+        <div class="section-head-left">
+          <div>
+            <div class="section-label">Deployment Status</div>
+            <div class="section-sub" style="margin-top:3px;">
+              Tag immagine attualmente deployati per workload e ambiente
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="refresh-meta">
+            <div class="refresh-dot"></div>
+            <span>Aggiornato alle 14:37:02</span>
+            <span class="api-url-hint">GET /api/v1/products/platform-api/status</span>
+          </div>
+          <button class="btn btn-outline btn-sm" id="refreshBtn" onclick="simulateRefresh()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" id="refreshIcon">
+              <path d="M10.5 6A4.5 4.5 0 113.5 2.5" stroke-linecap="round"/>
+              <path d="M3.5 1v2H1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Status matrix table -->
+      <div class="matrix-wrap" id="matrixWrap">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th class="col-workload">Workload</th>
+
+              <th class="col-env">
+                <div class="env-col-header" style="border-color:var(--env-dev-brd);">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <circle cx="5" cy="5" r="4" stroke="var(--env-dev)" stroke-width="1.2"/>
+                  </svg>
+                  <span class="env-col-name" style="color:var(--env-dev);">Dev</span>
+                  <span class="env-col-slug">development</span>
+                </div>
+              </th>
+
+              <th class="col-env">
+                <div class="env-col-header" style="border-color:var(--env-intg-brd);">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <circle cx="5" cy="5" r="4" stroke="var(--env-intg)" stroke-width="1.2"/>
+                  </svg>
+                  <span class="env-col-name" style="color:var(--env-intg);">Integration</span>
+                  <span class="env-col-slug">integration</span>
+                </div>
+              </th>
+
+              <th class="col-env">
+                <div class="env-col-header" style="border-color:var(--env-prod-brd);border-right:none;">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <circle cx="5" cy="5" r="4" stroke="var(--env-prod)" stroke-width="1.2"/>
+                  </svg>
+                  <span class="env-col-name" style="color:var(--env-prod);">Production</span>
+                  <span class="env-col-slug">production</span>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Workload: api -->
+            <tr>
+              <td class="td-workload">
+                <div class="wl-name">api</div>
+                <div class="wl-section">spec.values.api.image</div>
+              </td>
+              <td class="td-cell">
+                <span class="tag-cell tag-dev">v2.14.3-rc.7</span>
+              </td>
+              <td class="td-cell">
+                <span class="tag-cell tag-intg">v2.13.1</span>
+              </td>
+              <td class="td-cell">
+                <span class="tag-cell tag-prod">v2.12.0</span>
+              </td>
+            </tr>
+            <!-- Workload: worker -->
+            <tr>
+              <td class="td-workload">
+                <div class="wl-name">worker</div>
+                <div class="wl-section">spec.values.worker.image</div>
+              </td>
+              <td class="td-cell">
+                <span class="tag-cell tag-dev">v2.14.3-rc.7</span>
+              </td>
+              <td class="td-cell">
+                <span class="tag-cell tag-intg">v2.13.0</span>
+              </td>
+              <td class="td-cell">
+                <span class="tag-cell tag-na">N/A</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer note -->
+      <div style="margin-top:10px;font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink:0;">
+          <circle cx="6" cy="6" r="5"/><path d="M6 5v3M6 3.5v.5"/>
+        </svg>
+        <span>
+          <strong style="color:var(--text-secondary);">N/A</strong>
+          = HelmRelease path non trovato o <code style="font-family:var(--font-mono);font-size:10px;">image.tag</code> non impostato.
+          I dati vengono aggiornati automaticamente ogni 60 secondi (TTL configurabile).
+        </span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Demo nav -->
+<div style="position:fixed;bottom:16px;right:16px;z-index:200;">
+  <a href="index.html" style="
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 12px;
+    background:var(--bg-overlay);border:1px solid var(--border-strong);
+    border-radius:20px;font-size:11px;color:var(--text-secondary);
+    transition:all var(--t);
+  " onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-secondary)'">
+    ← indice US-030
+  </a>
+</div>
+
+<script>
+function simulateRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  const icon = document.getElementById('refreshIcon');
+  const wrap = document.getElementById('matrixWrap');
+  btn.disabled = true;
+  icon.classList.add('refresh-spin');
+  wrap.classList.add('refreshing-overlay');
+  setTimeout(() => {
+    btn.disabled = false;
+    icon.classList.remove('refresh-spin');
+    wrap.classList.remove('refreshing-overlay');
+    // Update time
+    const now = new Date();
+    const t = now.toTimeString().slice(0, 8);
+    document.querySelector('.refresh-meta span').textContent = 'Aggiornato alle ' + t;
+    document.querySelector('.refresh-dot').classList.remove('stale');
+  }, 1400);
+}
+</script>
+</body>
+</html>

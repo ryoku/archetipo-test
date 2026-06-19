@@ -20,6 +20,14 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+const (
+	errFmtCreateTempDir   = "gitops writer: create temp dir: %w"
+	errFmtBuildAuth       = "gitops writer: build auth: %w"
+	errFmtClone           = "gitops writer: clone: %w"
+	errFmtUnsafePath      = "gitops writer: unsafe helmrelease path: %w"
+	errFmtReadHelmRelease = "gitops writer: read helmrelease: %w"
+)
+
 // WriterConfig holds the configuration for the gitops Writer.
 // Exactly one of DeployKeyPath (SSH) or Token (HTTPS) may be set; both empty means no auth
 // (suitable for local file:// remotes used in tests).
@@ -117,13 +125,13 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) (string, error) {
 
 	tmpDir, err := os.MkdirTemp("", "kubegate-gitops-*")
 	if err != nil {
-		return "", fmt.Errorf("gitops writer: create temp dir: %w", err)
+		return "", fmt.Errorf(errFmtCreateTempDir, err)
 	}
 	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort cleanup of temp clone; errors here are non-actionable
 
 	auth, err := w.buildAuth()
 	if err != nil {
-		return "", fmt.Errorf("gitops writer: build auth: %w", err)
+		return "", fmt.Errorf(errFmtBuildAuth, err)
 	}
 
 	repo, err := git.PlainCloneContext(ctx, tmpDir, false, &git.CloneOptions{
@@ -131,7 +139,7 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) (string, error) {
 		Auth: auth,
 	})
 	if err != nil {
-		return "", fmt.Errorf("gitops writer: clone: %w", err)
+		return "", fmt.Errorf(errFmtClone, err)
 	}
 
 	worktree, err := repo.Worktree()
@@ -149,18 +157,18 @@ func (w *Writer) Apply(ctx context.Context, p ApplyParams) (string, error) {
 	return commitAndPush(ctx, repo, worktree, auth, msg)
 }
 
-// ListWorkloads clones the gitops repo, reads the HelmRelease for the given product and
-// environment, and returns the discovered workloads. The temp clone is always removed.
-func (w *Writer) ListWorkloads(ctx context.Context, productSlug, envSlug string) ([]domain.Workload, error) {
+// readHelmReleaseData clones the gitops repo into a temp dir and returns the raw bytes of the
+// HelmRelease file for the given product and environment. The temp dir is always removed.
+func (w *Writer) readHelmReleaseData(ctx context.Context, productSlug, envSlug string) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "kubegate-gitops-read-*")
 	if err != nil {
-		return nil, fmt.Errorf("gitops writer: create temp dir: %w", err)
+		return nil, fmt.Errorf(errFmtCreateTempDir, err)
 	}
 	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort cleanup of temp clone; errors here are non-actionable
 
 	auth, err := w.buildAuth()
 	if err != nil {
-		return nil, fmt.Errorf("gitops writer: build auth: %w", err)
+		return nil, fmt.Errorf(errFmtBuildAuth, err)
 	}
 
 	_, err = git.PlainCloneContext(ctx, tmpDir, false, &git.CloneOptions{
@@ -168,13 +176,13 @@ func (w *Writer) ListWorkloads(ctx context.Context, productSlug, envSlug string)
 		Auth: auth,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("gitops writer: clone: %w", err)
+		return nil, fmt.Errorf(errFmtClone, err)
 	}
 
 	relPath := HelmReleasePath(envSlug, productSlug)
 	absPath, err := securejoin.SecureJoin(tmpDir, relPath)
 	if err != nil {
-		return nil, fmt.Errorf("gitops writer: unsafe helmrelease path: %w", err)
+		return nil, fmt.Errorf(errFmtUnsafePath, err)
 	}
 
 	data, err := os.ReadFile(absPath)
@@ -182,14 +190,32 @@ func (w *Writer) ListWorkloads(ctx context.Context, productSlug, envSlug string)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, &HelmReleaseNotFoundError{Path: relPath}
 		}
-		return nil, fmt.Errorf("gitops writer: read helmrelease: %w", err)
+		return nil, fmt.Errorf(errFmtReadHelmRelease, err)
 	}
+	return data, nil
+}
 
-	workloads, err := DiscoverWorkloads(data)
+// ReadCurrentTags clones the gitops repo, reads the HelmRelease for the given product and
+// environment, and returns the current image tag for each discovered workload.
+// Returns "N/A" for workloads where image.tag is not set.
+// Returns ErrHelmReleaseNotFound (wrapped) when no HelmRelease file exists at the expected path.
+// The temp clone is always removed.
+func (w *Writer) ReadCurrentTags(ctx context.Context, productSlug, envSlug string) (map[string]string, error) {
+	data, err := w.readHelmReleaseData(ctx, productSlug, envSlug)
 	if err != nil {
 		return nil, err
 	}
-	return workloads, nil
+	return ExtractCurrentTags(data)
+}
+
+// ListWorkloads clones the gitops repo, reads the HelmRelease for the given product and
+// environment, and returns the discovered workloads. The temp clone is always removed.
+func (w *Writer) ListWorkloads(ctx context.Context, productSlug, envSlug string) ([]domain.Workload, error) {
+	data, err := w.readHelmReleaseData(ctx, productSlug, envSlug)
+	if err != nil {
+		return nil, err
+	}
+	return DiscoverWorkloads(data)
 }
 
 // patchAndStage reads the HelmRelease file, patches spec.values.[workload].image.tag,
@@ -197,14 +223,14 @@ func (w *Writer) ListWorkloads(ctx context.Context, productSlug, envSlug string)
 func patchAndStage(tmpDir string, worktree *git.Worktree, p ApplyParams) error {
 	absPath, err := securejoin.SecureJoin(tmpDir, p.HelmReleasePath)
 	if err != nil {
-		return fmt.Errorf("gitops writer: unsafe helmrelease path: %w", err)
+		return fmt.Errorf(errFmtUnsafePath, err)
 	}
 	data, err := os.ReadFile(absPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return &HelmReleaseNotFoundError{Path: p.HelmReleasePath}
 		}
-		return fmt.Errorf("gitops writer: read helmrelease: %w", err)
+		return fmt.Errorf(errFmtReadHelmRelease, err)
 	}
 	patched, err := PatchHelmRelease(data, p.Workload, p.NewTag)
 	if err != nil {

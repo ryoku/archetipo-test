@@ -25,7 +25,13 @@
       "Bash(pnpm build *)",
       "Bash(go vet *)",
       "mcp__sonarqube__search_security_hotspots",
-      "Bash(make web:lint)"
+      "Bash(make web:lint)",
+      "mcp__sonarqube__list_pull_requests",
+      "mcp__sonarqube__search_duplicated_files",
+      "mcp__sonarqube__search_files_by_coverage",
+      "mcp__sonarqube__get_file_coverage_details",
+      "Bash(make lint *)",
+      "Bash(make go:lint)"
     ]
   },
   "hooks": {

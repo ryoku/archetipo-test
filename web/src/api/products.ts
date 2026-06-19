@@ -184,7 +184,7 @@ export async function deployTag(
   )
   if (res.status === 202 || res.status === 200) {
     const body: unknown = await res.json().catch((err: unknown) => {
-      throw new Error(`deployTag: response body not valid JSON (status ${res.status}): ${String(err)}`)
+      throw new Error(`deployTag: response body not valid JSON (status ${res.status}): ${err instanceof Error ? err.message : String(err)}`)
     })
     return body as DeployResult
   }
@@ -214,6 +214,21 @@ export async function deployTag(
   throw new Error(`deployTag: ${res.status}`)
 }
 
+export interface StatusResponse {
+  workloads: Record<string, Record<string, string>>
+  fetched_at: string
+  stale: boolean
+}
+
+export async function getProductStatus(token: string, productSlug: string): Promise<StatusResponse> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/status`, token)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `getProductStatus: ${res.status}`)
+  }
+  return (await res.json()) as StatusResponse
+}
+
 export async function listTags(
   token: string,
   productSlug: string,
@@ -231,3 +246,4 @@ export async function listTags(
   if (!res.ok) throw new Error(`listTags: ${res.status}`)
   return (await res.json()) as ListTagsResponse
 }
+

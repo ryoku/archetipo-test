@@ -177,6 +177,106 @@ func TestHelmReleasePath(t *testing.T) {
 	}
 }
 
+func TestExtractCurrentTags_HappyPath(t *testing.T) {
+	tags, err := ExtractCurrentTags([]byte(discoverFixtureTwoWorkloads))
+	if err != nil {
+		t.Fatalf("ExtractCurrentTags: %v", err)
+	}
+	if len(tags) != 2 {
+		t.Fatalf("expected 2 tags, got %d: %v", len(tags), tags)
+	}
+	if tags["main"] != "v1.0.0" {
+		t.Errorf("main tag = %q, want %q", tags["main"], "v1.0.0")
+	}
+	if tags["cron"] != "v1.0.0" {
+		t.Errorf("cron tag = %q, want %q", tags["cron"], "v1.0.0")
+	}
+}
+
+func TestExtractCurrentTags_NoTagReturnsNA(t *testing.T) {
+	const noTagFixture = `apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: myapp
+spec:
+  values:
+    api:
+      image:
+        repository: gcr.io/proj/api
+`
+	tags, err := ExtractCurrentTags([]byte(noTagFixture))
+	if err != nil {
+		t.Fatalf("ExtractCurrentTags: %v", err)
+	}
+	if tags["api"] != TagMissing {
+		t.Errorf("api tag = %q, want %q", tags["api"], TagMissing)
+	}
+}
+
+func TestExtractCurrentTags_SkipsWorkloadsWithoutRepository(t *testing.T) {
+	tags, err := ExtractCurrentTags([]byte(discoverFixtureOneWorkloadNoRepo))
+	if err != nil {
+		t.Fatalf("ExtractCurrentTags: %v", err)
+	}
+	if _, ok := tags["main"]; ok {
+		t.Errorf("workload without repository should not appear in tags, got %q", tags["main"])
+	}
+	if tags["worker"] != "v2.0.0" {
+		t.Errorf("worker tag = %q, want %q", tags["worker"], "v2.0.0")
+	}
+}
+
+func TestExtractCurrentTags_NoValues_ReturnsEmptyMap(t *testing.T) {
+	const noValues = `apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: myapp
+spec:
+  chart:
+    spec:
+      chart: my-chart
+`
+	tags, err := ExtractCurrentTags([]byte(noValues))
+	if err != nil {
+		t.Fatalf("ExtractCurrentTags: %v", err)
+	}
+	if len(tags) != 0 {
+		t.Errorf("expected empty map, got %v", tags)
+	}
+}
+
+func TestExtractCurrentTags_EmptyData_ReturnsParseError(t *testing.T) {
+	_, err := ExtractCurrentTags(nil)
+	if err == nil {
+		t.Fatal("expected error for empty data, got nil")
+	}
+	if !errors.Is(err, ErrHelmReleaseParseFailed) {
+		t.Errorf("expected ErrHelmReleaseParseFailed, got %v", err)
+	}
+}
+
+func TestParseHelmRelease_NonMappingRoot_ReturnsParseError(t *testing.T) {
+	// A syntactically valid YAML list at the document root triggers the "root must be a
+	// mapping" guard in parseHelmRelease; both DiscoverWorkloads and ExtractCurrentTags
+	// share this helper, so one fixture covers both entry points.
+	listAtRoot := []byte("- foo\n- bar\n")
+	_, err := DiscoverWorkloads(listAtRoot)
+	if err == nil {
+		t.Fatal("DiscoverWorkloads: expected error for non-mapping root, got nil")
+	}
+	if !errors.Is(err, ErrHelmReleaseParseFailed) {
+		t.Errorf("DiscoverWorkloads: expected ErrHelmReleaseParseFailed, got %v", err)
+	}
+
+	_, err = ExtractCurrentTags(listAtRoot)
+	if err == nil {
+		t.Fatal("ExtractCurrentTags: expected error for non-mapping root, got nil")
+	}
+	if !errors.Is(err, ErrHelmReleaseParseFailed) {
+		t.Errorf("ExtractCurrentTags: expected ErrHelmReleaseParseFailed, got %v", err)
+	}
+}
+
 func assertWorkload(t *testing.T, workloads []domain.Workload, name, repo string) {
 	t.Helper()
 	for _, w := range workloads {
