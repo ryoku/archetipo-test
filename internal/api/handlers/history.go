@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -57,6 +58,7 @@ func (h *HistoryHandlers) ListByProduct(c *gin.Context) {
 	page := parsePageParam(c)
 	deployments, total, err := h.deploymentStore.ListByProduct(c.Request.Context(), product.ID, page, defaultHistoryPageSize)
 	if err != nil {
+		log.Printf("ListByProduct product=%s page=%d: %v", productSlug, page, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
@@ -74,6 +76,7 @@ func (h *HistoryHandlers) ListAll(c *gin.Context) {
 	page := parsePageParam(c)
 	deployments, total, err := h.deploymentStore.ListAll(c.Request.Context(), page, defaultHistoryPageSize)
 	if err != nil {
+		log.Printf("ListAll page=%d: %v", page, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}
@@ -94,20 +97,24 @@ func parsePageParam(c *gin.Context) int {
 	return p
 }
 
+func toDeploymentResponse(d domain.Deployment) deploymentResponse {
+	return deploymentResponse{
+		ID:               d.ID,
+		ActorDisplayName: d.ActorDisplayName,
+		ComponentName:    d.ComponentName,
+		EnvironmentName:  d.EnvironmentName,
+		Tag:              d.Tag,
+		DeployedAt:       d.DeployedAt.UTC().Format(time.RFC3339),
+		CommitSHA:        d.CommitSHA,
+		Outcome:          d.Outcome,
+		ErrorMessage:     d.ErrorMessage,
+	}
+}
+
 func toDeploymentResponses(deployments []domain.Deployment) []deploymentResponse {
 	result := make([]deploymentResponse, len(deployments))
 	for i, d := range deployments {
-		result[i] = deploymentResponse{
-			ID:               d.ID,
-			ActorDisplayName: d.ActorDisplayName,
-			ComponentName:    d.ComponentName,
-			EnvironmentName:  d.EnvironmentName,
-			Tag:              d.Tag,
-			DeployedAt:       d.DeployedAt.UTC().Format(time.RFC3339),
-			CommitSHA:        d.CommitSHA,
-			Outcome:          d.Outcome,
-			ErrorMessage:     d.ErrorMessage,
-		}
+		result[i] = toDeploymentResponse(d)
 	}
 	return result
 }

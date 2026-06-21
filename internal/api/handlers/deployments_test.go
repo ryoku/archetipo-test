@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -90,7 +91,7 @@ func TestGetDeployment_Success(t *testing.T) {
 	assert.Equal(t, *fixtureDeployment.CommitSHA, resp["commit_sha"])
 	assert.Equal(t, domain.OutcomeSuccess, resp["outcome"])
 	assert.Equal(t, fixtureDeployment.Tag, resp["tag"])
-	assert.Equal(t, fixtureDeployment.ComponentName, resp["workload"])
+	assert.Equal(t, fixtureDeployment.ComponentName, resp["component_name"])
 	assert.Equal(t, "2026-06-15T10:00:00Z", resp["deployed_at"])
 }
 
@@ -148,6 +149,39 @@ func TestGetDeployment_AdminBypassesProductCheck(t *testing.T) {
 	w := doGetDeployment(t, r, fixtureDeployment.ID)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGetDeployment_StoreError_Returns500(t *testing.T) {
+	ds := &mockDeploymentStore{
+		getByIDFn: func(_ context.Context, _ string) (*domain.Deployment, error) {
+			return nil, errors.New("db connection reset")
+		},
+	}
+	identity := &domain.UserIdentity{Sub: "user-1", IsDevOpsAdmin: true}
+
+	r := newGetDeploymentRouter(&mockProductStore{}, ds, identity)
+	w := doGetDeployment(t, r, fixtureDeployment.ID)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestGetDeployment_ProductStoreError_Returns500(t *testing.T) {
+	ps := &mockProductStore{
+		getByIDFn: func(_ context.Context, _ string) (*domain.Product, error) {
+			return nil, errors.New("db timeout")
+		},
+	}
+	ds := &mockDeploymentStore{
+		getByIDFn: func(_ context.Context, _ string) (*domain.Deployment, error) {
+			return fixtureDeployment, nil
+		},
+	}
+	identity := &domain.UserIdentity{Sub: "user-1", IsDevOpsAdmin: true}
+
+	r := newGetDeploymentRouter(ps, ds, identity)
+	w := doGetDeployment(t, r, fixtureDeployment.ID)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestGetDeployment_NoIdentity_Returns401(t *testing.T) {

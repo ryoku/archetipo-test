@@ -109,9 +109,13 @@ export default function HistoryPage() {
   const pageSize = 20
 
   useEffect(() => {
-    if (!slug || !accessToken) return
+    if (!slug || !accessToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoading(false)
+      setError('You must be signed in to view deployment history.')
+      return
+    }
     // Intentional reset: page/slug changed, clear stale data and show loading before new fetch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     setError(null)
     listDeployments(accessToken, slug, page)

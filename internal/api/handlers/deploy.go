@@ -39,6 +39,9 @@ func NewDeploymentHandlers(
 	applier GitOpsApplier,
 	defaultTagConvention string,
 ) *DeploymentHandlers {
+	if deploymentStore == nil {
+		panic("NewDeploymentHandlers: deploymentStore must not be nil")
+	}
 	return &DeploymentHandlers{
 		productStore:         productStore,
 		envStore:             envStore,
@@ -261,7 +264,6 @@ type gitopsResult struct {
 
 // createDeploymentRecord persists a deployment record and returns the new deployment ID.
 // On error it writes the HTTP 500 response and returns ("", non-nil error).
-// When deploymentStore is nil, returns ("", nil) and emits a 202 with empty deployment_id.
 func (h *DeploymentHandlers) createDeploymentRecord(
 	c *gin.Context,
 	product *domain.Product,
@@ -269,9 +271,6 @@ func (h *DeploymentHandlers) createDeploymentRecord(
 	actor, workload, tag string,
 	result gitopsResult,
 ) (string, error) {
-	if h.deploymentStore == nil {
-		return "", nil
-	}
 	outcome := domain.OutcomeSuccess
 	if result.errorMessage != "" {
 		outcome = domain.OutcomeFailure
@@ -312,9 +311,6 @@ func (h *DeploymentHandlers) persistDeploymentRecord(
 	actor, workload, tag string,
 	result gitopsResult,
 ) {
-	if h.deploymentStore == nil {
-		return
-	}
 	outcome := domain.OutcomeSuccess
 	if result.errorMessage != "" {
 		outcome = domain.OutcomeFailure
@@ -373,25 +369,5 @@ func (h *DeploymentHandlers) GetDeployment(c *gin.Context) {
 		return
 	}
 
-	commitSHA := ""
-	if d.CommitSHA != nil {
-		commitSHA = *d.CommitSHA
-	}
-	errorMessage := ""
-	if d.ErrorMessage != nil {
-		errorMessage = *d.ErrorMessage
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"id":                 d.ID,
-		"actor_display_name": d.ActorDisplayName,
-		"product_id":         d.ProductID,
-		"environment_id":     d.EnvironmentID,
-		"workload":           d.ComponentName,
-		"tag":                d.Tag,
-		"deployed_at":        d.DeployedAt.UTC().Format(time.RFC3339),
-		"commit_sha":         commitSHA,
-		"outcome":            d.Outcome,
-		"error_message":      errorMessage,
-	})
+	c.JSON(http.StatusOK, toDeploymentResponse(*d))
 }

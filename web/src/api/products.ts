@@ -254,8 +254,13 @@ export async function listDeployments(
   page: number
 ): Promise<DeploymentHistoryResponse> {
   const res = await apiFetch(`/api/v1/products/${productSlug}/deployments?page=${page}`, token)
-  if (!res.ok) throw new Error(`listDeployments: ${res.status}`)
-  return (await res.json()) as DeploymentHistoryResponse
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `listDeployments: ${res.status}`)
+  }
+  return (await res.json().catch((err: unknown) => {
+    throw new Error(`listDeployments: invalid response body: ${err instanceof Error ? err.message : String(err)}`)
+  })) as DeploymentHistoryResponse
 }
 
 export async function listTags(
