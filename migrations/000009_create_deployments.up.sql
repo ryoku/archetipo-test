@@ -1,12 +1,15 @@
 CREATE TABLE deployments (
-    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    actor_sub      TEXT        NOT NULL,
-    product_id     UUID        NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    environment_id UUID        NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
-    workload       TEXT        NOT NULL,
-    tag            TEXT        NOT NULL,
-    deployed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    commit_sha     TEXT        NOT NULL DEFAULT '',
-    outcome        VARCHAR(16) NOT NULL CHECK (outcome IN ('success', 'failure')),
-    error_message  TEXT        NOT NULL DEFAULT ''
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES products(id),
+    environment_id UUID NOT NULL REFERENCES environments(id),
+    actor_display_name TEXT NOT NULL,
+    component_name TEXT NOT NULL,
+    environment_name TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    deployed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    commit_sha TEXT,
+    outcome TEXT NOT NULL CHECK (outcome IN ('success', 'failure')),
+    error_message TEXT
 );
+CREATE INDEX deployments_product_id_idx ON deployments(product_id, deployed_at DESC);
+CREATE INDEX deployments_deployed_at_idx ON deployments(deployed_at DESC);

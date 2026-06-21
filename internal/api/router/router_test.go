@@ -206,6 +206,12 @@ func (noopDeploymentStore) Create(_ context.Context, _ *domain.Deployment) error
 func (noopDeploymentStore) GetByID(_ context.Context, _ string) (*domain.Deployment, error) {
 	return nil, nil
 }
+func (noopDeploymentStore) ListByProduct(_ context.Context, _ string, _, _ int) ([]domain.Deployment, int, error) {
+	return nil, 0, nil
+}
+func (noopDeploymentStore) ListAll(_ context.Context, _, _ int) ([]domain.Deployment, int, error) {
+	return nil, 0, nil
+}
 
 var _ store.DeploymentStore = noopDeploymentStore{}
 
@@ -242,6 +248,19 @@ func TestRegisterStatusRoutes_RoutesRegistered(t *testing.T) {
 		router.RegisterStatusRoutes(noopProductStore{}, noopEnvironmentStore{}, noopStatusReader{}))
 	assertRoutesReturn401(t, r, [][2]string{
 		{http.MethodGet, "/api/v1/products/some-slug/status"},
+	})
+}
+
+// TestRegisterHistoryRoutes_RoutesRegistered verifies that RegisterHistoryRoutes registers the
+// expected HTTP endpoints. All /api/v1/* requests return 401 without a valid token, confirming
+// the routes exist (a missing route would return 404 instead).
+func TestRegisterHistoryRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterHistoryRoutes(noopProductStore{}, noopDeploymentStore{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/products/some-slug/deployments"},
+		{http.MethodGet, "/api/v1/admin/deployments"},
 	})
 }
 

@@ -16,17 +16,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func deployStrPtr(s string) *string { return &s }
+
 var fixtureDeployment = &domain.Deployment{
-	ID:            "depl-uuid-1",
-	ActorSub:      "sub-user-1",
-	ProductID:     "prod-id-1",
-	EnvironmentID: "env-id-1",
-	Workload:      "api",
-	Tag:           "v1.2.3",
-	DeployedAt:    time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC),
-	CommitSHA:     "abc123def456",
-	Outcome:       domain.OutcomeSuccess,
-	ErrorMessage:  "",
+	ID:               "depl-uuid-1",
+	ActorDisplayName: "sub-user-1",
+	ProductID:        "prod-id-1",
+	EnvironmentID:    "env-id-1",
+	ComponentName:    "api",
+	EnvironmentName:  "dev",
+	Tag:              "v1.2.3",
+	DeployedAt:       time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC),
+	CommitSHA:        deployStrPtr("abc123def456"),
+	Outcome:          domain.OutcomeSuccess,
 }
 
 func newGetDeploymentRouter(
@@ -85,10 +87,10 @@ func TestGetDeployment_Success(t *testing.T) {
 	var resp map[string]string
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, fixtureDeployment.ID, resp["id"])
-	assert.Equal(t, fixtureDeployment.CommitSHA, resp["commit_sha"])
+	assert.Equal(t, *fixtureDeployment.CommitSHA, resp["commit_sha"])
 	assert.Equal(t, domain.OutcomeSuccess, resp["outcome"])
 	assert.Equal(t, fixtureDeployment.Tag, resp["tag"])
-	assert.Equal(t, fixtureDeployment.Workload, resp["workload"])
+	assert.Equal(t, fixtureDeployment.ComponentName, resp["workload"])
 	assert.Equal(t, "2026-06-15T10:00:00Z", resp["deployed_at"])
 }
 
@@ -118,7 +120,6 @@ func TestGetDeployment_NoProductAccess_Returns404(t *testing.T) {
 			return fixtureDeployment, nil
 		},
 	}
-	// This user has no role on "other-product"
 	identity := &domain.UserIdentity{
 		Sub:          "user-1",
 		ProductRoles: map[string]domain.Role{"some-other-product": domain.RoleViewer},
@@ -127,7 +128,6 @@ func TestGetDeployment_NoProductAccess_Returns404(t *testing.T) {
 	r := newGetDeploymentRouter(ps, ds, identity)
 	w := doGetDeployment(t, r, fixtureDeployment.ID)
 
-	// checkProductAccess returns 404 (anti-enumeration) when no role exists for the product
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
@@ -151,9 +151,6 @@ func TestGetDeployment_AdminBypassesProductCheck(t *testing.T) {
 }
 
 func TestGetDeployment_NoIdentity_Returns401(t *testing.T) {
-	// GET /deployments/:id has no RequireRole middleware — auth is enforced inside the handler
-	// via checkProductAccess. This test ensures that path returns 401 when no identity is set,
-	// so a future refactor of checkProductAccess cannot silently open the endpoint.
 	ds := &mockDeploymentStore{
 		getByIDFn: func(_ context.Context, _ string) (*domain.Deployment, error) {
 			return fixtureDeployment, nil
@@ -165,7 +162,7 @@ func TestGetDeployment_NoIdentity_Returns401(t *testing.T) {
 		},
 	}
 
-	r := newGetDeploymentRouter(ps, ds, nil) // nil identity — simulates unauthenticated request
+	r := newGetDeploymentRouter(ps, ds, nil)
 	w := doGetDeployment(t, r, fixtureDeployment.ID)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)

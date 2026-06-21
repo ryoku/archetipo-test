@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import ProductSubNav from './ProductSubNav'
@@ -10,59 +10,76 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-const fakeProduct: Product = {
-  id: 'prod-1',
-  name: 'My Product',
-  slug: 'my-product',
+const product: Product = {
+  id: 'p1',
+  name: 'Platform API',
+  slug: 'platform-api',
   description: '',
-  created_at: '2026-01-01T00:00:00Z',
+  created_at: '2025-01-01T00:00:00Z',
 }
 
-afterEach(() => {
+function renderNav(activeTab: 'workloads' | 'environments' | 'status' | 'history' | 'settings') {
+  return render(
+    <MemoryRouter>
+      <ProductSubNav activeTab={activeTab} product={product} />
+    </MemoryRouter>,
+  )
+}
+
+beforeEach(() => {
+  mockNavigate.mockReset()
   cleanup()
-  vi.clearAllMocks()
 })
 
 describe('ProductSubNav', () => {
-  it('renders all four tab buttons with icons', () => {
-    render(
-      <MemoryRouter>
-        <ProductSubNav activeTab="workloads" product={fakeProduct} />
-      </MemoryRouter>
-    )
-    expect(screen.getByRole('button', { name: /Workloads/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Environments/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Status/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Settings/i })).toBeInTheDocument()
+  it('renders all five tabs', () => {
+    renderNav('workloads')
+    expect(screen.getByText('Workloads')).toBeTruthy()
+    expect(screen.getByText('Environments')).toBeTruthy()
+    expect(screen.getByText('Status')).toBeTruthy()
+    expect(screen.getByText('History')).toBeTruthy()
+    expect(screen.getByText('Settings')).toBeTruthy()
   })
 
-  it('applies active class only to the active tab', () => {
-    render(
-      <MemoryRouter>
-        <ProductSubNav activeTab="status" product={fakeProduct} />
-      </MemoryRouter>
-    )
-    expect(screen.getByRole('button', { name: /Status/i })).toHaveClass('pd-subnav-link--active')
-    expect(screen.getByRole('button', { name: /Workloads/i })).not.toHaveClass('pd-subnav-link--active')
+  it('marks the active tab with the active class and others without it', () => {
+    renderNav('status')
+    expect(screen.getByText('Status').closest('button')).toHaveClass('pd-subnav-link--active')
+    expect(screen.getByText('Workloads').closest('button')).not.toHaveClass('pd-subnav-link--active')
   })
 
-  it('navigates to the correct path when an inactive tab is clicked', () => {
-    render(
-      <MemoryRouter>
-        <ProductSubNav activeTab="workloads" product={fakeProduct} />
-      </MemoryRouter>
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Status/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/products/my-product/status', { state: fakeProduct })
+  it('navigates to workloads path when Workloads tab is clicked', () => {
+    renderNav('environments')
+    fireEvent.click(screen.getByText('Workloads'))
+    expect(mockNavigate).toHaveBeenCalledWith('/products/platform-api', { state: product })
   })
 
-  it('does not navigate when the already-active tab is clicked', () => {
-    render(
-      <MemoryRouter>
-        <ProductSubNav activeTab="workloads" product={fakeProduct} />
-      </MemoryRouter>
-    )
-    fireEvent.click(screen.getByRole('button', { name: /Workloads/i }))
+  it('navigates to environments path when Environments tab is clicked', () => {
+    renderNav('workloads')
+    fireEvent.click(screen.getByText('Environments'))
+    expect(mockNavigate).toHaveBeenCalledWith('/products/platform-api/environments', { state: product })
+  })
+
+  it('navigates to status path when Status tab is clicked', () => {
+    renderNav('workloads')
+    fireEvent.click(screen.getByText('Status'))
+    expect(mockNavigate).toHaveBeenCalledWith('/products/platform-api/status', { state: product })
+  })
+
+  it('navigates to history path when History tab is clicked', () => {
+    renderNav('workloads')
+    fireEvent.click(screen.getByText('History'))
+    expect(mockNavigate).toHaveBeenCalledWith('/products/platform-api/history', { state: product })
+  })
+
+  it('navigates to settings path when Settings tab is clicked', () => {
+    renderNav('workloads')
+    fireEvent.click(screen.getByText('Settings'))
+    expect(mockNavigate).toHaveBeenCalledWith('/products/platform-api/settings', { state: product })
+  })
+
+  it('does not call navigate when clicking the already-active tab', () => {
+    renderNav('workloads')
+    fireEvent.click(screen.getByText('Workloads'))
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 })

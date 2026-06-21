@@ -92,7 +92,7 @@ func TestDeployIntegration_ConcurrentDeploymentRejection(t *testing.T) {
 	makeRouter := func(applier handlers.GitOpsApplier) *gin.Engine {
 		gin.SetMode(gin.TestMode)
 		r := gin.New()
-		h := handlers.NewDeploymentHandlers(ps, es, lockStore, noopDeploymentStore(), applier, "")
+		h := handlers.NewDeploymentHandlers(ps, es, lockStore, nil, applier, "")
 		injectIdentity := func(c *gin.Context) {
 			c.Set(domain.IdentityContextKey, identityEditor)
 			c.Next()

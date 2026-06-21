@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom'
 import type { Product } from '../api/products'
 
-type Tab = 'workloads' | 'environments' | 'status' | 'settings'
+type Tab = 'workloads' | 'environments' | 'status' | 'history' | 'settings'
 
 interface Props {
   readonly activeTab: Tab
@@ -10,10 +10,10 @@ interface Props {
 }
 
 interface TabDef {
-  id: Tab
-  label: string
-  path: (slug: string) => string
-  icon: React.ReactNode
+  readonly id: Tab
+  readonly label: string
+  readonly path: (slug: string) => string
+  readonly icon: React.ReactNode
 }
 
 const TABS: TabDef[] = [
@@ -47,6 +47,17 @@ const TABS: TabDef[] = [
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
         <circle cx="7" cy="7" r="5"/>
         <path d="M7 4v3l2 2"/>
+      </svg>
+    ),
+  },
+  {
+    id: 'history',
+    label: 'History',
+    path: (slug) => `/products/${slug}/history`,
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="7" cy="7" r="5.5"/>
+        <path d="M7 4v3.5l2.5 1.5"/>
       </svg>
     ),
   },
