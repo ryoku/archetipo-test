@@ -12,6 +12,7 @@ import {
   listTags,
   deployTag,
   DeployApiError,
+  listDeployments,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -504,5 +505,49 @@ describe('deployTag', () => {
     vi.stubGlobal('fetch', makeFetchStub(500))
 
     await expect(deployTag('tok', 'my-product', 'env-id', 'api', 'v1.0.0')).rejects.toThrow('deployTag: 500')
+  })
+})
+
+// ─── listDeployments ───────────────────────────────────────────
+describe('listDeployments', () => {
+  const mockHistoryResponse = {
+    deployments: [
+      {
+        id: 'dep-1',
+        actor_display_name: 'Marco Andreoli',
+        component_name: 'api',
+        environment_name: 'production',
+        tag: 'v1.2.3',
+        deployed_at: '2026-06-16T09:41:00Z',
+        commit_sha: 'abc123',
+        outcome: 'success' as const,
+      },
+    ],
+    page: 1,
+    page_size: 20,
+    total: 1,
+  }
+
+  it('returns parsed DeploymentHistoryResponse on success', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(200, mockHistoryResponse))
+
+    const result = await listDeployments('tok', 'platform-api', 1)
+    expect(result).toEqual(mockHistoryResponse)
+  })
+
+  it('calls the correct URL with page param', async () => {
+    const fetchStub = makeFetchStub(200, mockHistoryResponse)
+    vi.stubGlobal('fetch', fetchStub)
+
+    await listDeployments('tok', 'platform-api', 2)
+
+    const [url] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/v1/products/platform-api/deployments?page=2')
+  })
+
+  it('throws on non-ok response', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(403))
+
+    await expect(listDeployments('tok', 'platform-api', 1)).rejects.toThrow('listDeployments: 403')
   })
 })

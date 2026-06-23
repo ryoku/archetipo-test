@@ -229,6 +229,40 @@ export async function getProductStatus(token: string, productSlug: string): Prom
   return (await res.json()) as StatusResponse
 }
 
+export interface Deployment {
+  id: string
+  actor_display_name: string
+  component_name: string
+  environment_name: string
+  tag: string
+  deployed_at: string
+  commit_sha: string | null
+  outcome: 'success' | 'failure'
+  error_message?: string
+}
+
+export interface DeploymentHistoryResponse {
+  deployments: Deployment[]
+  page: number
+  page_size: number
+  total: number
+}
+
+export async function listDeployments(
+  token: string,
+  productSlug: string,
+  page: number
+): Promise<DeploymentHistoryResponse> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/deployments?page=${page}`, token)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `listDeployments: ${res.status}`)
+  }
+  return (await res.json().catch((err: unknown) => {
+    throw new Error(`listDeployments: invalid response body: ${err instanceof Error ? err.message : String(err)}`)
+  })) as DeploymentHistoryResponse
+}
+
 export async function listTags(
   token: string,
   productSlug: string,

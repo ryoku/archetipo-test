@@ -2,6 +2,9 @@ package gitops
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 // makeLocalBareRepo creates a non-bare repo seeded with files, commits them, then
@@ -513,6 +517,173 @@ spec:
 	}
 	if tags["test-service"] != "N/A" {
 		t.Errorf("test-service tag = %q, want %q", tags["test-service"], "N/A")
+	}
+}
+
+func TestApply_CloneFails_InvalidURL(t *testing.T) {
+	w, err := New(WriterConfig{RepoURL: "file:///nonexistent-kubegate-repo"})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = w.Apply(context.Background(), ApplyParams{
+		HelmReleasePath: "apps/e/p/p-helmrelease.yaml",
+		Workload:        "svc",
+		NewTag:          "v1.0.0",
+		ProductSlug:     "p",
+		EnvName:         "e",
+		Actor:           "user",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid clone URL, got nil")
+	}
+	if !strings.Contains(err.Error(), "gitops writer: clone") {
+		t.Errorf("error = %q, want it to contain 'gitops writer: clone'", err.Error())
+	}
+}
+
+func TestListWorkloads_CloneFails_InvalidURL(t *testing.T) {
+	w, err := New(WriterConfig{RepoURL: "file:///nonexistent-kubegate-repo"})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = w.ListWorkloads(context.Background(), "my-product", "production")
+	if err == nil {
+		t.Fatal("expected error for invalid clone URL, got nil")
+	}
+	if !strings.Contains(err.Error(), "gitops writer: clone") {
+		t.Errorf("error = %q, want it to contain 'gitops writer: clone'", err.Error())
+	}
+}
+
+func TestListWorkloads_AuthFails(t *testing.T) {
+	w, err := New(WriterConfig{
+		RepoURL:       "git@example.com:org/repo.git",
+		DeployKeyPath: "/nonexistent/deploy-key",
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = w.ListWorkloads(context.Background(), "my-product", "production")
+	if err == nil {
+		t.Fatal("expected error loading nonexistent SSH key in ListWorkloads")
+	}
+	if !strings.Contains(err.Error(), "build auth") {
+		t.Errorf("error = %q, want it to contain 'build auth'", err.Error())
+	}
+}
+
+func writeTempSSHKey(t *testing.T) string {
+	t.Helper()
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate ed25519 key: %v", err)
+	}
+	block, err := gossh.MarshalPrivateKey(priv, "")
+	if err != nil {
+		t.Fatalf("marshal private key: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "id_ed25519")
+	if wErr := os.WriteFile(path, pem.EncodeToMemory(block), 0600); wErr != nil {
+		t.Fatalf("write key file: %v", wErr)
+	}
+	return path
+}
+
+// TestApply_SSHAuth_NoKnownHosts exercises buildAuth's SSH-without-KnownHostsPath branch
+// (InsecureIgnoreHostKey). A local file:// remote is used so no network connection is needed;
+// the file:// transport ignores auth, so the clone succeeds and Apply completes normally.
+func TestApply_SSHAuth_NoKnownHosts(t *testing.T) {
+	keyFile := writeTempSSHKey(t)
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{helmReleasePath: seedHelmRelease})
+	w, err := New(WriterConfig{
+		RepoURL:       repoURL,
+		DeployKeyPath: keyFile,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = w.Apply(context.Background(), ApplyParams{
+		HelmReleasePath: helmReleasePath,
+		Workload:        "test-service",
+		NewTag:          "v9.0.0",
+		ProductSlug:     "my-product",
+		EnvName:         "production",
+		Actor:           "user",
+	})
+	if err != nil {
+		t.Errorf("Apply with SSH no-known-hosts against local repo: %v", err)
+	}
+}
+
+// TestApply_SSHAuth_WithKnownHosts exercises buildAuth's SSH-with-KnownHostsPath branch.
+func TestApply_SSHAuth_WithKnownHosts(t *testing.T) {
+	keyFile := writeTempSSHKey(t)
+	khFile := filepath.Join(t.TempDir(), "known_hosts")
+	if err := os.WriteFile(khFile, []byte(""), 0600); err != nil {
+		t.Fatalf("write known_hosts: %v", err)
+	}
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{helmReleasePath: seedHelmRelease})
+	w, err := New(WriterConfig{
+		RepoURL:        repoURL,
+		DeployKeyPath:  keyFile,
+		KnownHostsPath: khFile,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = w.Apply(context.Background(), ApplyParams{
+		HelmReleasePath: helmReleasePath,
+		Workload:        "test-service",
+		NewTag:          "v9.1.0",
+		ProductSlug:     "my-product",
+		EnvName:         "production",
+		Actor:           "user",
+	})
+	if err != nil {
+		t.Errorf("Apply with SSH known-hosts against local repo: %v", err)
+	}
+}
+
+// TestApply_HTTPSToken exercises buildAuth's HTTPS Token branch.
+// A local file:// remote ignores the token, so the clone and push succeed.
+func TestApply_HTTPSToken(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{helmReleasePath: seedHelmRelease})
+	w, err := New(WriterConfig{
+		RepoURL: repoURL,
+		Token:   "mytoken",
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = w.Apply(context.Background(), ApplyParams{
+		HelmReleasePath: helmReleasePath,
+		Workload:        "test-service",
+		NewTag:          "v9.2.0",
+		ProductSlug:     "my-product",
+		EnvName:         "production",
+		Actor:           "user",
+	})
+	if err != nil {
+		t.Errorf("Apply with HTTPS token against local repo: %v", err)
+	}
+}
+
+// TestListWorkloads_HTTPSToken exercises buildAuth's HTTPS Token branch via ListWorkloads.
+func TestListWorkloads_HTTPSToken(t *testing.T) {
+	repoURL, _ := makeLocalBareRepo(t, map[string]string{helmReleasePath: seedHelmRelease})
+	w, err := New(WriterConfig{
+		RepoURL: repoURL,
+		Token:   "mytoken",
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	workloads, err := w.ListWorkloads(context.Background(), "my-product", "production")
+	if err != nil {
+		t.Fatalf("ListWorkloads with HTTPS token: %v", err)
+	}
+	if len(workloads) == 0 {
+		t.Error("expected at least one workload")
 	}
 }
 

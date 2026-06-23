@@ -256,7 +256,7 @@ func TestDeployIntegration_FullLifecycle(t *testing.T) {
 	assert.Equal(t, testCommitSHA, getResp["commit_sha"])
 	assert.Equal(t, domain.OutcomeSuccess, getResp["outcome"])
 	assert.Equal(t, "v2.0.0", getResp["tag"])
-	assert.Equal(t, "api", getResp["workload"])
+	assert.Equal(t, "api", getResp["component_name"])
 }
 
 // insertDeployIntegrationFixtures inserts a product and environment for the integration test.

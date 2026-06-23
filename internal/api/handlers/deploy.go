@@ -39,6 +39,9 @@ func NewDeploymentHandlers(
 	applier GitOpsApplier,
 	defaultTagConvention string,
 ) *DeploymentHandlers {
+	if deploymentStore == nil {
+		panic("NewDeploymentHandlers: deploymentStore must not be nil")
+	}
 	return &DeploymentHandlers{
 		productStore:         productStore,
 		envStore:             envStore,
@@ -118,17 +121,15 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 
 	if applyErrMsg != "" {
 		// Internal gitops failure: persist a failure record best-effort and return.
-		// applyGitOps has already written the HTTP 500 response; calling createDeploymentRecord
-		// here would attempt a second c.JSON write if the store also fails, so we use
-		// persistDeploymentRecord which only logs on error and never writes HTTP.
-		h.persistDeploymentRecord(c.Request.Context(), product, env, identity.Sub, req.Workload, req.Tag, gitopsResult{errorMessage: applyErrMsg})
+		// applyGitOps has already written the HTTP 500 response.
+		h.persistDeploymentRecord(c.Request.Context(), product, env, actor, req.Workload, req.Tag, gitopsResult{errorMessage: applyErrMsg})
 		return
 	}
 	if !ok {
 		return
 	}
 
-	deploymentID, err := h.createDeploymentRecord(c, product, env, identity.Sub, req.Workload, req.Tag, gitopsResult{commitSHA: commitSHA})
+	deploymentID, err := h.createDeploymentRecord(c, product, env, actor, req.Workload, req.Tag, gitopsResult{commitSHA: commitSHA})
 	if err != nil {
 		return
 	}
@@ -261,28 +262,37 @@ type gitopsResult struct {
 	errorMessage string
 }
 
-// createDeploymentRecord persists a deployment record. Returns the new deployment ID on success.
-// On error it writes the appropriate HTTP response and returns ("", non-nil error).
+// createDeploymentRecord persists a deployment record and returns the new deployment ID.
+// On error it writes the HTTP 500 response and returns ("", non-nil error).
 func (h *DeploymentHandlers) createDeploymentRecord(
 	c *gin.Context,
 	product *domain.Product,
 	env *domain.Environment,
-	actorSub, workload, tag string,
+	actor, workload, tag string,
 	result gitopsResult,
 ) (string, error) {
 	outcome := domain.OutcomeSuccess
 	if result.errorMessage != "" {
 		outcome = domain.OutcomeFailure
 	}
+	var commitSHA *string
+	if result.commitSHA != "" {
+		commitSHA = &result.commitSHA
+	}
+	var errMsg *string
+	if result.errorMessage != "" {
+		errMsg = &result.errorMessage
+	}
 	d := &domain.Deployment{
-		ActorSub:      actorSub,
-		ProductID:     product.ID,
-		EnvironmentID: env.ID,
-		Workload:      workload,
-		Tag:           tag,
-		CommitSHA:     result.commitSHA,
-		Outcome:       outcome,
-		ErrorMessage:  result.errorMessage,
+		ActorDisplayName: actor,
+		ProductID:        product.ID,
+		EnvironmentID:    env.ID,
+		ComponentName:    workload,
+		EnvironmentName:  env.Name,
+		Tag:              tag,
+		CommitSHA:        commitSHA,
+		Outcome:          outcome,
+		ErrorMessage:     errMsg,
 	}
 	if err := h.deploymentStore.Create(c.Request.Context(), d); err != nil {
 		log.Printf("createDeploymentRecord product=%s env=%s: %v", product.Slug, env.Name, err)
@@ -293,28 +303,36 @@ func (h *DeploymentHandlers) createDeploymentRecord(
 }
 
 // persistDeploymentRecord inserts a deployment record without writing an HTTP response.
-// Use on code paths where the HTTP response has already been committed (e.g. best-effort
-// failure recording after a gitops error). Logs on store failure; never calls c.JSON.
+// Use on code paths where the HTTP response has already been committed. Logs on store failure.
 func (h *DeploymentHandlers) persistDeploymentRecord(
 	ctx context.Context,
 	product *domain.Product,
 	env *domain.Environment,
-	actorSub, workload, tag string,
+	actor, workload, tag string,
 	result gitopsResult,
 ) {
 	outcome := domain.OutcomeSuccess
 	if result.errorMessage != "" {
 		outcome = domain.OutcomeFailure
 	}
+	var commitSHA *string
+	if result.commitSHA != "" {
+		commitSHA = &result.commitSHA
+	}
+	var errMsg *string
+	if result.errorMessage != "" {
+		errMsg = &result.errorMessage
+	}
 	d := &domain.Deployment{
-		ActorSub:      actorSub,
-		ProductID:     product.ID,
-		EnvironmentID: env.ID,
-		Workload:      workload,
-		Tag:           tag,
-		CommitSHA:     result.commitSHA,
-		Outcome:       outcome,
-		ErrorMessage:  result.errorMessage,
+		ActorDisplayName: actor,
+		ProductID:        product.ID,
+		EnvironmentID:    env.ID,
+		ComponentName:    workload,
+		EnvironmentName:  env.Name,
+		Tag:              tag,
+		CommitSHA:        commitSHA,
+		Outcome:          outcome,
+		ErrorMessage:     errMsg,
 	}
 	if err := h.deploymentStore.Create(ctx, d); err != nil {
 		log.Printf("persistDeploymentRecord product=%s env=%s: %v", product.Slug, env.Name, err)
@@ -351,16 +369,5 @@ func (h *DeploymentHandlers) GetDeployment(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":             d.ID,
-		"actor_sub":      d.ActorSub,
-		"product_id":     d.ProductID,
-		"environment_id": d.EnvironmentID,
-		"workload":       d.Workload,
-		"tag":            d.Tag,
-		"deployed_at":    d.DeployedAt.UTC().Format(time.RFC3339),
-		"commit_sha":     d.CommitSHA,
-		"outcome":        d.Outcome,
-		"error_message":  d.ErrorMessage,
-	})
+	c.JSON(http.StatusOK, toDeploymentResponse(*d))
 }

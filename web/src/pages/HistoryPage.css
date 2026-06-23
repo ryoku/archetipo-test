@@ -1,0 +1,173 @@
+/* ─── History-specific styles (extends ProductDetailPage.css) ─── */
+
+.hist-total {
+  font-size: 12px;
+  color: #374e64;
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 4px;
+}
+
+/* Table */
+.hist-table th:last-child,
+.hist-table td:last-child {
+  text-align: left;
+  padding-right: 14px;
+}
+
+/* Failure row tint */
+.hist-row--failure td {
+  background: rgba(224, 85, 85, 0.025);
+}
+.hist-row--failure:hover td {
+  background: rgba(224, 85, 85, 0.05);
+}
+
+/* Actor cell */
+.hist-actor-cell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.hist-actor-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7b9ce8, #00c3aa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #070a12;
+  flex-shrink: 0;
+  letter-spacing: -0.3px;
+}
+
+.hist-actor-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #dde6f2;
+}
+
+/* Component name */
+.hist-comp-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #dde6f2;
+}
+
+/* Environment badge */
+.hist-env-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.hist-env-badge--prod {
+  color: #f5933a;
+  background: #1e1208;
+  border-color: rgba(245, 147, 58, 0.22);
+}
+.hist-env-badge--intg {
+  color: #7b9ce8;
+  background: #0e1626;
+  border-color: rgba(123, 156, 232, 0.22);
+}
+.hist-env-badge--dev {
+  color: #4ec97a;
+  background: #0c1a10;
+  border-color: rgba(78, 201, 122, 0.22);
+}
+
+/* Tag chip */
+.hist-tag-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  background: #151d30;
+  border: 1px solid #1d2f4a;
+  border-radius: 4px;
+  color: #90d0c8;
+  display: inline-block;
+}
+
+/* Timestamp */
+.hist-ts-abs {
+  font-size: 12px;
+  color: #6b859e;
+  white-space: nowrap;
+}
+
+/* Outcome badge */
+.hist-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.hist-outcome--success {
+  color: #00c97a;
+  background: #0a1a11;
+  border-color: rgba(0, 201, 122, 0.25);
+}
+.hist-outcome--failure {
+  color: #e05555;
+  background: #1a0c0c;
+  border-color: rgba(224, 85, 85, 0.25);
+}
+
+/* Pagination */
+.hist-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #111928;
+  background: #0b0f1c;
+}
+
+.hist-page-info {
+  font-size: 12px;
+  color: #374e64;
+  font-family: 'JetBrains Mono', monospace;
+}
+.hist-page-info strong {
+  color: #6b859e;
+  font-weight: 600;
+}
+
+.hist-btn-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b859e;
+  background: #101626;
+  border: 1px solid #1d2f4a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+  font-family: inherit;
+}
+.hist-btn-page:hover:not(:disabled) {
+  color: #dde6f2;
+  border-color: #263d5e;
+  background: #151d30;
+}
+.hist-btn-page:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
