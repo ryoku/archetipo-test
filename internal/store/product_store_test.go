@@ -419,3 +419,165 @@ func TestClearTagConvention_ArchivedProduct_ReturnsNotFound(t *testing.T) {
 		t.Errorf("expected ErrNotFound for archived product, got %v", err)
 	}
 }
+
+func cleanEnvsAndProducts(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), "DELETE FROM deployments"); err != nil {
+		t.Fatalf("delete deployments: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM environments"); err != nil {
+		t.Fatalf("delete environments: %v", err)
+	}
+	cleanProducts(t, pool)
+}
+
+func TestProductStore_ListWithStats_EmptyList(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	results, err := s.ListWithStats(ctx)
+	if err != nil {
+		t.Fatalf("ListWithStats: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for empty table, got %d", len(results))
+	}
+}
+
+func TestProductStore_ListWithStats_NoEnvironments(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "No Envs", Slug: "no-envs"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	results, err := s.ListWithStats(ctx)
+	if err != nil {
+		t.Fatalf("ListWithStats: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].EnvironmentCount != 0 {
+		t.Errorf("expected EnvironmentCount=0, got %d", results[0].EnvironmentCount)
+	}
+	if results[0].LastDeployedAt != nil {
+		t.Errorf("expected LastDeployedAt=nil, got %v", results[0].LastDeployedAt)
+	}
+}
+
+func TestProductStore_ListWithStats_TwoEnvironments(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "Two Envs", Slug: "two-envs"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	for _, env := range []struct{ name, slug, typ string }{
+		{"Dev", "dev", "dev"},
+		{"Integration", "integration", "integration"},
+	} {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, $2, $3, $4)`,
+			p.ID, env.name, env.slug, env.typ,
+		); err != nil {
+			t.Fatalf("insert environment %s: %v", env.name, err)
+		}
+	}
+
+	results, err := s.ListWithStats(ctx)
+	if err != nil {
+		t.Fatalf("ListWithStats: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].EnvironmentCount != 2 {
+		t.Errorf("expected EnvironmentCount=2, got %d", results[0].EnvironmentCount)
+	}
+	if results[0].LastDeployedAt != nil {
+		t.Errorf("expected LastDeployedAt=nil (no deployments inserted), got %v", results[0].LastDeployedAt)
+	}
+}
+
+func TestProductStore_ListWithStats_ArchivedExcluded(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	active := &domain.Product{Name: "Active", Slug: "active-stats"}
+	archived := &domain.Product{Name: "Archived", Slug: "archived-stats"}
+	if err := s.Create(ctx, active); err != nil {
+		t.Fatalf("Create active: %v", err)
+	}
+	if err := s.Create(ctx, archived); err != nil {
+		t.Fatalf("Create archived: %v", err)
+	}
+	if err := s.Archive(ctx, "archived-stats"); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	results, err := s.ListWithStats(ctx)
+	if err != nil {
+		t.Fatalf("ListWithStats: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result (only active), got %d", len(results))
+	}
+	if results[0].Slug != "active-stats" {
+		t.Errorf("expected active-stats in results, got %q", results[0].Slug)
+	}
+}
+
+func TestProductStore_ListWithStats_WithDeployment(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "Deployed", Slug: "deployed-stats"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	var envID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, 'prod', 'prod', 'prod') RETURNING id`,
+		p.ID,
+	).Scan(&envID); err != nil {
+		t.Fatalf("insert environment: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO deployments (product_id, environment_id, actor_display_name, component_name, environment_name, tag, outcome)
+		 VALUES ($1, $2, 'ci', 'api', 'prod', 'v1.0.0', 'success')`,
+		p.ID, envID,
+	); err != nil {
+		t.Fatalf("insert deployment: %v", err)
+	}
+
+	results, err := s.ListWithStats(ctx)
+	if err != nil {
+		t.Fatalf("ListWithStats: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].LastDeployedAt == nil {
+		t.Fatal("expected LastDeployedAt to be non-nil after deployment insert")
+	}
+	if results[0].EnvironmentCount != 1 {
+		t.Errorf("expected EnvironmentCount=1, got %d", results[0].EnvironmentCount)
+	}
+}

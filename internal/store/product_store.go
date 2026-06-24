@@ -45,6 +45,9 @@ type ProductStore interface {
 	// ClearTagConvention removes the product-level tag convention override, reverting to
 	// the global default. Returns ErrNotFound if no active product with that slug exists.
 	ClearTagConvention(ctx context.Context, slug string) error
+	// ListWithStats returns all non-archived products with aggregated environment count
+	// and last deployment date, ordered by created_at DESC.
+	ListWithStats(ctx context.Context) ([]domain.ProductStats, error)
 }
 
 type pgxProductStore struct {
@@ -231,6 +234,49 @@ func (s *pgxProductStore) ClearTagConvention(ctx context.Context, slug string) e
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *pgxProductStore) ListWithStats(ctx context.Context) ([]domain.ProductStats, error) {
+	const q = `
+        SELECT
+            p.id,
+            p.name,
+            p.slug,
+            p.description,
+            p.tag_convention_regex,
+            p.archived_at,
+            p.created_at,
+            COUNT(DISTINCT e.id) AS environment_count,
+            MAX(d.deployed_at)   AS last_deployed_at
+        FROM products p
+        LEFT JOIN environments e ON e.product_id = p.id
+        LEFT JOIN deployments d  ON d.product_id = p.id
+        WHERE p.archived_at IS NULL
+        GROUP BY p.id
+        ORDER BY p.created_at DESC`
+
+	rows, err := s.pool.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("list products with stats: %w", err)
+	}
+	defer rows.Close()
+
+	var results []domain.ProductStats
+	for rows.Next() {
+		var ps domain.ProductStats
+		if err := rows.Scan(
+			&ps.ID, &ps.Name, &ps.Slug, &ps.Description,
+			&ps.TagConventionRegex, &ps.ArchivedAt, &ps.CreatedAt,
+			&ps.EnvironmentCount, &ps.LastDeployedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan product stats: %w", err)
+		}
+		results = append(results, ps)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list products with stats rows: %w", err)
+	}
+	return results, nil
 }
 
 // isUniqueViolation reports whether err is a PostgreSQL unique constraint violation (SQLSTATE 23505).

@@ -29,6 +29,9 @@ func (noopProductStore) List(_ context.Context, _ store.ListOptions) ([]domain.P
 func (noopProductStore) GetBySlug(_ context.Context, _ string) (*domain.Product, error) {
 	return nil, nil
 }
+func (noopProductStore) GetByID(_ context.Context, _ string) (*domain.Product, error) {
+	return nil, nil
+}
 func (noopProductStore) Update(_ context.Context, _, _, _ string) (*domain.Product, error) {
 	return nil, nil
 }
@@ -38,7 +41,7 @@ func (noopProductStore) GetTagConvention(_ context.Context, _ string) (*string, 
 }
 func (noopProductStore) SetTagConvention(_ context.Context, _, _ string) error { return nil }
 func (noopProductStore) ClearTagConvention(_ context.Context, _ string) error  { return nil }
-func (noopProductStore) GetByID(_ context.Context, _ string) (*domain.Product, error) {
+func (noopProductStore) ListWithStats(_ context.Context) ([]domain.ProductStats, error) {
 	return nil, nil
 }
 
@@ -51,6 +54,14 @@ func (alwaysDenyVerifier) Verify(_ context.Context, _ string) (*domain.UserIdent
 }
 
 var _ auth.TokenVerifier = alwaysDenyVerifier{}
+
+type nonAdminVerifier struct{}
+
+func (nonAdminVerifier) Verify(_ context.Context, _ string) (*domain.UserIdentity, error) {
+	return &domain.UserIdentity{Sub: "u1", Email: "u@x.com", IsDevOpsAdmin: false}, nil
+}
+
+var _ auth.TokenVerifier = nonAdminVerifier{}
 
 // assertRoutesReturn401 verifies that every (method, path) pair returns 401
 // when called without a valid token, confirming all routes are registered.
@@ -262,6 +273,31 @@ func TestRegisterHistoryRoutes_RoutesRegistered(t *testing.T) {
 		{http.MethodGet, "/api/v1/products/some-slug/deployments"},
 		{http.MethodGet, "/api/v1/admin/deployments"},
 	})
+}
+
+// TestRegisterAdminRoutes_RoutesRegistered verifies that RegisterAdminRoutes registers
+// the expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is
+// present, confirming the route exists (a missing route returns 404 instead).
+func TestRegisterAdminRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{}, router.RegisterAdminRoutes(noopProductStore{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/admin/products"},
+	})
+}
+
+func TestRegisterAdminRoutes_NonAdminReturns403(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(nonAdminVerifier{}, router.RegisterAdminRoutes(noopProductStore{}))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/products", nil)
+	req.Header.Set("Authorization", "Bearer any-token")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for non-admin user on admin endpoint, got %d", w.Code)
+	}
 }
 
 func TestRouterHealthzBypassesAuth(t *testing.T) {

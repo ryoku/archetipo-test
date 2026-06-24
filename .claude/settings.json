@@ -25,6 +25,7 @@
       "Bash(pnpm build *)",
       "Bash(go vet *)",
       "mcp__sonarqube__search_security_hotspots",
+      "Bash(xargs ls)"
       "Bash(make web:build)",
       "Bash(make web:lint)",
       "mcp__sonarqube__list_pull_requests",
