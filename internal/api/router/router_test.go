@@ -194,22 +194,73 @@ var _ store.DeploymentLockStore = noopDeploymentLockStore{}
 
 type noopDeployApplier struct{}
 
-func (noopDeployApplier) Apply(_ context.Context, _ gitops.ApplyParams) error { return nil }
+func (noopDeployApplier) Apply(_ context.Context, _ gitops.ApplyParams) (string, error) {
+	return "", nil
+}
 
 var _ handlers.GitOpsApplier = noopDeployApplier{}
 
+type noopDeploymentStore struct{}
+
+func (noopDeploymentStore) Create(_ context.Context, _ *domain.Deployment) error { return nil }
+func (noopDeploymentStore) GetByID(_ context.Context, _ string) (*domain.Deployment, error) {
+	return nil, nil
+}
+func (noopDeploymentStore) ListByProduct(_ context.Context, _ string, _, _ int) ([]domain.Deployment, int, error) {
+	return nil, 0, nil
+}
+func (noopDeploymentStore) ListAll(_ context.Context, _, _ int) ([]domain.Deployment, int, error) {
+	return nil, 0, nil
+}
+
+var _ store.DeploymentStore = noopDeploymentStore{}
+
 // TestRegisterDeploymentRoutes_RoutesRegistered verifies that RegisterDeploymentRoutes registers
-// the expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is
-// present, confirming the route exists (a missing route returns 404 instead).
+// the expected HTTP endpoints. All /api/v1/* requests return 401 when no valid token is
+// present, confirming the routes exist (a missing route returns 404 instead).
 func TestRegisterDeploymentRoutes_RoutesRegistered(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := router.New(alwaysDenyVerifier{},
 		router.RegisterDeploymentRoutes(
 			noopProductStore{}, noopEnvironmentStore{},
-			noopDeploymentLockStore{}, noopDeployApplier{}, "",
+			noopDeploymentLockStore{}, noopDeploymentStore{}, noopDeployApplier{}, "",
 		))
 	assertRoutesReturn401(t, r, [][2]string{
 		{http.MethodPost, "/api/v1/products/some-slug/environments/some-id/deployments"},
+		{http.MethodGet, "/api/v1/deployments/some-deployment-id"},
+	})
+}
+
+type noopStatusReader struct{}
+
+func (noopStatusReader) ReadCurrentTags(_ context.Context, _, _ string) (map[string]string, error) {
+	return nil, nil
+}
+
+var _ gitops.StatusReader = noopStatusReader{}
+
+// TestRegisterStatusRoutes_RoutesRegistered verifies that RegisterStatusRoutes registers the
+// expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is present,
+// confirming the route exists (a missing route returns 404 instead).
+func TestRegisterStatusRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterStatusRoutes(noopProductStore{}, noopEnvironmentStore{}, noopStatusReader{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/products/some-slug/status"},
+	})
+}
+
+// TestRegisterHistoryRoutes_RoutesRegistered verifies that RegisterHistoryRoutes registers the
+// expected HTTP endpoints. All /api/v1/* requests return 401 without a valid token, confirming
+// the routes exist (a missing route would return 404 instead).
+func TestRegisterHistoryRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{},
+		router.RegisterHistoryRoutes(noopProductStore{}, noopDeploymentStore{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/products/some-slug/deployments"},
+		{http.MethodGet, "/api/v1/admin/deployments"},
 	})
 }
 

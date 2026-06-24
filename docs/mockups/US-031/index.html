@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-031 · Cronologia Deploy · ProductDetailPage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS — aligned to KubeGate shared system
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg-base:       #070a12;
+  --bg-surface:    #0b0f1c;
+  --bg-elevated:   #101626;
+  --bg-overlay:    #151d30;
+  --bg-hover:      #1a2438;
+  --bg-input:      #0e1422;
+
+  --border-faint:  #111928;
+  --border-subtle: #16233a;
+  --border-default:#1d2f4a;
+  --border-strong: #263d5e;
+  --border-accent: rgba(0, 195, 170, 0.35);
+
+  --text-primary:  #dde6f2;
+  --text-secondary:#6b859e;
+  --text-muted:    #374e64;
+  --text-code:     #90d0c8;
+
+  --accent:        #00c3aa;
+  --accent-hover:  #00ddc0;
+  --accent-glow:   rgba(0, 195, 170, 0.18);
+  --accent-dim:    rgba(0, 195, 170, 0.08);
+
+  --env-prod:      #f5933a;
+  --env-prod-bg:   rgba(245, 147, 58, 0.07);
+  --env-prod-brd:  rgba(245, 147, 58, 0.22);
+  --env-intg:      #7b9ce8;
+  --env-intg-bg:   rgba(123, 156, 232, 0.07);
+  --env-intg-brd:  rgba(123, 156, 232, 0.22);
+  --env-dev:       #4ec97a;
+  --env-dev-bg:    rgba(78, 201, 122, 0.07);
+  --env-dev-brd:   rgba(78, 201, 122, 0.22);
+
+  --ok:            #00c97a;
+  --ok-bg:         rgba(0, 201, 122, 0.08);
+  --ok-brd:        rgba(0, 201, 122, 0.25);
+  --warn:          #f0a030;
+  --danger:        #e05555;
+  --danger-bg:     rgba(224, 85, 85, 0.08);
+  --danger-brd:    rgba(224, 85, 85, 0.25);
+  --info:          #4488dd;
+
+  --font-ui:       'Space Grotesk', system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', 'Courier New', monospace;
+
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+
+  --shadow-sm:  0 1px 4px rgba(0,0,0,.5);
+  --shadow-md:  0 4px 20px rgba(0,0,0,.6);
+  --shadow-lg:  0 8px 48px rgba(0,0,0,.7);
+
+  --sidebar-w: 216px;
+  --t: 140ms ease;
+}
+
+/* ─── RESET ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+input, select { font-family: inherit; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ─── SHELL ─────────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+/* ─── SIDEBAR ────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 50;
+}
+.main { margin-left: var(--sidebar-w); flex: 1; }
+
+.sidebar-logo {
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--border-faint);
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-mark {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--accent) 0%, #0080f0 100%);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-name { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; color: var(--text-primary); }
+.logo-version { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); margin-top: 1px; letter-spacing: 0.04em; }
+
+.sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.nav-label {
+  padding: 10px 16px 4px;
+  font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px;
+  font-size: 13px; font-weight: 400;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--t), background var(--t);
+  border: none; background: none;
+  width: 100%; text-align: left;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.nav-item.active { color: var(--accent); background: var(--accent-dim); border-left-color: var(--accent); font-weight: 500; }
+.nav-item .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.65; }
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+  border-radius: 10px;
+  font-size: 10px; font-weight: 600;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+}
+
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--border-faint); }
+.user-cell {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 8px; border-radius: var(--r-md);
+}
+.avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7b9ce8, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  color: var(--bg-base);
+  flex-shrink: 0; letter-spacing: -0.5px;
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.user-role { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+/* ─── PAGE LAYOUT ────────────────────────────────────────────── */
+.page-top {
+  padding: 32px 32px 0;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--bg-surface);
+}
+.page-body { padding: 28px 32px; max-width: 1100px; }
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.bc-link { color: var(--text-secondary); transition: color var(--t); }
+.bc-link:hover { color: var(--accent); cursor: pointer; }
+.bc-sep { color: var(--border-strong); }
+
+/* Hero */
+.product-hero { display: flex; align-items: flex-start; gap: 16px; }
+.hero-icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, #00c3aa 0%, #0077cc 100%);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 14px;
+  color: #04222e; flex-shrink: 0;
+}
+.hero-name { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+.hero-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.hero-desc { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid transparent;
+}
+.badge-prod   { color: var(--env-prod); background: var(--env-prod-bg); border-color: var(--env-prod-brd); }
+.badge-intg   { color: var(--env-intg); background: var(--env-intg-bg); border-color: var(--env-intg-brd); }
+.badge-dev    { color: var(--env-dev);  background: var(--env-dev-bg);  border-color: var(--env-dev-brd);  }
+.badge-default{ color: var(--text-secondary); background: var(--bg-elevated); border-color: var(--border-default); }
+.badge-ok     { color: var(--ok);      background: var(--ok-bg);      border-color: var(--ok-brd); }
+.badge-danger  { color: var(--danger);  background: var(--danger-bg);  border-color: var(--danger-brd); }
+
+/* Tag chip */
+.tag-chip {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500;
+  padding: 2px 7px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-code);
+}
+
+/* Status dot */
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok   { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+
+/* ─── PAGE SUBNAV (tabs under hero) ──────────────────────────── */
+.page-subnav {
+  display: flex; align-items: center; gap: 2px;
+  margin-top: 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0;
+}
+.subnav-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px 9px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary);
+  border: none; background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--t), border-color var(--t);
+  text-decoration: none;
+}
+.subnav-link:hover { color: var(--text-primary); }
+.subnav-link.active { color: var(--accent); border-bottom-color: var(--accent); }
+.subnav-link svg { opacity: 0.6; }
+.subnav-link.active svg { opacity: 1; }
+.subnav-count {
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  background: var(--bg-overlay); border: 1px solid var(--border-default);
+  border-radius: 10px; padding: 1px 5px;
+  color: var(--text-muted); margin-left: 2px;
+}
+.subnav-link.active .subnav-count {
+  background: var(--accent-dim);
+  border-color: var(--border-accent);
+  color: var(--accent);
+}
+
+/* ─── CARD ──────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+/* ─── SECTION HEADER ─────────────────────────────────────────── */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.section-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* ─── HISTORY TABLE ─────────────────────────────────────────── */
+.history-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.history-total {
+  font-size: 12px; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.history-total strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--border-subtle); }
+th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  background: var(--bg-surface);
+}
+th:first-child { padding-left: 20px; }
+th:last-child  { text-align: right; padding-right: 20px; }
+td {
+  padding: 11px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-faint);
+  vertical-align: middle;
+}
+td:first-child { padding-left: 20px; }
+td:last-child  { text-align: right; padding-right: 20px; }
+tbody tr:hover td { background: var(--bg-hover); cursor: default; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* Actor cell */
+.actor-cell { display: flex; align-items: center; gap: 9px; }
+.actor-avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700;
+  color: var(--bg-base); flex-shrink: 0;
+  letter-spacing: -0.3px;
+}
+.actor-name { font-size: 12.5px; font-weight: 500; color: var(--text-primary); }
+
+/* Component cell */
+.comp-cell { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+
+/* Tag cell */
+.tag-version {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500;
+  color: var(--text-code);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+  display: inline-block;
+}
+
+/* Timestamp cell */
+.ts-cell { white-space: nowrap; }
+.ts-abs { font-size: 12px; color: var(--text-secondary); }
+.ts-rel { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+
+/* Outcome badge */
+.outcome-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.outcome-badge svg { flex-shrink: 0; }
+.outcome-success {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: var(--ok-brd);
+}
+.outcome-failure {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-brd);
+}
+
+/* Failure row tint */
+.row-failure td {
+  background: rgba(224, 85, 85, 0.025);
+}
+.row-failure:hover td {
+  background: rgba(224, 85, 85, 0.05);
+}
+
+/* ─── PAGINATION ─────────────────────────────────────────────── */
+.pagination {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-faint);
+  background: var(--bg-surface);
+}
+.page-info {
+  font-size: 12px; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.page-info strong { color: var(--text-secondary); }
+.btn-page {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  transition: all var(--t);
+}
+.btn-page:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-overlay);
+}
+.btn-page:disabled {
+  opacity: 0.3; cursor: not-allowed;
+}
+
+/* ─── LOADING STATE ─────────────────────────────────────────── */
+.loading-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 14px; padding: 56px 24px; text-align: center;
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 12.5px; color: var(--text-muted); }
+
+/* ─── EMPTY STATE ────────────────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; padding: 60px 24px; text-align: center;
+}
+.empty-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--r-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); margin-bottom: 2px;
+}
+.empty-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.empty-sub   { font-size: 12px; color: var(--text-muted); max-width: 300px; line-height: 1.6; }
+
+/* ─── BUTTONS ────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
+  border-radius: var(--r-md);
+  font-size: 13px; font-weight: 500;
+  border: 1px solid transparent;
+  transition: all var(--t);
+  white-space: nowrap; line-height: 1;
+}
+.btn-outline  {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+.btn-outline:hover { color: var(--text-primary); border-color: var(--border-strong); background: var(--bg-elevated); }
+.btn-sm { padding: 5px 10px; font-size: 12px; gap: 5px; }
+
+/* ─── INPUT ─────────────────────────────────────────────────── */
+.input-wrap { position: relative; }
+.input-icon {
+  position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
+.input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 7px 12px;
+  font-size: 12.5px; color: var(--text-primary);
+  transition: border-color var(--t); outline: none;
+}
+.input.has-icon { padding-left: 30px; }
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--text-muted); }
+
+/* ─── DEMO VIEW SWITCHER ─────────────────────────────────────── */
+.demo-switcher {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 10px 14px;
+  font-size: 11.5px; color: var(--text-secondary);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.demo-switcher-label {
+  font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.demo-pill-row { display: flex; gap: 6px; }
+.demo-pill {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border-default);
+  font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all var(--t);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+}
+.demo-pill.active {
+  background: var(--accent-dim);
+  border-color: var(--border-accent);
+  color: var(--accent);
+}
+.demo-pill:hover:not(.active) { color: var(--text-primary); border-color: var(--border-strong); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ──────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="#" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </a>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Utenti &amp; RBAC
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/>
+          <path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin Dashboard
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#7b9ce8,#00c3aa);">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Editor · platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Page top: hero + subnav -->
+    <div class="page-top">
+      <div class="breadcrumb">
+        <a href="#" class="bc-link">Prodotti</a>
+        <span class="bc-sep">/</span>
+        <span>platform-api</span>
+      </div>
+
+      <div class="product-hero">
+        <div class="hero-icon">PA</div>
+        <div>
+          <div class="hero-name">Platform API</div>
+          <div class="hero-meta">
+            <span class="tag-chip">platform-api</span>
+            <span class="badge badge-default">Platform Team</span>
+            <div style="display:flex;align-items:center;gap:5px;">
+              <div class="dot dot-ok"></div>
+              <span style="font-size:11.5px;color:var(--text-muted);">Sincronizzato</span>
+            </div>
+          </div>
+          <div class="hero-desc">Servizio REST centrale per governance e deploy Kubernetes. Integra Keycloak OIDC e applica policy RBAC.</div>
+        </div>
+      </div>
+
+      <!-- Sub-navigation tab bar — History tab active -->
+      <nav class="page-subnav">
+        <a href="#" class="subnav-link" onclick="switchTab(event,'workloads')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="2" width="10" height="10" rx="2"/>
+            <path d="M2 6h10"/><path d="M6 2v10"/>
+          </svg>
+          Workload
+        </a>
+        <a href="#" class="subnav-link" onclick="switchTab(event,'environments')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polygon points="7,2 12,5 12,10 7,13 2,10 2,5"/>
+          </svg>
+          Ambienti
+          <span class="subnav-count">3</span>
+        </a>
+        <a href="#" class="subnav-link active" onclick="switchTab(event,'history')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="7" cy="7" r="5.5"/>
+            <path d="M7 4v3.5l2.5 1.5"/>
+          </svg>
+          Cronologia
+          <span class="subnav-count">24</span>
+        </a>
+        <a href="#" class="subnav-link" onclick="switchTab(event,'settings')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="7" cy="7" r="2"/>
+            <path d="M7 1.5v1.7M7 10.8v1.7M1.5 7h1.7M10.8 7h1.7M3.4 3.4l1.2 1.2M9.4 9.4l1.2 1.2M3.4 10.6l1.2-1.2M9.4 4.6l1.2-1.2"/>
+          </svg>
+          Impostazioni
+        </a>
+      </nav>
+    </div><!-- /page-top -->
+
+    <!-- ─── PAGE BODY ─────────────────────────────────────────────── -->
+    <div class="page-body">
+
+      <!-- ══ TAB: CRONOLOGIA (active) ════════════════════════════════ -->
+      <div id="panel-history">
+
+        <!-- Toolbar: title + filter -->
+        <div class="history-toolbar">
+          <div>
+            <div class="section-label">Cronologia deploy</div>
+            <div class="history-total" id="history-total" style="margin-top:4px;">
+              <strong id="total-count">24</strong> deploy registrati per questo prodotto
+            </div>
+          </div>
+          <div class="input-wrap" style="width:220px;">
+            <svg class="input-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l2.5 2.5"/>
+            </svg>
+            <input type="text" class="input has-icon" placeholder="Filtra per componente o tag…" id="filterInput" oninput="applyFilter(this.value)">
+          </div>
+        </div>
+
+        <!-- Table card -->
+        <div class="card" id="table-card">
+
+          <!-- Normal state: table -->
+          <div id="state-table">
+            <div class="tbl-wrap">
+              <table id="history-table">
+                <thead>
+                  <tr>
+                    <th>Actor</th>
+                    <th>Componente</th>
+                    <th>Ambiente</th>
+                    <th>Tag</th>
+                    <th>Data &amp; Ora</th>
+                    <th>Esito</th>
+                  </tr>
+                </thead>
+                <tbody id="history-tbody">
+                  <!-- rendered by JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+              <span class="page-info" id="page-info"></span>
+              <button class="btn-page" id="btn-prev" onclick="changePage(-1)">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M7.5 2.5L4 6l3.5 3.5"/>
+                </svg>
+                Precedente
+              </button>
+              <button class="btn-page" id="btn-next" onclick="changePage(+1)">
+                Successiva
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M4.5 2.5L8 6l-3.5 3.5"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading state -->
+          <div id="state-loading" style="display:none;">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <div class="loading-text">Caricamento cronologia in corso…</div>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <div id="state-empty" style="display:none;">
+            <div class="empty-state">
+              <div class="empty-icon">
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4">
+                  <circle cx="11" cy="11" r="8.5"/>
+                  <path d="M11 7v5M11 14.5v.5"/>
+                </svg>
+              </div>
+              <div class="empty-title">Nessun deploy trovato</div>
+              <div class="empty-sub">Nessun deploy corrisponde al filtro impostato. Prova con un componente o tag diverso.</div>
+            </div>
+          </div>
+
+        </div><!-- /card -->
+      </div><!-- /panel-history -->
+
+      <!-- ══ TAB: WORKLOADS (placeholder) ═══════════════════════════ -->
+      <div id="panel-workloads" style="display:none;">
+        <div class="card" style="padding:40px 24px;text-align:center;">
+          <div style="font-size:13px;color:var(--text-muted);">
+            Pannello Workload — fuori scope per US-031
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: AMBIENTI (placeholder) ════════════════════════════ -->
+      <div id="panel-environments" style="display:none;">
+        <div class="card" style="padding:40px 24px;text-align:center;">
+          <div style="font-size:13px;color:var(--text-muted);">
+            Pannello Ambienti — fuori scope per US-031
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: IMPOSTAZIONI (placeholder) ════════════════════════ -->
+      <div id="panel-settings" style="display:none;">
+        <div class="card" style="padding:40px 24px;text-align:center;">
+          <div style="font-size:13px;color:var(--text-muted);">
+            Pannello Impostazioni — fuori scope per US-031
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- ─── DEMO SWITCHER (prototype helper) ─────────────────────── -->
+<div class="demo-switcher">
+  <div class="demo-switcher-label">Stato prototipo</div>
+  <div class="demo-pill-row">
+    <button class="demo-pill active" onclick="setDemoState('table', this)">Tabella</button>
+    <button class="demo-pill" onclick="setDemoState('loading', this)">Loading</button>
+    <button class="demo-pill" onclick="setDemoState('empty', this)">Vuoto</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   SAMPLE DATA — 24 realistic deploy records (shown 8 per page)
+   ═══════════════════════════════════════════════════════════════ */
+const ACTORS = [
+  { initials: 'MA', name: 'Marco Andreoli',  color: 'linear-gradient(135deg,#7b9ce8,#00c3aa)' },
+  { initials: 'LP', name: 'Lucia Parisi',    color: 'linear-gradient(135deg,#7b6cf0,#c060f0)' },
+  { initials: 'FT', name: 'Fabio Trentini',  color: 'linear-gradient(135deg,#40c060,#0080a0)' },
+  { initials: 'SR', name: 'Sara Romano',     color: 'linear-gradient(135deg,#f5933a,#e05555)' },
+];
+
+const ALL_DEPLOYS = [
+  { actor: ACTORS[0], component: 'api',      env: 'prod', tag: 'v1.14.2',          ts: '16 giu 2026, 09:41', rel: '2 min fa',      ok: true  },
+  { actor: ACTORS[1], component: 'worker',   env: 'intg', tag: 'v1.14.2-rc.1',     ts: '15 giu 2026, 17:03', rel: 'ieri',          ok: true  },
+  { actor: ACTORS[0], component: 'frontend', env: 'dev',  tag: 'main-20260615-b2f', ts: '15 giu 2026, 14:28', rel: 'ieri',          ok: false },
+  { actor: ACTORS[2], component: 'api',      env: 'intg', tag: 'v1.14.1',           ts: '14 giu 2026, 11:55', rel: '2 gg fa',       ok: true  },
+  { actor: ACTORS[3], component: 'worker',   env: 'prod', tag: 'v1.14.1',           ts: '13 giu 2026, 16:20', rel: '3 gg fa',       ok: true  },
+  { actor: ACTORS[0], component: 'frontend', env: 'prod', tag: 'v1.14.1',           ts: '13 giu 2026, 16:18', rel: '3 gg fa',       ok: true  },
+  { actor: ACTORS[1], component: 'api',      env: 'dev',  tag: 'v1.14.1-rc.2',      ts: '12 giu 2026, 10:05', rel: '4 gg fa',       ok: true  },
+  { actor: ACTORS[2], component: 'worker',   env: 'intg', tag: 'v1.14.1-rc.1',      ts: '11 giu 2026, 15:40', rel: '5 gg fa',       ok: false },
+  { actor: ACTORS[0], component: 'api',      env: 'prod', tag: 'v1.14.0',           ts: '10 giu 2026, 09:00', rel: '6 gg fa',       ok: true  },
+  { actor: ACTORS[3], component: 'frontend', env: 'intg', tag: 'v1.14.0',           ts: '09 giu 2026, 18:30', rel: '7 gg fa',       ok: true  },
+  { actor: ACTORS[1], component: 'worker',   env: 'prod', tag: 'v1.13.9',           ts: '07 giu 2026, 11:12', rel: '9 gg fa',       ok: true  },
+  { actor: ACTORS[0], component: 'api',      env: 'intg', tag: 'v1.13.9',           ts: '06 giu 2026, 14:55', rel: '10 gg fa',      ok: true  },
+  { actor: ACTORS[2], component: 'frontend', env: 'dev',  tag: 'main-20260605-a9c', ts: '05 giu 2026, 09:22', rel: '11 gg fa',      ok: true  },
+  { actor: ACTORS[3], component: 'api',      env: 'dev',  tag: 'v1.13.8',           ts: '04 giu 2026, 16:08', rel: '12 gg fa',      ok: false },
+  { actor: ACTORS[0], component: 'worker',   env: 'intg', tag: 'v1.13.8',           ts: '03 giu 2026, 13:45', rel: '13 gg fa',      ok: true  },
+  { actor: ACTORS[1], component: 'frontend', env: 'prod', tag: 'v1.13.8',           ts: '02 giu 2026, 10:30', rel: '14 gg fa',      ok: true  },
+  { actor: ACTORS[2], component: 'api',      env: 'prod', tag: 'v1.13.7',           ts: '01 giu 2026, 09:10', rel: '15 gg fa',      ok: true  },
+  { actor: ACTORS[3], component: 'worker',   env: 'dev',  tag: 'v1.13.7',           ts: '31 mag 2026, 17:00', rel: '16 gg fa',      ok: true  },
+  { actor: ACTORS[0], component: 'frontend', env: 'intg', tag: 'v1.13.6',           ts: '30 mag 2026, 11:25', rel: '17 gg fa',      ok: true  },
+  { actor: ACTORS[1], component: 'api',      env: 'prod', tag: 'v1.13.6',           ts: '29 mag 2026, 08:50', rel: '18 gg fa',      ok: false },
+  { actor: ACTORS[2], component: 'worker',   env: 'intg', tag: 'v1.13.5-hotfix.1',  ts: '28 mag 2026, 22:15', rel: '19 gg fa',      ok: true  },
+  { actor: ACTORS[0], component: 'api',      env: 'prod', tag: 'v1.13.5-hotfix.1',  ts: '28 mag 2026, 21:58', rel: '19 gg fa',      ok: true  },
+  { actor: ACTORS[3], component: 'frontend', env: 'prod', tag: 'v1.13.5',           ts: '27 mag 2026, 14:30', rel: '20 gg fa',      ok: true  },
+  { actor: ACTORS[1], component: 'worker',   env: 'prod', tag: 'v1.13.4',           ts: '26 mag 2026, 10:00', rel: '21 gg fa',      ok: true  },
+];
+
+const PAGE_SIZE = 8;
+let currentPage = 1;
+let filteredData = [...ALL_DEPLOYS];
+let filterValue = '';
+
+/* ── helpers ── */
+function envBadgeClass(env) {
+  if (env === 'prod')  return 'badge badge-prod';
+  if (env === 'intg')  return 'badge badge-intg';
+  return 'badge badge-dev';
+}
+function envLabel(env) {
+  if (env === 'prod')  return 'production';
+  if (env === 'intg')  return 'integration';
+  return 'development';
+}
+
+function outcomeHtml(ok) {
+  if (ok) {
+    return `<span class="outcome-badge outcome-success">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M2 5.5l2.5 2.5 4.5-4.5"/>
+      </svg>
+      successo
+    </span>`;
+  }
+  return `<span class="outcome-badge outcome-failure">
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M2.5 2.5l6 6M8.5 2.5l-6 6"/>
+    </svg>
+    fallito
+  </span>`;
+}
+
+/* ── render ── */
+function renderTable() {
+  const tbody  = document.getElementById('history-tbody');
+  const total  = filteredData.length;
+  const pages  = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > pages) currentPage = pages;
+  const start  = (currentPage - 1) * PAGE_SIZE;
+  const slice  = filteredData.slice(start, start + PAGE_SIZE);
+
+  if (total === 0) {
+    showState('empty');
+    return;
+  }
+  showState('table');
+
+  tbody.innerHTML = slice.map(d => `
+    <tr class="${d.ok ? '' : 'row-failure'}">
+      <td>
+        <div class="actor-cell">
+          <div class="actor-avatar" style="background:${d.actor.color};">${d.actor.initials}</div>
+          <span class="actor-name">${d.actor.name}</span>
+        </div>
+      </td>
+      <td><span class="comp-cell">${d.component}</span></td>
+      <td><span class="${envBadgeClass(d.env)}">${envLabel(d.env)}</span></td>
+      <td><span class="tag-version">${d.tag}</span></td>
+      <td class="ts-cell">
+        <div class="ts-abs">${d.ts}</div>
+        <div class="ts-rel">${d.rel}</div>
+      </td>
+      <td>${outcomeHtml(d.ok)}</td>
+    </tr>
+  `).join('');
+
+  // Update pagination
+  document.getElementById('page-info').innerHTML =
+    `Pagina <strong>${currentPage}</strong> di <strong>${pages}</strong>`;
+  document.getElementById('btn-prev').disabled = (currentPage <= 1);
+  document.getElementById('btn-next').disabled = (currentPage >= pages);
+
+  // Update counter
+  document.getElementById('total-count').textContent = total;
+}
+
+function applyFilter(val) {
+  filterValue   = val.trim().toLowerCase();
+  currentPage   = 1;
+  filteredData  = ALL_DEPLOYS.filter(d =>
+    d.component.includes(filterValue) ||
+    d.tag.toLowerCase().includes(filterValue) ||
+    d.actor.name.toLowerCase().includes(filterValue) ||
+    envLabel(d.env).includes(filterValue)
+  );
+  renderTable();
+}
+
+function changePage(delta) {
+  currentPage += delta;
+  renderTable();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── tab switching ── */
+const PANELS = { history: 'panel-history', workloads: 'panel-workloads', environments: 'panel-environments', settings: 'panel-settings' };
+
+function switchTab(e, tab) {
+  e.preventDefault();
+  document.querySelectorAll('.subnav-link').forEach(l => l.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+  Object.values(PANELS).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const panel = document.getElementById(PANELS[tab]);
+  if (panel) panel.style.display = '';
+}
+
+/* ── demo state switcher ── */
+function showState(state) {
+  document.getElementById('state-table').style.display   = state === 'table'   ? '' : 'none';
+  document.getElementById('state-loading').style.display = state === 'loading' ? '' : 'none';
+  document.getElementById('state-empty').style.display   = state === 'empty'   ? '' : 'none';
+}
+
+function setDemoState(state, btn) {
+  document.querySelectorAll('.demo-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  if (state === 'table') {
+    filteredData  = [...ALL_DEPLOYS];
+    filterValue   = '';
+    document.getElementById('filterInput').value = '';
+    document.getElementById('total-count').textContent = ALL_DEPLOYS.length;
+    currentPage = 1;
+    renderTable();
+  } else {
+    showState(state);
+  }
+}
+
+/* ── init ── */
+renderTable();
+</script>
+</body>
+</html>

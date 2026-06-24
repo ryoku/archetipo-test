@@ -18,13 +18,14 @@ import (
 )
 
 type GitOpsApplier interface {
-	Apply(ctx context.Context, p gitops.ApplyParams) error
+	Apply(ctx context.Context, p gitops.ApplyParams) (string, error)
 }
 
 type DeploymentHandlers struct {
 	productStore         store.ProductStore
 	envStore             store.EnvironmentStore
 	lockStore            store.DeploymentLockStore
+	deploymentStore      store.DeploymentStore
 	applier              GitOpsApplier
 	lockTimeout          time.Duration
 	defaultTagConvention string
@@ -34,13 +35,18 @@ func NewDeploymentHandlers(
 	productStore store.ProductStore,
 	envStore store.EnvironmentStore,
 	lockStore store.DeploymentLockStore,
+	deploymentStore store.DeploymentStore,
 	applier GitOpsApplier,
 	defaultTagConvention string,
 ) *DeploymentHandlers {
+	if deploymentStore == nil {
+		panic("NewDeploymentHandlers: deploymentStore must not be nil")
+	}
 	return &DeploymentHandlers{
 		productStore:         productStore,
 		envStore:             envStore,
 		lockStore:            lockStore,
+		deploymentStore:      deploymentStore,
 		applier:              applier,
 		lockTimeout:          deploymentLockTimeout(),
 		defaultTagConvention: defaultTagConvention,
@@ -111,17 +117,24 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 		}
 	}()
 
-	if !h.applyGitOps(c, product, env, req.Workload, req.Tag, actor) {
+	commitSHA, applyErrMsg, ok := h.applyGitOps(c, product, env, req.Workload, req.Tag, actor)
+
+	if applyErrMsg != "" {
+		// Internal gitops failure: persist a failure record best-effort and return.
+		// applyGitOps has already written the HTTP 500 response.
+		h.persistDeploymentRecord(c.Request.Context(), product, env, actor, req.Workload, req.Tag, gitopsResult{errorMessage: applyErrMsg})
+		return
+	}
+	if !ok {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"product":     product.Slug,
-		"workload":    req.Workload,
-		"env":         env.Name,
-		"tag":         req.Tag,
-		"deployed_by": actor,
-	})
+	deploymentID, err := h.createDeploymentRecord(c, product, env, actor, req.Workload, req.Tag, gitopsResult{commitSHA: commitSHA})
+	if err != nil {
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{"deployment_id": deploymentID})
 }
 
 func bindDeployRequest(c *gin.Context) (deployRequest, bool) {
@@ -177,9 +190,12 @@ func (h *DeploymentHandlers) acquireLock(c *gin.Context, productID, envID, actor
 	return lock, true
 }
 
-func (h *DeploymentHandlers) applyGitOps(c *gin.Context, product *domain.Product, env *domain.Environment, workload, tag, actor string) bool {
+// applyGitOps clones, patches, and pushes the gitops repo. It always writes the HTTP error
+// response when returning ok=false. errMsg is non-empty only for internal (recordable) failures;
+// non-recordable failures (misconfigured server, HelmRelease not found) return errMsg="".
+func (h *DeploymentHandlers) applyGitOps(c *gin.Context, product *domain.Product, env *domain.Environment, workload, tag, actor string) (commitSHA, errMsg string, ok bool) {
 	helmReleasePath := gitops.HelmReleasePath(env.Slug, product.Slug)
-	err := h.applier.Apply(c.Request.Context(), gitops.ApplyParams{
+	sha, err := h.applier.Apply(c.Request.Context(), gitops.ApplyParams{
 		HelmReleasePath: helmReleasePath,
 		Workload:        workload,
 		NewTag:          tag,
@@ -188,30 +204,32 @@ func (h *DeploymentHandlers) applyGitOps(c *gin.Context, product *domain.Product
 		Actor:           actor,
 	})
 	if err == nil {
-		return true
+		return sha, "", true
 	}
 	if errors.Is(err, gitops.ErrGitOpsNotConfigured) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "deployments are not available on this server"})
-		return false
+		return "", "", false
 	}
 	var notFound *gitops.HelmReleaseNotFoundError
 	if errors.As(err, &notFound) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("HelmRelease not found: %s", notFound.Path)})
-		return false
+		return "", "", false
 	}
 	var pathErr *gitops.HelmReleasePathError
 	if errors.As(err, &pathErr) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("workload not found in HelmRelease: %s", pathErr.Path)})
-		return false
+		return "", "", false
 	}
 	var inputErr *gitops.PatchInputError
 	if errors.As(err, &inputErr) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": fmt.Sprintf("invalid %s: %s", inputErr.Field, inputErr.Reason)})
-		return false
+		return "", "", false
 	}
 	log.Printf("applyGitOps product=%s workload=%s env=%s tag=%s: %v", product.Slug, workload, env.Name, tag, err)
 	c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
-	return false
+	// Store a generic failure category rather than the raw error, which may contain
+	// internal details such as repo URLs or auth scheme from go-git.
+	return "", "gitops apply failed", false
 }
 
 func (h *DeploymentHandlers) checkTagConvention(c *gin.Context, product *domain.Product, env *domain.Environment, tag string) bool {
@@ -237,4 +255,119 @@ func actorName(identity *domain.UserIdentity) string {
 		return identity.Name
 	}
 	return identity.Email
+}
+
+type gitopsResult struct {
+	commitSHA    string
+	errorMessage string
+}
+
+// createDeploymentRecord persists a deployment record and returns the new deployment ID.
+// On error it writes the HTTP 500 response and returns ("", non-nil error).
+func (h *DeploymentHandlers) createDeploymentRecord(
+	c *gin.Context,
+	product *domain.Product,
+	env *domain.Environment,
+	actor, workload, tag string,
+	result gitopsResult,
+) (string, error) {
+	outcome := domain.OutcomeSuccess
+	if result.errorMessage != "" {
+		outcome = domain.OutcomeFailure
+	}
+	var commitSHA *string
+	if result.commitSHA != "" {
+		commitSHA = &result.commitSHA
+	}
+	var errMsg *string
+	if result.errorMessage != "" {
+		errMsg = &result.errorMessage
+	}
+	d := &domain.Deployment{
+		ActorDisplayName: actor,
+		ProductID:        product.ID,
+		EnvironmentID:    env.ID,
+		ComponentName:    workload,
+		EnvironmentName:  env.Name,
+		Tag:              tag,
+		CommitSHA:        commitSHA,
+		Outcome:          outcome,
+		ErrorMessage:     errMsg,
+	}
+	if err := h.deploymentStore.Create(c.Request.Context(), d); err != nil {
+		log.Printf("createDeploymentRecord product=%s env=%s: %v", product.Slug, env.Name, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return "", err
+	}
+	return d.ID, nil
+}
+
+// persistDeploymentRecord inserts a deployment record without writing an HTTP response.
+// Use on code paths where the HTTP response has already been committed. Logs on store failure.
+func (h *DeploymentHandlers) persistDeploymentRecord(
+	ctx context.Context,
+	product *domain.Product,
+	env *domain.Environment,
+	actor, workload, tag string,
+	result gitopsResult,
+) {
+	outcome := domain.OutcomeSuccess
+	if result.errorMessage != "" {
+		outcome = domain.OutcomeFailure
+	}
+	var commitSHA *string
+	if result.commitSHA != "" {
+		commitSHA = &result.commitSHA
+	}
+	var errMsg *string
+	if result.errorMessage != "" {
+		errMsg = &result.errorMessage
+	}
+	d := &domain.Deployment{
+		ActorDisplayName: actor,
+		ProductID:        product.ID,
+		EnvironmentID:    env.ID,
+		ComponentName:    workload,
+		EnvironmentName:  env.Name,
+		Tag:              tag,
+		CommitSHA:        commitSHA,
+		Outcome:          outcome,
+		ErrorMessage:     errMsg,
+	}
+	if err := h.deploymentStore.Create(ctx, d); err != nil {
+		log.Printf("persistDeploymentRecord product=%s env=%s: %v", product.Slug, env.Name, err)
+	}
+}
+
+// GetDeployment handles GET /api/v1/deployments/:deploymentID.
+func (h *DeploymentHandlers) GetDeployment(c *gin.Context) {
+	deploymentID := c.Param("deploymentID")
+
+	d, err := h.deploymentStore.GetByID(c.Request.Context(), deploymentID)
+	if err != nil {
+		if errors.Is(err, store.ErrDeploymentNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "deployment not found"})
+			return
+		}
+		log.Printf("GetDeployment id=%s: %v", deploymentID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return
+	}
+
+	product, err := h.productStore.GetByID(c.Request.Context(), d.ProductID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			log.Printf("GetDeployment id=%s: orphaned deployment — product id=%s not found", deploymentID, d.ProductID)
+		} else {
+			log.Printf("GetDeployment id=%s resolve product id=%s: %v", deploymentID, d.ProductID, err)
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return
+	}
+
+	if !checkProductAccess(c, product.Slug) {
+		return
+	}
+
+	c.JSON(http.StatusOK, toDeploymentResponse(*d))
 }

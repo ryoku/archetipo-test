@@ -138,6 +138,131 @@ export interface ListTagsResponse {
   next_page_token?: string
 }
 
+export interface DeployResult {
+  deployment_id: string
+}
+
+export interface DeployConflictError {
+  type: 'conflict'
+  lock_holder: string | undefined
+  locked_since: string | undefined
+}
+
+export interface DeployTagConventionError {
+  type: 'tag_convention'
+  rejected_tag: string
+  applied_regex: string | undefined
+  message: string | undefined
+}
+
+export type DeployError = DeployConflictError | DeployTagConventionError
+
+export class DeployApiError extends Error {
+  readonly detail: DeployError
+  constructor(detail: DeployError) {
+    super(`deploy failed: ${detail.type}`)
+    this.name = 'DeployApiError'
+    this.detail = detail
+  }
+}
+
+export async function deployTag(
+  token: string,
+  productSlug: string,
+  environmentId: string,
+  workload: string,
+  tag: string,
+): Promise<DeployResult> {
+  const res = await apiFetch(
+    `/api/v1/products/${productSlug}/environments/${environmentId}/deployments`,
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workload, tag }),
+    },
+  )
+  if (res.status === 202 || res.status === 200) {
+    const body: unknown = await res.json().catch((err: unknown) => {
+      throw new Error(`deployTag: response body not valid JSON (status ${res.status}): ${err instanceof Error ? err.message : String(err)}`)
+    })
+    return body as DeployResult
+  }
+  if (res.status === 409) {
+    const body = (await res.json().catch((err: unknown) => {
+      console.warn('[deployTag] failed to parse 409 body:', err)
+      return null
+    })) as { lock_holder?: string; locked_since?: string } | null
+    throw new DeployApiError({
+      type: 'conflict',
+      lock_holder: body?.lock_holder,
+      locked_since: body?.locked_since,
+    })
+  }
+  if (res.status === 422) {
+    const body = (await res.json().catch((err: unknown) => {
+      console.warn('[deployTag] failed to parse 422 body:', err)
+      return null
+    })) as { rejected_tag?: string; applied_regex?: string; message?: string } | null
+    throw new DeployApiError({
+      type: 'tag_convention',
+      rejected_tag: body?.rejected_tag ?? tag,
+      applied_regex: body?.applied_regex,
+      message: body?.message,
+    })
+  }
+  throw new Error(`deployTag: ${res.status}`)
+}
+
+export interface StatusResponse {
+  workloads: Record<string, Record<string, string>>
+  fetched_at: string
+  stale: boolean
+}
+
+export async function getProductStatus(token: string, productSlug: string): Promise<StatusResponse> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/status`, token)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `getProductStatus: ${res.status}`)
+  }
+  return (await res.json()) as StatusResponse
+}
+
+export interface Deployment {
+  id: string
+  actor_display_name: string
+  component_name: string
+  environment_name: string
+  tag: string
+  deployed_at: string
+  commit_sha: string | null
+  outcome: 'success' | 'failure'
+  error_message?: string
+}
+
+export interface DeploymentHistoryResponse {
+  deployments: Deployment[]
+  page: number
+  page_size: number
+  total: number
+}
+
+export async function listDeployments(
+  token: string,
+  productSlug: string,
+  page: number
+): Promise<DeploymentHistoryResponse> {
+  const res = await apiFetch(`/api/v1/products/${productSlug}/deployments?page=${page}`, token)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `listDeployments: ${res.status}`)
+  }
+  return (await res.json().catch((err: unknown) => {
+    throw new Error(`listDeployments: invalid response body: ${err instanceof Error ? err.message : String(err)}`)
+  })) as DeploymentHistoryResponse
+}
+
 export async function listTags(
   token: string,
   productSlug: string,

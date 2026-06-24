@@ -55,11 +55,12 @@ func main() {
 	productStore := store.NewProductStore(pool)
 	environmentStore := store.NewEnvironmentStore(pool)
 	lockStore := store.NewDeploymentLockStore(pool)
+	deploymentStore := store.NewDeploymentStore(pool)
 	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
 
 	gcrLister, closeGCR := initGCRLister()
 	defer closeGCR()
-	gitopsApplier, workloadReader := initGitOps()
+	gitopsApplier, workloadReader, statusReader := initGitOps()
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
@@ -72,7 +73,9 @@ func main() {
 		router.RegisterTagConventionRoutes(productStore, tagConventionDefault),
 		router.RegisterWorkloadRoutes(productStore, environmentStore, workloadReader),
 		router.RegisterTagRoutes(productStore, environmentStore, workloadReader, gcrLister),
-		router.RegisterDeploymentRoutes(productStore, environmentStore, lockStore, gitopsApplier, tagConventionDefault),
+		router.RegisterDeploymentRoutes(productStore, environmentStore, lockStore, deploymentStore, gitopsApplier, tagConventionDefault),
+		router.RegisterStatusRoutes(productStore, environmentStore, statusReader),
+		router.RegisterHistoryRoutes(productStore, deploymentStore),
 	)
 	registerSPA(r)
 
@@ -112,26 +115,32 @@ func initGCRLister() (gcr.Lister, func()) {
 	}
 }
 
-// GITOPS_REPO_URL is optional; all deploy and workload requests fail with a clear error when absent.
-func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader) {
+// GITOPS_REPO_URL is optional; all deploy, workload, and status requests fail with a clear error when absent.
+func initGitOps() (handlers.GitOpsApplier, gitops.WorkloadReader, gitops.StatusReader) {
 	w, err := gitops.NewWriterFromEnv()
 	if err != nil {
-		log.Printf("GitOps writer unavailable (deployments and workload discovery disabled): %v", err)
-		return &disabledGitOpsApplier{}, &disabledWorkloadReader{}
+		log.Printf("GitOps writer unavailable (deployments, workload discovery, and status disabled): %v", err)
+		return &disabledGitOpsApplier{}, &disabledWorkloadReader{}, &disabledStatusReader{}
 	}
-	return w, w
+	return w, w, w
 }
 
 type disabledGitOpsApplier struct{}
 
-func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) error {
-	return fmt.Errorf("%w: set GITOPS_REPO_URL to enable deployments", gitops.ErrGitOpsNotConfigured)
+func (d *disabledGitOpsApplier) Apply(_ context.Context, _ gitops.ApplyParams) (string, error) {
+	return "", fmt.Errorf("%w: set GITOPS_REPO_URL to enable deployments", gitops.ErrGitOpsNotConfigured)
 }
 
 type disabledWorkloadReader struct{}
 
 func (d *disabledWorkloadReader) ListWorkloads(_ context.Context, _, _ string) ([]domain.Workload, error) {
 	return nil, fmt.Errorf("%w: set GITOPS_REPO_URL to enable workload discovery", gitops.ErrGitOpsNotConfigured)
+}
+
+type disabledStatusReader struct{}
+
+func (d *disabledStatusReader) ReadCurrentTags(_ context.Context, _, _ string) (map[string]string, error) {
+	return nil, fmt.Errorf("%w: set GITOPS_REPO_URL to enable deployment status", gitops.ErrGitOpsNotConfigured)
 }
 
 // pgx5DSN converts a standard postgresql:// or postgres:// URL to the pgx5://
