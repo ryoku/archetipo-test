@@ -293,6 +293,11 @@ export interface AdminProduct {
 
 export async function listAdminProducts(token: string): Promise<AdminProduct[]> {
   const res = await apiFetch('/api/v1/admin/products', token)
-  if (!res.ok) throw new Error(`listAdminProducts: ${res.status}`)
-  return (await res.json()) as AdminProduct[]
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `listAdminProducts: ${res.status}`)
+  }
+  return (await res.json().catch((err: unknown) => {
+    throw new Error(`listAdminProducts: invalid response body: ${err instanceof Error ? err.message : String(err)}`)
+  })) as AdminProduct[]
 }

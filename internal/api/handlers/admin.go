@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -35,6 +36,7 @@ type adminProductResponse struct {
 func (h *AdminHandlers) GetAdminProducts(c *gin.Context) {
 	stats, err := h.store.ListWithStats(c.Request.Context())
 	if err != nil {
+		log.Printf("GetAdminProducts: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
 		return
 	}

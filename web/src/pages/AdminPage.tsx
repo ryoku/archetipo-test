@@ -45,12 +45,17 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!accessToken) return
+    let cancelled = false
     listAdminProducts(accessToken)
-      .then(setProducts)
+      .then((data) => { if (!cancelled) setProducts(data) })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Failed to load products')
+        if (!cancelled) {
+          console.error('[AdminPage] listAdminProducts failed:', err)
+          setError(err instanceof Error ? err.message : 'Failed to load products')
+        }
       })
-      .finally(() => { setLoading(false) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [accessToken])
 
   const displayName = user?.profile.name ?? user?.profile.preferred_username ?? 'User'

@@ -9,6 +9,7 @@ import ProductDetailPage from './pages/ProductDetailPage'
 import EnvironmentsPage from './pages/EnvironmentsPage'
 import HistoryPage from './pages/HistoryPage'
 import ProductSettingsPage from './pages/ProductSettingsPage'
+import ProductStatusPage from './pages/ProductStatusPage'
 import AdminPage from './pages/AdminPage'
 
 export default function App() {
@@ -55,6 +56,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProductSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products/:slug/status"
+            element={
+              <ProtectedRoute>
+                <ProductStatusPage />
               </ProtectedRoute>
             }
           />
