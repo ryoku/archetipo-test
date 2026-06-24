@@ -155,3 +155,19 @@ export async function listTags(
   if (!res.ok) throw new Error(`listTags: ${res.status}`)
   return (await res.json()) as ListTagsResponse
 }
+
+export interface AdminProduct {
+  id: string
+  name: string
+  slug: string
+  description: string
+  created_at: string
+  environment_count: number
+  last_deployed_at: string | null
+}
+
+export async function listAdminProducts(token: string): Promise<AdminProduct[]> {
+  const res = await apiFetch('/api/v1/admin/products', token)
+  if (!res.ok) throw new Error(`listAdminProducts: ${res.status}`)
+  return (await res.json()) as AdminProduct[]
+}

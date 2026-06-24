@@ -10,6 +10,7 @@ import {
   setTagConvention,
   clearTagConvention,
   listTags,
+  listAdminProducts,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -408,5 +409,30 @@ describe('listTags', () => {
     vi.stubGlobal('fetch', makeFetchStub(502))
 
     await expect(listTags('token', 'my-product', 'env-id', 'wl-name')).rejects.toThrow('listTags: 502')
+  })
+})
+
+// ─── listAdminProducts ─────────────────────────────────────────
+describe('listAdminProducts', () => {
+  it('returns an array on 200', async () => {
+    const adminProduct: import('./products').AdminProduct = {
+      id: 'ap-1',
+      name: 'Platform',
+      slug: 'platform',
+      description: 'The platform product',
+      created_at: '2025-01-01T00:00:00Z',
+      environment_count: 3,
+      last_deployed_at: '2025-06-01T12:00:00Z',
+    }
+    vi.stubGlobal('fetch', makeFetchStub(200, [adminProduct]))
+
+    const result = await listAdminProducts('my-token')
+    expect(result).toEqual([adminProduct])
+  })
+
+  it('throws on non-200', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(500))
+
+    await expect(listAdminProducts('my-token')).rejects.toThrow('listAdminProducts: 500')
   })
 })

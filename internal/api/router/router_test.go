@@ -38,6 +38,9 @@ func (noopProductStore) GetTagConvention(_ context.Context, _ string) (*string, 
 }
 func (noopProductStore) SetTagConvention(_ context.Context, _, _ string) error { return nil }
 func (noopProductStore) ClearTagConvention(_ context.Context, _ string) error  { return nil }
+func (noopProductStore) ListWithStats(_ context.Context) ([]domain.ProductStats, error) {
+	return nil, nil
+}
 
 var _ store.ProductStore = noopProductStore{}
 
@@ -207,6 +210,17 @@ func TestRegisterDeploymentRoutes_RoutesRegistered(t *testing.T) {
 		))
 	assertRoutesReturn401(t, r, [][2]string{
 		{http.MethodPost, "/api/v1/products/some-slug/environments/some-id/deployments"},
+	})
+}
+
+// TestRegisterAdminRoutes_RoutesRegistered verifies that RegisterAdminRoutes registers
+// the expected HTTP endpoint. All /api/v1/* requests return 401 when no valid token is
+// present, confirming the route exists (a missing route returns 404 instead).
+func TestRegisterAdminRoutes_RoutesRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.New(alwaysDenyVerifier{}, router.RegisterAdminRoutes(noopProductStore{}))
+	assertRoutesReturn401(t, r, [][2]string{
+		{http.MethodGet, "/api/v1/admin/products"},
 	})
 }
 

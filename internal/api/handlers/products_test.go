@@ -54,6 +54,9 @@ func (m *mockProductStore) SetTagConvention(ctx context.Context, slug, regex str
 func (m *mockProductStore) ClearTagConvention(ctx context.Context, slug string) error {
 	return m.clearTagConventionFn(ctx, slug)
 }
+func (m *mockProductStore) ListWithStats(_ context.Context) ([]domain.ProductStats, error) {
+	return nil, nil
+}
 
 var _ store.ProductStore = (*mockProductStore)(nil)
 

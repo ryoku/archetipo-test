@@ -19,6 +19,13 @@ type Product struct {
 	CreatedAt          time.Time
 }
 
+// ProductStats augments Product with aggregated stats for the admin dashboard.
+type ProductStats struct {
+	Product
+	EnvironmentCount int
+	LastDeployedAt   *time.Time
+}
+
 // ValidateSlug returns an error if s does not match the slug pattern
 // (lowercase alphanumeric words joined by single hyphens, no leading/trailing hyphens).
 func ValidateSlug(s string) error {
