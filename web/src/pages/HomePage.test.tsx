@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vite
 import { render, screen, waitFor, act, cleanup, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Product } from '../api/products'
+import type { Stats } from '../api/stats'
 import HomePage from './HomePage'
 
 // ─── Mocks ────────────────────────────────────────────────────
@@ -12,6 +13,12 @@ const mockCreateProduct = vi.hoisted(() => vi.fn<() => Promise<Product>>())
 vi.mock('../api/products', () => ({
   listProducts: mockListProducts,
   createProduct: mockCreateProduct,
+}))
+
+const mockFetchStats = vi.hoisted(() => vi.fn<() => Promise<Stats>>())
+
+vi.mock('../api/stats', () => ({
+  fetchStats: mockFetchStats,
 }))
 
 const mockIsDevOpsAdmin = vi.hoisted(() => vi.fn<() => boolean>())
@@ -64,6 +71,13 @@ beforeEach(() => {
     user: { profile: { name: 'Alice' } },
     logout: vi.fn(),
     accessToken: 'test-token',
+  })
+  // Default: stats resolves so it doesn't interfere with unrelated tests
+  mockFetchStats.mockResolvedValue({
+    product_count: 3,
+    environment_count: 7,
+    component_count: 5,
+    deployments_today: 12,
   })
 })
 
@@ -342,5 +356,70 @@ describe('Add Product form', () => {
 
     expect(screen.queryByLabelText('Name *')).toBeNull()
     expect(screen.getByText('Add Product')).toBeTruthy()
+  })
+})
+
+describe('Stats strip', () => {
+  it('renders 4 stat tiles', async () => {
+    mockListProducts.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('stats-strip')).toBeTruthy()
+      expect(screen.getAllByTestId('stat-tile')).toHaveLength(4)
+    })
+  })
+
+  it('shows numeric values from API on success', async () => {
+    mockListProducts.mockResolvedValue([])
+    mockFetchStats.mockResolvedValue({
+      product_count: 4,
+      environment_count: 9,
+      component_count: 6,
+      deployments_today: 3,
+    })
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('4')).toBeTruthy()
+      expect(screen.getByText('9')).toBeTruthy()
+      expect(screen.getByText('6')).toBeTruthy()
+      expect(screen.getByText('3')).toBeTruthy()
+    })
+  })
+
+  it('shows "--" in all tiles when API call fails', async () => {
+    mockListProducts.mockResolvedValue([])
+    mockFetchStats.mockRejectedValue(new Error('fetchStats: 500'))
+
+    renderPage()
+
+    await waitFor(() => {
+      const tiles = screen.getAllByTestId('stat-tile')
+      expect(tiles).toHaveLength(4)
+      tiles.forEach((tile) => {
+        expect(tile.textContent).toContain('--')
+      })
+    })
+  })
+
+  it('tiles are not interactive — clicking does not navigate', async () => {
+    mockListProducts.mockResolvedValue([])
+
+    renderPage()
+
+    await waitFor(() => screen.getByTestId('stats-strip'))
+
+    const tiles = screen.getAllByTestId('stat-tile')
+    tiles.forEach((tile) => {
+      expect(tile.tagName.toLowerCase()).not.toBe('a')
+      expect(tile.tagName.toLowerCase()).not.toBe('button')
+      expect(tile.getAttribute('role')).not.toBe('link')
+      expect(tile.getAttribute('role')).not.toBe('button')
+    })
+
+    expect(capturedNavigate).not.toHaveBeenCalled()
   })
 })

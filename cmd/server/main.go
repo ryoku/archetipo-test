@@ -56,6 +56,7 @@ func main() {
 	environmentStore := store.NewEnvironmentStore(pool)
 	lockStore := store.NewDeploymentLockStore(pool)
 	deploymentStore := store.NewDeploymentStore(pool)
+	statsStore := store.NewStatsStore(pool)
 	tagConventionDefault := os.Getenv("TAG_CONVENTION_DEFAULT")
 
 	gcrLister, closeGCR := initGCRLister()
@@ -77,6 +78,7 @@ func main() {
 		router.RegisterStatusRoutes(productStore, environmentStore, statusReader),
 		router.RegisterHistoryRoutes(productStore, deploymentStore),
 		router.RegisterAdminRoutes(productStore),
+		router.RegisterStatsRoutes(statsStore),
 	)
 	registerSPA(r)
 
