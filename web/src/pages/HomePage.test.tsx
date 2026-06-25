@@ -50,6 +50,8 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     slug: 'platform-api',
     description: 'Core platform API',
     created_at: '2025-01-01T00:00:00Z',
+    last_deployed_at: null,
+    has_production_env: false,
     ...overrides,
   }
 }
@@ -437,5 +439,184 @@ describe('Stats strip', () => {
     })
 
     expect(capturedNavigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('Search and filter', () => {
+  const now = new Date().toISOString()
+  const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString() // 1 hour ago
+  const old = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() // 48 hours ago
+
+  const products = [
+    makeProduct({ id: '1', name: 'Platform API', slug: 'platform-api', has_production_env: true, last_deployed_at: recent }),
+    makeProduct({ id: '2', name: 'Customer App', slug: 'customer-app', has_production_env: false, last_deployed_at: old }),
+    makeProduct({ id: '3', name: 'Worker Service', slug: 'worker-svc', has_production_env: false, last_deployed_at: null }),
+  ]
+
+  beforeEach(() => {
+    mockListProducts.mockResolvedValue(products)
+  })
+
+  it('shows search bar and chips after products load', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-filter-bar'))
+    expect(screen.getByTestId('search-input')).toBeTruthy()
+    expect(screen.getByTestId('chip-all')).toBeTruthy()
+    expect(screen.getByTestId('chip-production')).toBeTruthy()
+    expect(screen.getByTestId('chip-recently-deployed')).toBeTruthy()
+  })
+
+  it('filters by name with case-insensitive substring match', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'platform' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Platform API')).toBeTruthy()
+      expect(screen.queryByText('Customer App')).toBeNull()
+      expect(screen.queryByText('Worker Service')).toBeNull()
+    })
+  })
+
+  it('filters by slug substring', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'svc' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Worker Service')).toBeTruthy()
+      expect(screen.queryByText('Platform API')).toBeNull()
+      expect(screen.queryByText('Customer App')).toBeNull()
+    })
+  })
+
+  it('chip Production shows only products with has_production_env=true', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('chip-production'))
+
+    act(() => { screen.getByTestId('chip-production').click() })
+
+    await waitFor(() => {
+      expect(screen.getByText('Platform API')).toBeTruthy()
+      expect(screen.queryByText('Customer App')).toBeNull()
+      expect(screen.queryByText('Worker Service')).toBeNull()
+    })
+  })
+
+  it('chip Recently deployed shows only products deployed in last 24h', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('chip-recently-deployed'))
+
+    act(() => { screen.getByTestId('chip-recently-deployed').click() })
+
+    await waitFor(() => {
+      expect(screen.getByText('Platform API')).toBeTruthy()
+      expect(screen.queryByText('Customer App')).toBeNull()
+      expect(screen.queryByText('Worker Service')).toBeNull()
+    })
+  })
+
+  it('combines search text and chip filter', async () => {
+    // Add a second product with production env to ensure AND logic
+    const extraProducts = [
+      ...products,
+      makeProduct({ id: '4', name: 'Platform Payments', slug: 'platform-payments', has_production_env: true, last_deployed_at: null }),
+    ]
+    mockListProducts.mockResolvedValue(extraProducts)
+
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    act(() => { screen.getByTestId('chip-production').click() })
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'platform' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Platform API')).toBeTruthy()
+      expect(screen.getByText('Platform Payments')).toBeTruthy()
+      expect(screen.queryByText('Customer App')).toBeNull()
+      expect(screen.queryByText('Worker Service')).toBeNull()
+    })
+  })
+
+  it('shows filter empty state with contextual message when no products match', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'zzz-nonexistent' } })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('filter-empty-state')).toBeTruthy()
+      expect(screen.getByText(/No products match your search/i)).toBeTruthy()
+    })
+  })
+
+  it('shows clear filters button in filter empty state', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'zzz' } })
+
+    await waitFor(() => screen.getByTestId('filter-empty-state'))
+    expect(screen.getByText('Clear filters')).toBeTruthy()
+  })
+
+  it('clicking Clear filters resets search and chip to show all products', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    act(() => { screen.getByTestId('chip-production').click() })
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'zzz' } })
+
+    await waitFor(() => screen.getByTestId('filter-empty-state'))
+
+    act(() => { screen.getByText('Clear filters').click() })
+
+    await waitFor(() => {
+      expect(screen.getByText('Platform API')).toBeTruthy()
+      expect(screen.getByText('Customer App')).toBeTruthy()
+      expect(screen.getByText('Worker Service')).toBeTruthy()
+      expect(screen.queryByTestId('filter-empty-state')).toBeNull()
+    })
+  })
+
+  it('clear button in search input clears search text', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'platform' } })
+    await waitFor(() => expect(screen.queryByText('Customer App')).toBeNull())
+
+    act(() => { screen.getByTestId('search-clear').click() })
+
+    await waitFor(() => {
+      expect(screen.getByText('Platform API')).toBeTruthy()
+      expect(screen.getByText('Customer App')).toBeTruthy()
+    })
+  })
+
+  it('shows result count when search or chip is active', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-input'))
+
+    fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'platform' } })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('result-count')).toBeTruthy()
+    })
+  })
+
+  it('does not show result count when All chip is active and no search', async () => {
+    renderPage()
+    await waitFor(() => screen.getByTestId('search-filter-bar'))
+    await waitFor(() => {
+      expect(screen.queryByTestId('result-count')).toBeNull()
+    })
+  })
+
+  it('shows now as now', () => {
+    // Ensure the `now` variable is within 24h range (sanity check for test helpers)
+    expect(Date.now() - new Date(now).getTime()).toBeLessThan(5000)
   })
 })

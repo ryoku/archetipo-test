@@ -8,6 +8,8 @@ export interface Product {
   archived_at?: string
   created_at: string
   my_role?: 'admin' | 'editor' | 'viewer'
+  last_deployed_at: string | null
+  has_production_env: boolean
 }
 
 export interface Environment {
@@ -184,7 +186,7 @@ export async function deployTag(
   )
   if (res.status === 202 || res.status === 200) {
     const body: unknown = await res.json().catch((err: unknown) => {
-      throw new Error(`deployTag: response body not valid JSON (status ${res.status}): ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`deployTag: response body not valid JSON (status ${res.status}): ${err instanceof Error ? err.message : JSON.stringify(err)}`)
     })
     return body as DeployResult
   }
@@ -259,7 +261,7 @@ export async function listDeployments(
     throw new Error(body?.error ?? `listDeployments: ${res.status}`)
   }
   return (await res.json().catch((err: unknown) => {
-    throw new Error(`listDeployments: invalid response body: ${err instanceof Error ? err.message : String(err)}`)
+    throw new Error(`listDeployments: invalid response body: ${err instanceof Error ? err.message : JSON.stringify(err)}`)
   })) as DeploymentHistoryResponse
 }
 
@@ -298,6 +300,6 @@ export async function listAdminProducts(token: string): Promise<AdminProduct[]> 
     throw new Error(body?.error ?? `listAdminProducts: ${res.status}`)
   }
   return (await res.json().catch((err: unknown) => {
-    throw new Error(`listAdminProducts: invalid response body: ${err instanceof Error ? err.message : String(err)}`)
+    throw new Error(`listAdminProducts: invalid response body: ${err instanceof Error ? err.message : JSON.stringify(err)}`)
   })) as AdminProduct[]
 }

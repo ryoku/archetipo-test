@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-038 · Product Search &amp; Filter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ─── DESIGN TOKENS ──────────────────────────────────────────── */
+:root {
+  --bg-base:        #070a12;
+  --bg-surface:     #0b0f1c;
+  --bg-elevated:    #101626;
+  --bg-overlay:     #151d30;
+  --bg-hover:       #1a2438;
+  --bg-input:       #0e1422;
+
+  --border-faint:   #111928;
+  --border-subtle:  #16233a;
+  --border-default: #1d2f4a;
+  --border-strong:  #263d5e;
+  --border-accent:  rgba(0, 195, 170, 0.35);
+
+  --text-primary:   #dde6f2;
+  --text-secondary: #6b859e;
+  --text-muted:     #374e64;
+  --text-code:      #90d0c8;
+
+  --accent:         #00c3aa;
+  --accent-hover:   #00ddc0;
+  --accent-glow:    rgba(0, 195, 170, 0.18);
+  --accent-dim:     rgba(0, 195, 170, 0.08);
+
+  --ok:             #00c97a;
+  --warn:           #f0a030;
+  --danger:         #e05555;
+  --info:           #4488dd;
+
+  --env-prod:       #f5933a;
+  --env-prod-bg:    rgba(245, 147, 58, 0.07);
+  --env-prod-brd:   rgba(245, 147, 58, 0.22);
+
+  --chip-prod:      #f5933a;
+  --chip-prod-bg:   rgba(245, 147, 58, 0.09);
+  --chip-prod-brd:  rgba(245, 147, 58, 0.28);
+
+  --chip-recent:    #00c97a;
+  --chip-recent-bg: rgba(0, 201, 122, 0.09);
+  --chip-recent-brd:rgba(0, 201, 122, 0.28);
+
+  --font-ui:        'Space Grotesk', system-ui, sans-serif;
+  --font-mono:      'JetBrains Mono', 'Courier New', monospace;
+
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.5);
+  --shadow-md: 0 4px 20px rgba(0,0,0,.6);
+
+  --t: 140ms ease;
+}
+
+/* ─── RESET ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+button { cursor: pointer; font-family: inherit; }
+input  { font-family: inherit; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ─── HEADER ─────────────────────────────────────────────────── */
+.home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  height: 56px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-faint);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+.header-brand { display: flex; align-items: center; gap: 10px; }
+.logo-mark {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--accent) 0%, #0080f0 100%);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-name {
+  font-size: 15px; font-weight: 700;
+  letter-spacing: -0.3px; color: var(--text-primary);
+}
+.header-user { display: flex; align-items: center; gap: 10px; }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, #7b9ce8, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--bg-base);
+  flex-shrink: 0;
+}
+.user-name { font-size: 13px; color: var(--text-secondary); }
+.btn-logout {
+  padding: 5px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px; font-weight: 500;
+  transition: all var(--t);
+}
+.btn-logout:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+}
+
+/* ─── MAIN ───────────────────────────────────────────────────── */
+.home-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* ─── PAGE TOP ───────────────────────────────────────────────── */
+.page-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.page-head { flex: 1; min-width: 0; }
+.page-title {
+  font-size: 22px; font-weight: 700;
+  letter-spacing: -0.5px; color: var(--text-primary);
+  margin: 0 0 6px;
+}
+.page-desc { font-size: 13px; color: var(--text-secondary); margin: 0; }
+
+.btn-add {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--bg-base);
+  font-size: 13px; font-weight: 600;
+  transition: all var(--t);
+  flex-shrink: 0;
+}
+.btn-add:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* ─── STATS STRIP ────────────────────────────────────────────── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.stat-tile {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 16px 20px 14px;
+  position: relative; overflow: hidden;
+  user-select: none;
+}
+.stat-tile::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: var(--r-lg) 0 0 var(--r-lg);
+}
+.stat-val {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 30px; font-weight: 700;
+  letter-spacing: -2px; line-height: 1;
+  margin-bottom: 5px;
+}
+.stat-label {
+  display: block;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.stat-tile--products  { border-color: rgba(0,195,170,.35); }
+.stat-tile--products::before { background: var(--accent); }
+.stat-tile--products  .stat-val { color: var(--accent); }
+
+.stat-tile--envs      { border-color: rgba(68,136,221,.3); }
+.stat-tile--envs::before { background: #4488dd; }
+.stat-tile--envs      .stat-val { color: #4488dd; }
+
+.stat-tile--components{ border-color: rgba(136,96,240,.28); }
+.stat-tile--components::before { background: #8860f0; }
+.stat-tile--components .stat-val { color: #a880f8; }
+
+.stat-tile--deployments{ border-color: rgba(0,201,122,.28); }
+.stat-tile--deployments::before { background: var(--ok); }
+.stat-tile--deployments .stat-val { color: var(--ok); }
+
+/* ─── SEARCH & FILTER BAR (US-038) ──────────────────────────── */
+/*
+ * The search + filter bar sits between the stats strip and the
+ * product grid. It never triggers an API call — all filtering is
+ * purely client-side in JS below.
+ *
+ * Anatomy:
+ *   .search-filter-bar
+ *     .search-wrap           (search icon + input + clear button)
+ *     .filter-chips          (All · Production · Recently deployed)
+ *
+ * Active chip states:
+ *   .chip--all.active   → teal accent (default)
+ *   .chip--prod.active  → orange/production accent
+ *   .chip--recent.active→ green/ok accent
+ *
+ * The search input clears with the ✕ button (rendered when non-empty).
+ */
+.search-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+/* Search input wrapper */
+.search-wrap {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 360px;
+}
+.search-icon {
+  position: absolute;
+  left: 11px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+.search-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 8px 34px 8px 34px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.search-clear {
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--text-muted);
+  display: flex; align-items: center;
+  padding: 2px;
+  border-radius: var(--r-sm);
+  transition: color var(--t);
+  opacity: 0;
+  pointer-events: none;
+}
+.search-clear.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.search-clear:hover { color: var(--text-primary); }
+
+/* Filter chips row */
+.filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Divider between search and chips */
+.chip-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-default);
+  flex-shrink: 0;
+}
+
+/* Base chip */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 13px;
+  border-radius: 20px;
+  font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  background: transparent;
+  transition: all var(--t);
+  white-space: nowrap;
+}
+.chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.chip .chip-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+}
+
+/* "All" chip — active = teal */
+.chip--all.active {
+  background: var(--accent-dim);
+  border-color: var(--border-accent);
+  color: var(--accent);
+}
+
+/* "Production" chip — active = orange */
+.chip--prod.active {
+  background: var(--chip-prod-bg);
+  border-color: var(--chip-prod-brd);
+  color: var(--chip-prod);
+}
+.chip--prod.active .chip-dot { background: var(--chip-prod); }
+.chip--prod:not(.active) .chip-dot { background: var(--text-muted); }
+
+/* "Recently deployed" chip — active = green */
+.chip--recent.active {
+  background: var(--chip-recent-bg);
+  border-color: var(--chip-recent-brd);
+  color: var(--chip-recent);
+}
+.chip--recent.active .chip-dot { background: var(--chip-recent); }
+.chip--recent:not(.active) .chip-dot { background: var(--text-muted); }
+
+/* Result count feedback */
+.result-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.result-meta strong { color: var(--text-secondary); }
+
+/* ─── PRODUCT GRID ───────────────────────────────────────────── */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 14px;
+}
+
+.product-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t);
+  display: flex; flex-direction: column; gap: 12px;
+  position: relative; overflow: hidden;
+  text-align: left; color: inherit;
+  width: 100%;
+}
+.product-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background var(--t);
+}
+.product-card:hover { border-color: var(--border-strong); background: var(--bg-elevated); }
+.product-card:hover::before { background: linear-gradient(90deg, var(--accent), transparent); }
+
+.p-card-top { display: flex; align-items: flex-start; gap: 12px; }
+.p-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, var(--accent) 0%, #0077cc 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--bg-base);
+  flex-shrink: 0;
+}
+.p-info { flex: 1; min-width: 0; }
+.p-name { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.2px; }
+.p-slug {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text-muted); margin-top: 2px;
+}
+.p-desc {
+  font-size: 12px; color: var(--text-secondary);
+  margin: 0; line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Card badges (bottom-right corner) */
+.p-badges {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: auto;
+}
+.p-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 10px;
+  font-size: 10px; font-weight: 500;
+  border: 1px solid transparent;
+}
+.p-badge--prod {
+  color: var(--env-prod); background: var(--env-prod-bg); border-color: var(--env-prod-brd);
+}
+.p-badge--recent {
+  color: var(--ok); background: rgba(0,201,122,.07); border-color: rgba(0,201,122,.22);
+}
+.p-badge-dot { width: 4px; height: 4px; border-radius: 50%; }
+.p-badge--prod .p-badge-dot { background: var(--env-prod); }
+.p-badge--recent .p-badge-dot { background: var(--ok); }
+
+/* ─── EMPTY STATE ────────────────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 60px 24px; text-align: center;
+}
+.empty-icon {
+  width: 48px; height: 48px; border-radius: var(--r-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); margin-bottom: 4px;
+}
+.empty-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.empty-sub   { font-size: 12px; color: var(--text-muted); }
+.empty-clear-link {
+  font-size: 12px; color: var(--accent);
+  background: none; border: none; padding: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer; transition: color var(--t);
+}
+.empty-clear-link:hover { color: var(--accent-hover); }
+
+/* ─── ANNOTATION BANNER (mockup only) ───────────────────────── */
+.annotation {
+  background: rgba(240,160,48,.05);
+  border: 1px solid rgba(240,160,48,.18);
+  border-radius: var(--r-lg);
+  padding: 12px 18px;
+  margin-bottom: 28px;
+  font-size: 12px;
+  color: rgba(240,160,48,.8);
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.annotation strong { color: #f0a030; }
+.annotation p { margin: 0; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ──────────────────────────────────────────────────── -->
+<header class="home-header">
+  <div class="header-brand">
+    <div class="logo-mark">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+              stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <span class="logo-name">KubeGate</span>
+  </div>
+  <div class="header-user">
+    <div class="avatar">MC</div>
+    <span class="user-name">Marco Colombo</span>
+    <button class="btn-logout">Logout</button>
+  </div>
+</header>
+
+<!-- ─── MAIN ────────────────────────────────────────────────────── -->
+<main class="home-main">
+
+  <!-- Mockup annotation -->
+  <div class="annotation">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style="flex-shrink:0;margin-top:1px">
+      <circle cx="7.5" cy="7.5" r="6.5" stroke="#f0a030" stroke-width="1.2"/>
+      <path d="M7.5 4.5v4M7.5 10v.5" stroke="#f0a030" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <p>
+      <strong>Mockup — US-038 · Product search &amp; environment filter.</strong>
+      The search bar and chips filter the product list <em>client-side</em> with no extra API call.
+      Try typing in the search box or clicking the chips. Both filters combine.
+    </p>
+  </div>
+
+  <!-- Page top -->
+  <div class="page-top">
+    <div class="page-head">
+      <h1 class="page-title">Products</h1>
+      <p class="page-desc">Select a product to view and manage its components.</p>
+    </div>
+    <button class="btn-add" type="button">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6.5 1v11M1 6.5h11"/>
+      </svg>
+      Add Product
+    </button>
+  </div>
+
+  <!-- Stats strip -->
+  <div class="stats-strip">
+    <div class="stat-tile stat-tile--products">
+      <span class="stat-val">12</span>
+      <span class="stat-label">Products</span>
+    </div>
+    <div class="stat-tile stat-tile--envs">
+      <span class="stat-val">34</span>
+      <span class="stat-label">Environments</span>
+    </div>
+    <div class="stat-tile stat-tile--components">
+      <span class="stat-val">87</span>
+      <span class="stat-label">Components</span>
+    </div>
+    <div class="stat-tile stat-tile--deployments">
+      <span class="stat-val">9</span>
+      <span class="stat-label">Deployments (24h)</span>
+    </div>
+  </div>
+
+  <!-- ── SEARCH + FILTER BAR (US-038 new element) ──────────────── -->
+  <div class="search-filter-bar" id="searchBar">
+
+    <div class="search-wrap">
+      <!-- Search icon -->
+      <span class="search-icon">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="6" cy="6" r="4.5"/>
+          <path d="M10 10l2.5 2.5" stroke-linecap="round"/>
+        </svg>
+      </span>
+
+      <input
+        id="searchInput"
+        type="text"
+        class="search-input"
+        placeholder="Search by name or slug…"
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <!-- Clear button — visible only when input is non-empty -->
+      <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M2 2l8 8M10 2l-8 8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Vertical divider -->
+    <div class="chip-divider"></div>
+
+    <!-- Filter chips -->
+    <div class="filter-chips" role="group" aria-label="Filter products">
+      <button class="chip chip--all active" id="chipAll" type="button">All</button>
+      <button class="chip chip--prod" id="chipProd" type="button">
+        <span class="chip-dot" style="background:var(--text-muted)"></span>
+        Production
+      </button>
+      <button class="chip chip--recent" id="chipRecent" type="button">
+        <span class="chip-dot" style="background:var(--text-muted)"></span>
+        Recently deployed
+      </button>
+    </div>
+
+    <!-- Result count — shown when filter or search is active -->
+    <span class="result-meta" id="resultMeta" style="display:none">
+      showing <strong id="resultCount">0</strong> of <strong id="totalCount">0</strong>
+    </span>
+
+  </div>
+  <!-- /search-filter-bar -->
+
+  <!-- Product grid -->
+  <div class="product-grid" id="productGrid"></div>
+
+  <!-- Empty state — shown when no products match -->
+  <div class="empty-state" id="emptyState" style="display:none">
+    <div class="empty-icon">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4">
+        <circle cx="9.5" cy="9.5" r="6.5"/>
+        <path d="M14.5 14.5L19 19" stroke-linecap="round"/>
+        <path d="M7 9.5h5M9.5 7v5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <p class="empty-title" id="emptyTitle">No products match your search</p>
+    <p class="empty-sub" id="emptySub">Try a different name or slug, or clear the active filters.</p>
+    <button class="empty-clear-link" id="emptyClear" type="button">Clear search &amp; filters</button>
+  </div>
+
+</main>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   US-038 · Client-side search + filter — prototype data & logic
+   ══════════════════════════════════════════════════════════════ */
+
+// ── Prototype data ──────────────────────────────────────────────
+// Each product carries flags the real API would provide via the
+// enriched product list (environments[], last_deployed_at).
+// - hasProd:    true  → has at least one environment with type=production
+// - recentDeploy: true → has a deployment in the last 24 h
+const PRODUCTS = [
+  { id: '1',  name: 'Payments Service',    slug: 'payments-service',    desc: 'Core payment processing and reconciliation pipelines.',            hasProd: true,  recentDeploy: true  },
+  { id: '2',  name: 'Auth Gateway',        slug: 'auth-gateway',        desc: 'Handles OIDC flows, token issuance, and session management.',     hasProd: true,  recentDeploy: false },
+  { id: '3',  name: 'Notification Hub',    slug: 'notification-hub',    desc: 'Multi-channel notification dispatch (email, push, webhook).',     hasProd: false, recentDeploy: true  },
+  { id: '4',  name: 'Product Catalogue',   slug: 'product-catalogue',   desc: 'Manages SKU definitions, pricing tiers, and availability.',      hasProd: true,  recentDeploy: true  },
+  { id: '5',  name: 'Inventory API',       slug: 'inventory-api',       desc: 'Real-time stock levels across warehouses.',                       hasProd: true,  recentDeploy: false },
+  { id: '6',  name: 'Analytics Engine',    slug: 'analytics-engine',    desc: 'Streaming aggregation and dashboard data feed.',                  hasProd: false, recentDeploy: false },
+  { id: '7',  name: 'Shipping Adapter',    slug: 'shipping-adapter',    desc: 'Carrier integrations: DHL, UPS, and Poste Italiane.',            hasProd: true,  recentDeploy: true  },
+  { id: '8',  name: 'CRM Bridge',          slug: 'crm-bridge',          desc: 'Sync layer between internal CRM and third-party platforms.',     hasProd: false, recentDeploy: true  },
+  { id: '9',  name: 'Search Service',      slug: 'search-service',      desc: 'Elasticsearch-backed full-text and faceted search.',             hasProd: true,  recentDeploy: false },
+  { id: '10', name: 'Media CDN',           slug: 'media-cdn',           desc: 'Asset storage, on-the-fly transformation, and CDN routing.',     hasProd: false, recentDeploy: false },
+  { id: '11', name: 'Order Orchestrator',  slug: 'order-orchestrator',  desc: 'Saga coordinator for checkout, payment, and fulfillment flows.', hasProd: true,  recentDeploy: true  },
+  { id: '12', name: 'Config Service',      slug: 'config-service',      desc: 'Central remote configuration with per-environment overrides.',   hasProd: false, recentDeploy: false },
+];
+
+// ── Utilities ───────────────────────────────────────────────────
+function getInitials(name) {
+  return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+// Highlighted text: wraps matched substring in <mark>
+function highlight(text, query) {
+  if (!query) return escHtml(text);
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return escHtml(text);
+  return escHtml(text.slice(0, idx))
+    + '<mark style="background:rgba(0,195,170,.25);color:var(--accent);border-radius:2px;padding:0 1px">'
+    + escHtml(text.slice(idx, idx + query.length))
+    + '</mark>'
+    + escHtml(text.slice(idx + query.length));
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── State ────────────────────────────────────────────────────────
+let activeChip = 'all'; // 'all' | 'prod' | 'recent'
+let searchQuery = '';
+
+// ── DOM refs ─────────────────────────────────────────────────────
+const searchInput  = document.getElementById('searchInput');
+const searchClear  = document.getElementById('searchClear');
+const chipAll      = document.getElementById('chipAll');
+const chipProd     = document.getElementById('chipProd');
+const chipRecent   = document.getElementById('chipRecent');
+const productGrid  = document.getElementById('productGrid');
+const emptyState   = document.getElementById('emptyState');
+const emptyTitle   = document.getElementById('emptyTitle');
+const emptySub     = document.getElementById('emptySub');
+const emptyClear   = document.getElementById('emptyClear');
+const resultMeta   = document.getElementById('resultMeta');
+const resultCount  = document.getElementById('resultCount');
+const totalCount   = document.getElementById('totalCount');
+
+// ── Render ───────────────────────────────────────────────────────
+function render() {
+  const q = searchQuery.trim();
+
+  // Filter
+  const filtered = PRODUCTS.filter(p => {
+    // Chip filter
+    if (activeChip === 'prod'   && !p.hasProd)       return false;
+    if (activeChip === 'recent' && !p.recentDeploy)  return false;
+    // Search filter (case-insensitive substring in name or slug)
+    if (q) {
+      const ql = q.toLowerCase();
+      if (!p.name.toLowerCase().includes(ql) && !p.slug.toLowerCase().includes(ql)) return false;
+    }
+    return true;
+  });
+
+  const isFiltered = q || activeChip !== 'all';
+
+  // Result meta
+  if (isFiltered) {
+    resultMeta.style.display = '';
+    resultCount.textContent  = filtered.length;
+    totalCount.textContent   = PRODUCTS.length;
+  } else {
+    resultMeta.style.display = 'none';
+  }
+
+  // Empty state
+  if (filtered.length === 0) {
+    productGrid.style.display = 'none';
+    emptyState.style.display  = '';
+    // Tailor the message to the active filter/search combination
+    if (q && activeChip === 'prod') {
+      emptyTitle.textContent = `No production products matching "${q}"`;
+      emptySub.textContent   = 'Try broadening your search or switch to "All".';
+    } else if (q && activeChip === 'recent') {
+      emptyTitle.textContent = `No recently-deployed products matching "${q}"`;
+      emptySub.textContent   = 'Try broadening your search or switch to "All".';
+    } else if (q) {
+      emptyTitle.textContent = `No products match "${q}"`;
+      emptySub.textContent   = 'Check the spelling or try the slug.';
+    } else if (activeChip === 'prod') {
+      emptyTitle.textContent = 'No products with a production environment';
+      emptySub.textContent   = 'Products appear here once a production environment is created.';
+    } else if (activeChip === 'recent') {
+      emptyTitle.textContent = 'No products deployed in the last 24 h';
+      emptySub.textContent   = 'Deployments appear here shortly after they complete.';
+    } else {
+      emptyTitle.textContent = 'No products yet';
+      emptySub.textContent   = 'Products will appear here once they are created.';
+    }
+    return;
+  }
+
+  emptyState.style.display   = 'none';
+  productGrid.style.display  = '';
+
+  productGrid.innerHTML = filtered.map(p => {
+    const initials = getInitials(p.name);
+    const nameFrag = highlight(p.name, q);
+    const slugFrag = highlight(p.slug, q);
+    const badges = [
+      p.hasProd      ? `<span class="p-badge p-badge--prod"><span class="p-badge-dot"></span>Production</span>`        : '',
+      p.recentDeploy ? `<span class="p-badge p-badge--recent"><span class="p-badge-dot"></span>Deployed 24h</span>` : '',
+    ].filter(Boolean).join('');
+
+    return `
+      <button class="product-card" type="button">
+        <div class="p-card-top">
+          <div class="p-icon">${initials}</div>
+          <div class="p-info">
+            <div class="p-name">${nameFrag}</div>
+            <div class="p-slug">${slugFrag}</div>
+          </div>
+        </div>
+        ${p.desc ? `<p class="p-desc">${escHtml(p.desc)}</p>` : ''}
+        ${badges ? `<div class="p-badges">${badges}</div>` : ''}
+      </button>`;
+  }).join('');
+}
+
+// ── Event listeners ──────────────────────────────────────────────
+
+// Search input
+searchInput.addEventListener('input', () => {
+  searchQuery = searchInput.value;
+  searchClear.classList.toggle('visible', searchQuery.length > 0);
+  render();
+});
+
+// Clear button
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  searchQuery = '';
+  searchClear.classList.remove('visible');
+  searchInput.focus();
+  render();
+});
+
+// Chip: All
+chipAll.addEventListener('click', () => {
+  activeChip = 'all';
+  updateChips();
+  render();
+});
+
+// Chip: Production
+chipProd.addEventListener('click', () => {
+  activeChip = activeChip === 'prod' ? 'all' : 'prod';
+  updateChips();
+  render();
+});
+
+// Chip: Recently deployed
+chipRecent.addEventListener('click', () => {
+  activeChip = activeChip === 'recent' ? 'all' : 'recent';
+  updateChips();
+  render();
+});
+
+// Empty state clear-all
+emptyClear.addEventListener('click', () => {
+  searchInput.value = '';
+  searchQuery = '';
+  searchClear.classList.remove('visible');
+  activeChip = 'all';
+  updateChips();
+  render();
+});
+
+function updateChips() {
+  chipAll.classList.toggle('active',    activeChip === 'all');
+  chipProd.classList.toggle('active',   activeChip === 'prod');
+  chipRecent.classList.toggle('active', activeChip === 'recent');
+
+  // Update dot colors inline to match active state
+  const prodDot   = chipProd.querySelector('.chip-dot');
+  const recentDot = chipRecent.querySelector('.chip-dot');
+  prodDot.style.background   = activeChip === 'prod'   ? 'var(--chip-prod)'   : 'var(--text-muted)';
+  recentDot.style.background = activeChip === 'recent' ? 'var(--chip-recent)' : 'var(--text-muted)';
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>

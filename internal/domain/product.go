@@ -17,13 +17,14 @@ type Product struct {
 	TagConventionRegex *string
 	ArchivedAt         *time.Time
 	CreatedAt          time.Time
+	LastDeployedAt     *time.Time
+	HasProductionEnv   bool
 }
 
 // ProductStats augments Product with aggregated stats for the admin dashboard.
 type ProductStats struct {
 	Product
 	EnvironmentCount int
-	LastDeployedAt   *time.Time
 }
 
 // ValidateSlug returns an error if s does not match the slug pattern

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { listProducts, createProduct, type Product } from '../api/products'
@@ -8,6 +8,25 @@ import './ProductDetailPage.css'
 import './HomePage.css'
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const RECENT_DEPLOY_MS = 24 * 60 * 60 * 1000
+
+type FilterChip = 'all' | 'production' | 'recently-deployed'
+
+const CHIP_LABELS: Record<FilterChip, string> = {
+  all: 'All',
+  production: 'Production',
+  'recently-deployed': 'Recently deployed',
+}
+
+function filterEmptyMessage(searchQuery: string, activeChip: FilterChip): string {
+  if (searchQuery && activeChip !== 'all') {
+    return `No results for "${searchQuery}" with the active filter.`
+  }
+  if (searchQuery) {
+    return `No products matching "${searchQuery}".`
+  }
+  return 'No products match the active filter.'
+}
 
 interface ProductFormState { name: string; slug: string; description: string }
 interface ProductFormErrors { name?: string; slug?: string }
@@ -33,6 +52,31 @@ export default function HomePage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [statsError, setStatsError] = useState(false)
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeChip, setActiveChip] = useState<FilterChip>('all')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [now] = useState(() => Date.now())
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        if (!p.name.toLowerCase().includes(q) && !p.slug.toLowerCase().includes(q)) return false
+      }
+      if (activeChip === 'production') return p.has_production_env
+      if (activeChip === 'recently-deployed') {
+        if (!p.last_deployed_at) return false
+        return now - new Date(p.last_deployed_at).getTime() <= RECENT_DEPLOY_MS
+      }
+      return true
+    })
+  }, [products, searchQuery, activeChip, now])
+
+  function clearFilters() {
+    setSearchQuery('')
+    setActiveChip('all')
+  }
 
   // Add form state
   const [showForm, setShowForm] = useState(false)
@@ -285,17 +329,64 @@ export default function HomePage() {
           </div>
         )}
 
+        {!loading && !error && products.length > 0 && (
+          <div className="home-search-filter-bar" data-testid="search-filter-bar">
+            <div className="home-search-wrap">
+              <span className="home-search-icon">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="5.5" cy="5.5" r="4" />
+                  <path d="M8.5 8.5L12 12" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="home-search-input"
+                placeholder="Search products…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search products"
+                data-testid="search-input"
+              />
+              <button
+                type="button"
+                className={`home-search-clear${searchQuery ? ' visible' : ''}`}
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                data-testid="search-clear"
+              >
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M1 1l9 9M10 1l-9 9" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="home-chip-divider" />
+            <fieldset className="home-filter-chips" aria-label="Filter products">
+              {(['all', 'production', 'recently-deployed'] as FilterChip[]).map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  className={`home-chip home-chip--${chip}${activeChip === chip ? ' active' : ''}`}
+                  onClick={() => setActiveChip(chip)}
+                  data-testid={`chip-${chip}`}
+                >
+                  <span className="home-chip-dot" />
+                  {CHIP_LABELS[chip]}
+                </button>
+              ))}
+            </fieldset>
+            {(searchQuery || activeChip !== 'all') && (
+              <span className="home-result-meta" data-testid="result-count">
+                <strong>{filteredProducts.length}</strong> / {products.length}
+              </span>
+            )}
+          </div>
+        )}
+
         {!loading && !error && products.length === 0 && (
           <div className="home-empty" data-testid="empty-state">
             <div className="home-empty-icon">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="3" width="7" height="7" rx="1" />
                 <rect x="14" y="3" width="7" height="7" rx="1" />
                 <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -303,21 +394,35 @@ export default function HomePage() {
               </svg>
             </div>
             <p className="home-empty-title">No products yet</p>
-            <p className="home-empty-sub">
-              Products will appear here once they are created.
-            </p>
+            <p className="home-empty-sub">Products will appear here once they are created.</p>
           </div>
         )}
 
-        {!loading && !error && products.length > 0 && (
+        {!loading && !error && products.length > 0 && filteredProducts.length === 0 && (
+          <div className="home-empty" data-testid="filter-empty-state">
+            <div className="home-empty-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4-4" strokeLinecap="round" />
+              </svg>
+            </div>
+            <p className="home-empty-title">No products match your search</p>
+            <p className="home-empty-sub">
+              {filterEmptyMessage(searchQuery, activeChip)}
+            </p>
+            <button type="button" className="home-empty-clear-link" onClick={clearFilters}>
+              Clear filters
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && filteredProducts.length > 0 && (
           <div className="home-product-grid">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <button
                 key={product.id}
                 className="home-product-card"
-                onClick={() =>
-                  navigate(`/products/${product.slug}`, { state: product })
-                }
+                onClick={() => navigate(`/products/${product.slug}`, { state: product })}
               >
                 <div className="home-p-card-top">
                   <div className="home-p-icon">{getInitials(product.name)}</div>
@@ -328,6 +433,23 @@ export default function HomePage() {
                 </div>
                 {product.description && (
                   <p className="home-p-desc">{product.description}</p>
+                )}
+                {(product.has_production_env || product.last_deployed_at) && (
+                  <div className="home-p-badges">
+                    {product.has_production_env && (
+                      <span className="home-p-badge home-p-badge--prod">
+                        <span className="home-p-badge-dot" />{/*
+                        */}Production
+                      </span>
+                    )}
+                    {product.last_deployed_at &&
+                      now - new Date(product.last_deployed_at).getTime() <= RECENT_DEPLOY_MS && (
+                        <span className="home-p-badge home-p-badge--recent">
+                          <span className="home-p-badge-dot" />{/*
+                          */}Recent deploy
+                        </span>
+                      )}
+                  </div>
                 )}
               </button>
             ))}

@@ -81,11 +81,15 @@ func (s *pgxProductStore) List(ctx context.Context, opts ListOptions) ([]domain.
 		args  []any
 	)
 
-	base := `SELECT id, name, slug, description, archived_at, created_at, tag_convention_regex FROM products`
+	base := `SELECT p.id, p.name, p.slug, p.description, p.archived_at, p.created_at, p.tag_convention_regex,
+		MAX(d.deployed_at) AS last_deployed_at,
+		EXISTS (SELECT 1 FROM environments e WHERE e.product_id = p.id AND e.type = 'production') AS has_production_env
+	FROM products p
+	LEFT JOIN deployments d ON d.product_id = p.id`
 	var conditions []string
 
 	if !opts.IncludeArchived {
-		conditions = append(conditions, "archived_at IS NULL")
+		conditions = append(conditions, "p.archived_at IS NULL")
 	}
 
 	if opts.SlugAllowlist != nil {
@@ -97,7 +101,7 @@ func (s *pgxProductStore) List(ctx context.Context, opts ListOptions) ([]domain.
 			slugs = append(slugs, s)
 		}
 		args = append(args, slugs)
-		conditions = append(conditions, fmt.Sprintf("slug = ANY($%d)", len(args)))
+		conditions = append(conditions, fmt.Sprintf("p.slug = ANY($%d)", len(args)))
 	}
 
 	if len(conditions) > 0 {
@@ -105,7 +109,7 @@ func (s *pgxProductStore) List(ctx context.Context, opts ListOptions) ([]domain.
 	} else {
 		query = base
 	}
-	query += " ORDER BY created_at DESC"
+	query += " GROUP BY p.id ORDER BY p.created_at DESC"
 
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -116,7 +120,7 @@ func (s *pgxProductStore) List(ctx context.Context, opts ListOptions) ([]domain.
 	var products []domain.Product
 	for rows.Next() {
 		var p domain.Product
-		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt, &p.TagConventionRegex); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Slug, &p.Description, &p.ArchivedAt, &p.CreatedAt, &p.TagConventionRegex, &p.LastDeployedAt, &p.HasProductionEnv); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
 		products = append(products, p)

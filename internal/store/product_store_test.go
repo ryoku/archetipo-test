@@ -581,3 +581,128 @@ func TestProductStore_ListWithStats_WithDeployment(t *testing.T) {
 		t.Errorf("expected EnvironmentCount=1, got %d", results[0].EnvironmentCount)
 	}
 }
+
+// ─── List — last_deployed_at and has_production_env ───────────
+
+func TestProductStore_List_LastDeployedAt_Nil_WithoutDeployments(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "No Deploy", Slug: "no-deploy-list"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	products, err := s.List(ctx, store.ListOptions{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(products) != 1 {
+		t.Fatalf("expected 1 product, got %d", len(products))
+	}
+	if products[0].LastDeployedAt != nil {
+		t.Errorf("expected LastDeployedAt=nil for product without deployments, got %v", products[0].LastDeployedAt)
+	}
+}
+
+func TestProductStore_List_LastDeployedAt_PopulatedAfterDeployment(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "With Deploy", Slug: "with-deploy-list"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	var envID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, 'prod', 'prod', 'dev') RETURNING id`,
+		p.ID,
+	).Scan(&envID); err != nil {
+		t.Fatalf("insert environment: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO deployments (product_id, environment_id, actor_display_name, component_name, environment_name, tag, outcome)
+		 VALUES ($1, $2, 'ci', 'api', 'prod', 'v1.0.0', 'success')`,
+		p.ID, envID,
+	); err != nil {
+		t.Fatalf("insert deployment: %v", err)
+	}
+
+	products, err := s.List(ctx, store.ListOptions{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(products) != 1 {
+		t.Fatalf("expected 1 product, got %d", len(products))
+	}
+	if products[0].LastDeployedAt == nil {
+		t.Fatal("expected LastDeployedAt to be non-nil after deployment")
+	}
+}
+
+func TestProductStore_List_HasProductionEnv_False_WithoutProductionEnv(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "Dev Only", Slug: "dev-only-list"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Insert a non-production environment
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, 'dev', 'dev', 'dev')`,
+		p.ID,
+	); err != nil {
+		t.Fatalf("insert environment: %v", err)
+	}
+
+	products, err := s.List(ctx, store.ListOptions{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(products) != 1 {
+		t.Fatalf("expected 1 product, got %d", len(products))
+	}
+	if products[0].HasProductionEnv {
+		t.Error("expected HasProductionEnv=false for product with no production environment")
+	}
+}
+
+func TestProductStore_List_HasProductionEnv_True_WithProductionEnv(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "With Prod", Slug: "with-prod-list"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, 'production', 'production', 'production')`,
+		p.ID,
+	); err != nil {
+		t.Fatalf("insert environment: %v", err)
+	}
+
+	products, err := s.List(ctx, store.ListOptions{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(products) != 1 {
+		t.Fatalf("expected 1 product, got %d", len(products))
+	}
+	if !products[0].HasProductionEnv {
+		t.Error("expected HasProductionEnv=true for product with a production environment")
+	}
+}

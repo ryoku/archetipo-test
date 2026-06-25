@@ -72,6 +72,8 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     description: 'The platform API product',
     created_at: '2025-01-01T00:00:00Z',
     my_role: 'editor',
+    last_deployed_at: null,
+    has_production_env: false,
     ...overrides,
   }
 }
