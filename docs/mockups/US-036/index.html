@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-036 · Products (Stats Strip)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+/* ─── DESIGN TOKENS ──────────────────────────────────────────── */
+:root {
+  --bg-base:       #070a12;
+  --bg-surface:    #0b0f1c;
+  --bg-elevated:   #101626;
+  --bg-overlay:    #151d30;
+  --bg-hover:      #1a2438;
+  --bg-input:      #0e1422;
+
+  --border-faint:  #111928;
+  --border-subtle: #16233a;
+  --border-default:#1d2f4a;
+  --border-strong: #263d5e;
+  --border-accent: rgba(0, 195, 170, 0.35);
+
+  --text-primary:  #dde6f2;
+  --text-secondary:#6b859e;
+  --text-muted:    #374e64;
+  --text-code:     #90d0c8;
+
+  --accent:        #00c3aa;
+  --accent-hover:  #00ddc0;
+  --accent-glow:   rgba(0, 195, 170, 0.18);
+  --accent-dim:    rgba(0, 195, 170, 0.08);
+
+  --ok:            #00c97a;
+  --warn:          #f0a030;
+  --danger:        #e05555;
+  --info:          #4488dd;
+
+  --env-prod:      #f5933a;
+  --env-prod-bg:   rgba(245, 147, 58, 0.07);
+  --env-prod-brd:  rgba(245, 147, 58, 0.22);
+  --env-intg:      #7b9ce8;
+  --env-intg-bg:   rgba(123, 156, 232, 0.07);
+  --env-intg-brd:  rgba(123, 156, 232, 0.22);
+  --env-dev:       #4ec97a;
+  --env-dev-bg:    rgba(78, 201, 122, 0.07);
+  --env-dev-brd:   rgba(78, 201, 122, 0.22);
+
+  --font-ui:       'Space Grotesk', system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', 'Courier New', monospace;
+
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+
+  --shadow-sm:    0 1px 4px rgba(0,0,0,.5);
+  --shadow-md:    0 4px 20px rgba(0,0,0,.6);
+  --shadow-lg:    0 8px 48px rgba(0,0,0,.7);
+
+  --sidebar-w: 216px;
+  --t: 140ms ease;
+}
+
+/* ─── RESET ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+input, select { font-family: inherit; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ─── APP SHELL ──────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+/* ─── SIDEBAR ────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 50;
+}
+
+.main { margin-left: var(--sidebar-w); flex: 1; min-width: 0; }
+
+.sidebar-logo {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border-faint);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-mark {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--accent) 0%, #0080f0 100%);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-name { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; color: var(--text-primary); }
+.logo-version { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); margin-top: 1px; }
+
+.sidebar-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+.nav-label {
+  padding: 10px 8px 4px;
+  font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--r-md);
+  font-size: 13px; font-weight: 400;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--t), background var(--t);
+  border: none; background: none;
+  width: 100%; text-align: left;
+  position: relative;
+}
+.nav-item:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.nav-item.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  font-weight: 500;
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent);
+  border-radius: 2px;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 10px;
+  background: var(--bg-overlay); border: 1px solid var(--border-default);
+  border-radius: 8px; padding: 1px 6px; color: var(--text-muted);
+}
+
+.sidebar-footer {
+  padding: 12px 10px;
+  border-top: 1px solid var(--border-faint);
+}
+.user-cell { display: flex; align-items: center; gap: 8px; }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, #7b9ce8, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--bg-base);
+  flex-shrink: 0; letter-spacing: -0.5px;
+}
+.user-name { font-size: 12px; font-weight: 600; }
+.user-role { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+/* ─── PAGE LAYOUT ────────────────────────────────────────────── */
+.page-top {
+  padding: 28px 32px 24px;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.page-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.page-desc { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+.page-body { padding: 28px 32px; }
+
+/* ─── BUTTONS ────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
+  border-radius: var(--r-md); font-size: 13px; font-weight: 500;
+  border: 1px solid transparent;
+  transition: all var(--t); white-space: nowrap; line-height: 1;
+}
+.btn-primary { background: var(--accent); color: var(--bg-base); border-color: var(--accent); font-weight: 600; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-outline { background: transparent; color: var(--text-secondary); border-color: var(--border-default); }
+.btn-outline:hover { color: var(--text-primary); border-color: var(--border-strong); background: var(--bg-elevated); }
+.btn-ghost { background: transparent; color: var(--text-secondary); border-color: transparent; }
+.btn-ghost:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.btn-sm { padding: 5px 10px; font-size: 12px; gap: 5px; }
+
+/* ─── BADGES ─────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 11px; font-weight: 500; border: 1px solid transparent;
+}
+.badge-prod  { color: var(--env-prod); background: var(--env-prod-bg); border-color: var(--env-prod-brd); }
+.badge-intg  { color: var(--env-intg); background: var(--env-intg-bg); border-color: var(--env-intg-brd); }
+.badge-dev   { color: var(--env-dev);  background: var(--env-dev-bg);  border-color: var(--env-dev-brd);  }
+.badge-admin { color: #f0c042; background: rgba(240,192,66,.08); border-color: rgba(240,192,66,.25); }
+
+/* Status dot */
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok   { background: var(--ok);     box-shadow: 0 0 5px var(--ok); }
+.dot-warn { background: var(--warn);   box-shadow: 0 0 5px var(--warn); }
+.dot-err  { background: var(--danger); box-shadow: 0 0 5px var(--danger); }
+.dot-idle { background: var(--text-muted); }
+
+/* ─── INPUTS ─────────────────────────────────────────────────── */
+.input-wrap { position: relative; }
+.input {
+  width: 100%; background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md); padding: 8px 12px;
+  font-size: 13px; color: var(--text-primary);
+  transition: border-color var(--t); outline: none;
+}
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--text-muted); }
+.input-icon {
+  position: absolute; left: 11px; top: 50%;
+  transform: translateY(-50%); color: var(--text-muted); pointer-events: none;
+}
+.input.has-icon { padding-left: 34px; }
+
+/* ─── FILTER CHIPS ────────────────────────────────────────────── */
+.filter-chip {
+  padding: 4px 12px; border-radius: 20px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary); background: transparent;
+  cursor: pointer; transition: all var(--t);
+}
+.filter-chip:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.filter-chip.on { background: var(--accent-dim); border-color: var(--border-accent); color: var(--accent); }
+
+/* ─── STATS STRIP — US-036 ────────────────────────────────────── */
+/*
+ * The stats strip is a horizontal row of 4 display-only tiles.
+ * It lives ABOVE the product grid, BELOW the page header.
+ * The strip is non-interactive — tiles do not navigate on click.
+ *
+ * States:
+ *   - Normal:  large mono number + label
+ *   - Loading: animated shimmer placeholder
+ *   - Error:   "--" shown in muted color with a subtle warning tint
+ */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+/* Base tile */
+.stat-tile {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 16px 20px 14px;
+  position: relative;
+  overflow: hidden;
+  /* Non-interactive: no hover transform, no cursor pointer */
+  user-select: none;
+}
+
+/* Decorative left-edge accent stripe */
+.stat-tile::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: var(--r-lg) 0 0 var(--r-lg);
+}
+
+/* Icon area top-right (decorative) */
+.stat-tile-icon {
+  position: absolute;
+  top: 12px; right: 14px;
+  width: 28px; height: 28px;
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.55;
+}
+
+.stat-val {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+/* ── Tile: Products ── teal accent */
+.stat-tile.t-products::before { background: var(--accent); }
+.stat-tile.t-products { border-color: var(--border-accent); }
+.stat-tile.t-products .stat-val { color: var(--accent); }
+.stat-tile.t-products .stat-tile-icon { background: var(--accent-dim); color: var(--accent); }
+
+/* ── Tile: Environments ── info blue */
+.stat-tile.t-envs::before { background: var(--info); }
+.stat-tile.t-envs { border-color: rgba(68,136,221,.3); }
+.stat-tile.t-envs .stat-val { color: var(--info); }
+.stat-tile.t-envs .stat-tile-icon { background: rgba(68,136,221,.1); color: var(--info); }
+
+/* ── Tile: Components ── purple/violet */
+.stat-tile.t-components::before { background: #8860f0; }
+.stat-tile.t-components { border-color: rgba(136,96,240,.28); }
+.stat-tile.t-components .stat-val { color: #a880f8; }
+.stat-tile.t-components .stat-tile-icon { background: rgba(136,96,240,.1); color: #a880f8; }
+
+/* ── Tile: Deployments Today ── green ok */
+.stat-tile.t-deployments::before { background: var(--ok); }
+.stat-tile.t-deployments { border-color: rgba(0,201,122,.28); }
+.stat-tile.t-deployments .stat-val { color: var(--ok); }
+.stat-tile.t-deployments .stat-tile-icon { background: rgba(0,201,122,.1); color: var(--ok); }
+
+/* ── Error / fallback state: "--" ── */
+.stat-tile.t-error {
+  border-color: var(--border-subtle);
+  border-style: dashed;
+  opacity: 0.72;
+}
+.stat-tile.t-error::before { background: var(--text-muted); }
+.stat-tile.t-error .stat-val {
+  color: var(--text-muted);
+  letter-spacing: -1px;
+}
+.stat-tile.t-error .stat-tile-icon { background: transparent; color: var(--text-muted); }
+
+/* Error badge */
+.stat-error-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9.5px; font-weight: 600;
+  color: var(--warn);
+  background: rgba(240,160,48,.08);
+  border: 1px solid rgba(240,160,48,.2);
+  border-radius: var(--r-sm);
+  padding: 1px 6px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+/* ── Annotation callout for the mockup ── */
+.annotation-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(0,195,170,.06);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin-bottom: 24px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.annotation-icon { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+.annotation-strip strong { color: var(--accent); font-weight: 600; }
+.annotation-strip code {
+  font-family: var(--font-mono); font-size: 10.5px;
+  background: var(--bg-overlay); border: 1px solid var(--border-default);
+  border-radius: 3px; padding: 0 5px; color: var(--text-code);
+}
+
+/* ─── TOPBAR / SEARCH ROW ─────────────────────────────────────── */
+.topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+
+/* ─── PRODUCT CARDS ──────────────────────────────────────────── */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 14px;
+}
+.p-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t), transform var(--t);
+  display: flex; flex-direction: column; gap: 14px;
+  position: relative; overflow: hidden;
+}
+.p-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: transparent; transition: background var(--t);
+}
+.p-card:hover { border-color: var(--border-strong); background: var(--bg-elevated); transform: translateY(-1px); }
+.p-card:hover::before { background: linear-gradient(90deg, var(--accent), transparent); }
+.p-card-top { display: flex; align-items: flex-start; gap: 12px; }
+.p-icon {
+  width: 36px; height: 36px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; flex-shrink: 0; font-weight: 700;
+  font-family: var(--font-mono); color: var(--bg-base);
+}
+.p-icon-a { background: linear-gradient(135deg, #00c3aa, #0077cc); }
+.p-icon-b { background: linear-gradient(135deg, #7b6cf0, #c060f0); }
+.p-icon-c { background: linear-gradient(135deg, #f09030, #e04060); }
+.p-icon-d { background: linear-gradient(135deg, #40c060, #0080a0); }
+.p-name { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.2px; }
+.p-slug { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+.p-env-row { display: flex; gap: 5px; flex-wrap: wrap; }
+.p-footer {
+  padding-top: 12px; border-top: 1px solid var(--border-faint);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.p-meta { display: flex; gap: 14px; }
+.p-meta-item { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.p-last { font-size: 11px; color: var(--text-muted); }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.gap-2 { gap: 8px; }
+.flex-1 { flex: 1; }
+.ml-auto { margin-left: auto; }
+
+/* ─── SPEC CALLOUT BANNER ─────────────────────────────────────── */
+.spec-banner {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-faint);
+  padding: 7px 32px;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 10px;
+  letter-spacing: 0.02em;
+}
+.spec-chip {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  padding: 2px 8px; background: var(--accent-dim);
+  border: 1px solid var(--border-accent); border-radius: var(--r-sm);
+  color: var(--accent);
+}
+.spec-sep { color: var(--border-strong); }
+
+/* ─── STATE TOGGLE BAR ────────────────────────────────────────── */
+.demo-bar {
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-faint);
+  padding: 8px 32px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--text-muted);
+}
+.demo-bar-label { font-weight: 600; color: var(--text-secondary); }
+.demo-btn {
+  padding: 3px 10px; border-radius: var(--r-sm);
+  font-size: 11px; font-family: var(--font-ui);
+  font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: transparent; color: var(--text-secondary);
+  transition: all var(--t);
+}
+.demo-btn:hover { color: var(--text-primary); border-color: var(--border-strong); background: var(--bg-overlay); }
+.demo-btn.active { background: var(--accent-dim); border-color: var(--border-accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ─── SIDEBAR ──────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <button class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </button>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </button>
+
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </button>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/>
+          <path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin Dashboard
+      </button>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="2"/>
+          <path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.5 3.5l.7.7M11.8 11.8l.7.7M3.5 12.5l.7-.7M11.8 4.2l.7-.7"/>
+        </svg>
+        Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Tech Lead / PO</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ──────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Spec annotation banner -->
+    <div class="spec-banner">
+      <span class="spec-chip">US-036</span>
+      <span class="spec-sep">·</span>
+      Product list — aggregate stats strip
+      <span class="spec-sep">·</span>
+      EP-002 Product &amp; Component Management
+    </div>
+
+    <!-- Demo state toggle -->
+    <div class="demo-bar">
+      <span class="demo-bar-label">Mockup state:</span>
+      <button class="demo-btn active" id="btn-normal" onclick="setMode('normal')">Normal (data loaded)</button>
+      <button class="demo-btn" id="btn-error" onclick="setMode('error')">API error (-- fallback)</button>
+      <span style="margin-left:auto; font-size:10.5px; color: var(--text-muted); font-style:italic;">Tiles are non-interactive display-only per AC</span>
+    </div>
+
+    <!-- Page header -->
+    <div class="page-top">
+      <div>
+        <div class="page-title">Products</div>
+        <div class="page-desc">Your accessible products and their current deployment state.</div>
+      </div>
+      <button class="btn btn-primary">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 1v11M1 6.5h11"/></svg>
+        New product
+      </button>
+    </div>
+
+    <div class="page-body">
+
+      <!-- ══════════════════════════════════════════════════════
+           STATS STRIP — US-036
+           Source: GET /api/v1/stats
+           Scoped to caller's accessible products.
+           Cached server-side 30s TTL.
+           Tiles are display-only (non-interactive).
+      ══════════════════════════════════════════════════════ -->
+      <div id="stats-annotation" class="annotation-strip">
+        <svg class="annotation-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="7" cy="7" r="5.5"/>
+          <path d="M7 6v4M7 4.5v.5"/>
+        </svg>
+        <span>
+          <strong>US-036 — Stats strip</strong>: data from <code>GET /api/v1/stats</code> · 4 display-only tiles ·
+          <code>deployments_today</code> = records with <code>deployed_at &gt;= now() − 24h</code> ·
+          Server-side cache: 30 s TTL · On API failure, each tile shows <code>--</code> gracefully.
+        </span>
+      </div>
+
+      <!-- NORMAL STATE: real numbers -->
+      <div id="stats-normal" class="stats-strip">
+
+        <!-- Products -->
+        <div class="stat-tile t-products">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="1.5" y="1.5" width="4" height="4" rx="1"/>
+              <rect x="8.5" y="1.5" width="4" height="4" rx="1"/>
+              <rect x="1.5" y="8.5" width="4" height="4" rx="1"/>
+              <rect x="8.5" y="8.5" width="4" height="4" rx="1"/>
+            </svg>
+          </div>
+          <div class="stat-val">4</div>
+          <div class="stat-label">Products</div>
+        </div>
+
+        <!-- Environments -->
+        <div class="stat-tile t-envs">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="7,1.5 12.5,4.5 12.5,9.5 7,12.5 1.5,9.5 1.5,4.5"/>
+              <circle cx="7" cy="7" r="2"/>
+            </svg>
+          </div>
+          <div class="stat-val">12</div>
+          <div class="stat-label">Environments</div>
+        </div>
+
+        <!-- Components -->
+        <div class="stat-tile t-components">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="1.5" y="4.5" width="11" height="7" rx="1.5"/>
+              <path d="M5 4.5V3a2 2 0 014 0v1.5"/>
+              <path d="M7 8v.5"/>
+            </svg>
+          </div>
+          <div class="stat-val">27</div>
+          <div class="stat-label">Components</div>
+        </div>
+
+        <!-- Deployments Today -->
+        <div class="stat-tile t-deployments">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M7 1.5v9M4 7.5l3 3 3-3"/>
+              <path d="M2 12.5h10"/>
+            </svg>
+          </div>
+          <div class="stat-val">7</div>
+          <div class="stat-label">Deployments Today</div>
+        </div>
+
+      </div><!-- /stats-strip normal -->
+
+      <!-- ERROR STATE: -- fallback (hidden by default, shown via demo toggle) -->
+      <div id="stats-error" class="stats-strip" style="display:none;">
+
+        <!-- Products — ok -->
+        <div class="stat-tile t-products">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="1.5" y="1.5" width="4" height="4" rx="1"/>
+              <rect x="8.5" y="1.5" width="4" height="4" rx="1"/>
+              <rect x="1.5" y="8.5" width="4" height="4" rx="1"/>
+              <rect x="8.5" y="8.5" width="4" height="4" rx="1"/>
+            </svg>
+          </div>
+          <div class="stat-val">--</div>
+          <div class="stat-label">Products</div>
+        </div>
+
+        <!-- Environments — error tile, demonstrating the fallback -->
+        <div class="stat-tile t-error">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="7,1.5 12.5,4.5 12.5,9.5 7,12.5 1.5,9.5 1.5,4.5"/>
+              <circle cx="7" cy="7" r="2"/>
+            </svg>
+          </div>
+          <div class="stat-val">--</div>
+          <div class="stat-label">Environments</div>
+          <div class="stat-error-badge">API error</div>
+        </div>
+
+        <!-- Components — error tile -->
+        <div class="stat-tile t-error">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="1.5" y="4.5" width="11" height="7" rx="1.5"/>
+              <path d="M5 4.5V3a2 2 0 014 0v1.5"/>
+              <path d="M7 8v.5"/>
+            </svg>
+          </div>
+          <div class="stat-val">--</div>
+          <div class="stat-label">Components</div>
+          <div class="stat-error-badge">API error</div>
+        </div>
+
+        <!-- Deployments Today — error tile -->
+        <div class="stat-tile t-error">
+          <div class="stat-tile-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M7 1.5v9M4 7.5l3 3 3-3"/>
+              <path d="M2 12.5h10"/>
+            </svg>
+          </div>
+          <div class="stat-val">--</div>
+          <div class="stat-label">Deployments Today</div>
+          <div class="stat-error-badge">API error</div>
+        </div>
+
+      </div><!-- /stats-strip error -->
+
+      <!-- Search + filter bar -->
+      <div class="topbar">
+        <div class="input-wrap flex-1" style="max-width:300px;">
+          <svg class="input-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="6" cy="6" r="4"/><path d="M10 10l2.5 2.5"/>
+          </svg>
+          <input type="text" class="input has-icon" placeholder="Search products…">
+        </div>
+        <div style="display:flex;gap:6px;margin-left:4px;">
+          <button class="filter-chip on">All</button>
+          <button class="filter-chip">Production</button>
+          <button class="filter-chip">Recently deployed</button>
+        </div>
+        <div class="ml-auto flex gap-2">
+          <button class="btn btn-ghost btn-sm">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h9M4 6.5h5M6 9h1"/></svg>
+            Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Product grid -->
+      <div class="product-grid">
+
+        <!-- Card 1 -->
+        <div class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon p-icon-a">PL</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Platform API</div>
+              <div class="p-slug">platform-api</div>
+            </div>
+            <span class="badge badge-admin" style="font-size:9.5px;padding:1px 6px;">DevOps</span>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-intg">integration</span>
+            <span class="badge badge-prod">production</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                3 components
+              </div>
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                3 envs
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">2 min ago</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon p-icon-b">CA</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Customer App</div>
+              <div class="p-slug">customer-app</div>
+            </div>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-intg">integration</span>
+            <span class="badge badge-prod">production</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                2 components
+              </div>
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                3 envs
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">1 hr ago</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon p-icon-c">DP</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Data Pipeline</div>
+              <div class="p-slug">data-pipeline</div>
+            </div>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-prod">production</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                5 components
+              </div>
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                2 envs
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-warn"></div>
+              <span class="p-last">3 hrs ago</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon p-icon-d">MG</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">ML Gateway</div>
+              <div class="p-slug">ml-gateway</div>
+            </div>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-intg">integration</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9"/><path d="M4 1v3M7 1v3"/></svg>
+                4 components
+              </div>
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5.5,1 10,4 10,8 5.5,10 1,8 1,4"/></svg>
+                2 envs
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-idle"></div>
+              <span class="p-last">2 days ago</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /product-grid -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+
+</div><!-- /app-shell -->
+
+<script>
+function setMode(mode) {
+  const normalStrip = document.getElementById('stats-normal');
+  const errorStrip  = document.getElementById('stats-error');
+  const btnNormal   = document.getElementById('btn-normal');
+  const btnError    = document.getElementById('btn-error');
+
+  if (mode === 'normal') {
+    normalStrip.style.display = 'grid';
+    errorStrip.style.display  = 'none';
+    btnNormal.classList.add('active');
+    btnError.classList.remove('active');
+  } else {
+    normalStrip.style.display = 'none';
+    errorStrip.style.display  = 'grid';
+    btnNormal.classList.remove('active');
+    btnError.classList.add('active');
+  }
+}
+
+// Tiles are non-interactive: prevent any click navigation
+document.querySelectorAll('.stat-tile').forEach(function(tile) {
+  tile.style.cursor = 'default';
+  tile.style.pointerEvents = 'none';
+});
+</script>
+
+</body>
+</html>

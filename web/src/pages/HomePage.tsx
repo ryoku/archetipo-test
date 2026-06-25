@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { listProducts, createProduct, type Product } from '../api/products'
+import { fetchStats, type Stats } from '../api/stats'
 import { isDevOpsAdmin } from '../auth/claims'
 import './ProductDetailPage.css'
 import './HomePage.css'
@@ -29,6 +30,10 @@ export default function HomePage() {
 
   const canCreate = isDevOpsAdmin(accessToken)
 
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [statsError, setStatsError] = useState(false)
+
   // Add form state
   const [showForm, setShowForm] = useState(false)
   const [formState, setFormState] = useState<ProductFormState>({ name: '', slug: '', description: '' })
@@ -38,12 +43,21 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!accessToken) return
-    listProducts(accessToken)
-      .then(setProducts)
+    let cancelled = false
+    void fetchStats(accessToken)
+      .then((data) => { if (!cancelled) setStats(data) })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Failed to load products')
+        console.error('[HomePage] fetchStats failed:', err)
+        if (!cancelled) setStatsError(true)
       })
-      .finally(() => { setLoading(false) })
+      .finally(() => { if (!cancelled) setStatsLoading(false) })
+    listProducts(accessToken)
+      .then((data) => { if (!cancelled) setProducts(data) })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load products')
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [accessToken])
 
   const displayName =
@@ -234,6 +248,29 @@ export default function HomePage() {
             </div>
           </div>
         )}
+
+        <div className="home-stats-strip" data-testid="stats-strip">
+          {[
+            { label: 'Products', icon: 'products', value: stats?.product_count },
+            { label: 'Environments', icon: 'envs', value: stats?.environment_count },
+            { label: 'Components', icon: 'components', value: stats?.component_count },
+            { label: 'Deployments (24h)', icon: 'deployments', value: stats?.deployments_last_24h },
+          ].map(({ label, icon, value }) => {
+            let display: number | string | undefined = value
+            if (statsLoading) display = '…'
+            else if (statsError) display = '--'
+            return (
+              <div
+                key={label}
+                className={`home-stat-tile home-stat-tile--${icon}${statsError ? ' home-stat-tile--error' : ''}`}
+                data-testid="stat-tile"
+              >
+                <span className="home-stat-val">{display}</span>
+                <span className="home-stat-label">{label}</span>
+              </div>
+            )
+          })}
+        </div>
 
         {loading && (
           <div className="home-loading" data-testid="loading-state">

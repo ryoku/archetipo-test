@@ -324,3 +324,78 @@
   font-size: 12px;
   margin-bottom: 12px;
 }
+
+/* ─── Stats strip (US-036) ───────────────────────────────────── */
+
+.home-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.home-stat-tile {
+  background: #0b0f1c;
+  border: 1px solid #16233a;
+  border-radius: 12px;
+  padding: 16px 20px 14px;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.home-stat-tile::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 12px 0 0 12px;
+}
+
+.home-stat-val {
+  display: block;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
+.home-stat-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #374e64;
+}
+
+/* Products — teal */
+.home-stat-tile--products { border-color: rgba(0, 195, 170, 0.35); }
+.home-stat-tile--products::before { background: #00c3aa; }
+.home-stat-tile--products .home-stat-val { color: #00c3aa; }
+
+/* Environments — info blue */
+.home-stat-tile--envs { border-color: rgba(68, 136, 221, 0.3); }
+.home-stat-tile--envs::before { background: #4488dd; }
+.home-stat-tile--envs .home-stat-val { color: #4488dd; }
+
+/* Components — purple */
+.home-stat-tile--components { border-color: rgba(136, 96, 240, 0.28); }
+.home-stat-tile--components::before { background: #8860f0; }
+.home-stat-tile--components .home-stat-val { color: #a880f8; }
+
+/* Deployments today — green */
+.home-stat-tile--deployments { border-color: rgba(0, 201, 122, 0.28); }
+.home-stat-tile--deployments::before { background: #00c97a; }
+.home-stat-tile--deployments .home-stat-val { color: #00c97a; }
+
+/* Error / fallback state */
+.home-stat-tile--error {
+  border-color: #16233a;
+  border-style: dashed;
+  opacity: 0.72;
+}
+.home-stat-tile--error::before { background: #374e64; }
+.home-stat-tile--error .home-stat-val { color: #374e64; letter-spacing: -1px; }
