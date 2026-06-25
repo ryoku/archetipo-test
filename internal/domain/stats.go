@@ -5,5 +5,6 @@ type Stats struct {
 	ProductCount     int `json:"product_count"`
 	EnvironmentCount int `json:"environment_count"`
 	ComponentCount   int `json:"component_count"`
-	DeploymentsToday int `json:"deployments_today"`
+	// Deployments24h counts deployments in a rolling 24-hour window (not calendar-day "today").
+	Deployments24h int `json:"deployments_last_24h"`
 }

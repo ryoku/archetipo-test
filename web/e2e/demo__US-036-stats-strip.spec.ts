@@ -36,7 +36,7 @@ const STATS = {
   product_count: 4,
   environment_count: 11,
   component_count: 8,
-  deployments_today: 3,
+  deployments_last_24h: 3,
 }
 
 const PRODUCTS = [

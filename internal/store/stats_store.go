@@ -42,7 +42,7 @@ func (s *pgxStatsStore) GetStats(ctx context.Context, slugs []string, isAdmin bo
 			(SELECT COUNT(*)
 			 FROM deployments
 			 WHERE product_id IN (SELECT id FROM accessible)
-			   AND deployed_at >= NOW() - INTERVAL '24 hours')                             AS deployments_today
+			   AND deployed_at >= NOW() - INTERVAL '24 hours')                             AS deployments_last_24h
 	`
 
 	const queryScoped = `
@@ -57,7 +57,7 @@ func (s *pgxStatsStore) GetStats(ctx context.Context, slugs []string, isAdmin bo
 			(SELECT COUNT(*)
 			 FROM deployments
 			 WHERE product_id IN (SELECT id FROM accessible)
-			   AND deployed_at >= NOW() - INTERVAL '24 hours')                             AS deployments_today
+			   AND deployed_at >= NOW() - INTERVAL '24 hours')                             AS deployments_last_24h
 	`
 
 	var stats domain.Stats
@@ -67,14 +67,14 @@ func (s *pgxStatsStore) GetStats(ctx context.Context, slugs []string, isAdmin bo
 			&stats.ProductCount,
 			&stats.EnvironmentCount,
 			&stats.ComponentCount,
-			&stats.DeploymentsToday,
+			&stats.Deployments24h,
 		)
 	} else {
 		err = s.pool.QueryRow(ctx, queryScoped, slugs).Scan(
 			&stats.ProductCount,
 			&stats.EnvironmentCount,
 			&stats.ComponentCount,
-			&stats.DeploymentsToday,
+			&stats.Deployments24h,
 		)
 	}
 	if err != nil {

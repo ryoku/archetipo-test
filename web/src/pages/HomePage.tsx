@@ -31,6 +31,7 @@ export default function HomePage() {
   const canCreate = isDevOpsAdmin(accessToken)
 
   const [stats, setStats] = useState<Stats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
   const [statsError, setStatsError] = useState(false)
 
   // Add form state
@@ -49,6 +50,7 @@ export default function HomePage() {
         console.error('[HomePage] fetchStats failed:', err)
         if (!cancelled) setStatsError(true)
       })
+      .finally(() => { if (!cancelled) setStatsLoading(false) })
     listProducts(accessToken)
       .then((data) => { if (!cancelled) setProducts(data) })
       .catch((err: unknown) => {
@@ -252,17 +254,22 @@ export default function HomePage() {
             { label: 'Products', icon: 'products', value: stats?.product_count },
             { label: 'Environments', icon: 'envs', value: stats?.environment_count },
             { label: 'Components', icon: 'components', value: stats?.component_count },
-            { label: 'Deployments (24h)', icon: 'deployments', value: stats?.deployments_today },
-          ].map(({ label, icon, value }) => (
-            <div
-              key={label}
-              className={`home-stat-tile home-stat-tile--${icon}${statsError ? ' home-stat-tile--error' : ''}`}
-              data-testid="stat-tile"
-            >
-              <span className="home-stat-val">{statsError || value === undefined ? '--' : value}</span>
-              <span className="home-stat-label">{label}</span>
-            </div>
-          ))}
+            { label: 'Deployments (24h)', icon: 'deployments', value: stats?.deployments_last_24h },
+          ].map(({ label, icon, value }) => {
+            let display: number | string | undefined = value
+            if (statsLoading) display = '…'
+            else if (statsError) display = '--'
+            return (
+              <div
+                key={label}
+                className={`home-stat-tile home-stat-tile--${icon}${statsError ? ' home-stat-tile--error' : ''}`}
+                data-testid="stat-tile"
+              >
+                <span className="home-stat-val">{display}</span>
+                <span className="home-stat-label">{label}</span>
+              </div>
+            )
+          })}
         </div>
 
         {loading && (

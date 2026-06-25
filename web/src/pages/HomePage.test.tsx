@@ -77,7 +77,7 @@ beforeEach(() => {
     product_count: 3,
     environment_count: 7,
     component_count: 5,
-    deployments_today: 12,
+    deployments_last_24h: 12,
   })
 })
 
@@ -377,7 +377,7 @@ describe('Stats strip', () => {
       product_count: 4,
       environment_count: 9,
       component_count: 6,
-      deployments_today: 3,
+      deployments_last_24h: 3,
     })
 
     renderPage()
@@ -403,6 +403,22 @@ describe('Stats strip', () => {
         expect(tile.textContent).toContain('--')
       })
     })
+  })
+
+  it('shows "…" in all tiles while loading, then values on resolve', async () => {
+    mockListProducts.mockResolvedValue([])
+    let resolveStats!: (s: Stats) => void
+    mockFetchStats.mockReturnValue(new Promise<Stats>((res) => { resolveStats = res }))
+
+    renderPage()
+
+    // While fetch is pending, tiles should show the loading indicator
+    const tiles = screen.getAllByTestId('stat-tile')
+    tiles.forEach((tile) => expect(tile.textContent).toContain('…'))
+
+    // Resolve the fetch and confirm values appear
+    act(() => resolveStats({ product_count: 2, environment_count: 5, component_count: 3, deployments_last_24h: 1 }))
+    await waitFor(() => expect(screen.getByText('2')).toBeTruthy())
   })
 
   it('tiles are not interactive — clicking does not navigate', async () => {

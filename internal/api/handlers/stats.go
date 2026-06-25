@@ -106,8 +106,10 @@ func cacheKeyFromSlugs(isAdmin bool, slugs []string) string {
 	if isAdmin {
 		return adminCacheKey
 	}
-	sort.Strings(slugs)
-	return strings.Join(slugs, ",")
+	sorted := make([]string, len(slugs))
+	copy(sorted, slugs)
+	sort.Strings(sorted)
+	return strings.Join(sorted, ",")
 }
 
 // accessibleSlugs returns the product slugs the caller has a role on.

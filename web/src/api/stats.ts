@@ -4,7 +4,7 @@ export interface Stats {
   product_count: number
   environment_count: number
   component_count: number
-  deployments_today: number
+  deployments_last_24h: number
 }
 
 export async function fetchStats(token: string): Promise<Stats> {

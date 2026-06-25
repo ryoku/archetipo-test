@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -51,7 +53,7 @@ func newStatsRouter(s store.StatsStore, identity *domain.UserIdentity, ttl time.
 }
 
 func TestStatsHandler_GetStats_OK(t *testing.T) {
-	want := domain.Stats{ProductCount: 3, EnvironmentCount: 7, ComponentCount: 5, DeploymentsToday: 12}
+	want := domain.Stats{ProductCount: 3, EnvironmentCount: 7, ComponentCount: 5, Deployments24h: 12}
 	ms := &mockStatsStore{
 		getStatsFn: func(_ context.Context, _ []string, _ bool) (domain.Stats, error) {
 			return want, nil
@@ -170,4 +172,52 @@ func TestStatsHandler_NoIdentity_Returns401(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/stats", nil))
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestStatsHandler_ConcurrentRequests_CacheAndMutexSafe(t *testing.T) {
+	var callCount atomic.Int32
+	ms := &mockStatsStore{
+		getStatsFn: func(_ context.Context, _ []string, _ bool) (domain.Stats, error) {
+			callCount.Add(1)
+			return domain.Stats{ProductCount: 1}, nil
+		},
+	}
+	identity := &domain.UserIdentity{ProductRoles: map[string]domain.Role{"p1": domain.RoleViewer}}
+	r := newStatsRouter(ms, identity, time.Minute)
+
+	const goroutines = 20
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for range goroutines {
+		go func() {
+			defer wg.Done()
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/stats", nil))
+			assert.Equal(t, http.StatusOK, w.Code)
+		}()
+	}
+	wg.Wait()
+
+	// With a long TTL, at most a small number of goroutines should reach the store
+	// (due to the check-then-act gap); none should panic or data-race under -race.
+	assert.GreaterOrEqual(t, int(callCount.Load()), 1)
+}
+
+func TestStatsHandler_EmptyProductRoles_Returns200WithZeroStats(t *testing.T) {
+	ms := &mockStatsStore{
+		getStatsFn: func(_ context.Context, slugs []string, _ bool) (domain.Stats, error) {
+			assert.Empty(t, slugs, "empty roles should produce empty slug list")
+			return domain.Stats{}, nil
+		},
+	}
+	identity := &domain.UserIdentity{ProductRoles: map[string]domain.Role{}}
+	r := newStatsRouter(ms, identity, 0)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/stats", nil))
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var got domain.Stats
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))
+	assert.Equal(t, domain.Stats{}, got)
 }

@@ -99,7 +99,7 @@ func seedStatsFixture(t *testing.T, pool *pgxpool.Pool) (accessibleSlug string) 
 	)
 	require.NoError(t, err)
 
-	// One old deployment for Product A (older than 24h — must NOT appear in deployments_today)
+	// One old deployment for Product A (older than 24h — must NOT appear in deployments_last_24h)
 	_, err = pool.Exec(ctx,
 		`INSERT INTO deployments
 		 (product_id, environment_id, actor_display_name, component_name, environment_name, tag, deployed_at, outcome)
@@ -124,7 +124,7 @@ func TestStatsStore_GetStats_Admin(t *testing.T) {
 	assert.GreaterOrEqual(t, stats.ProductCount, 2, "admin should see at least both seeded products")
 	assert.GreaterOrEqual(t, stats.EnvironmentCount, 3, "admin should see at least 3 environments")
 	assert.GreaterOrEqual(t, stats.ComponentCount, 2, "admin should see at least 2 distinct components")
-	assert.GreaterOrEqual(t, stats.DeploymentsToday, 3, "admin should count at least 3 recent deployments")
+	assert.GreaterOrEqual(t, stats.Deployments24h, 3, "admin should count at least 3 recent deployments (rolling 24h)")
 }
 
 func TestStatsStore_GetStats_Scoped(t *testing.T) {
@@ -138,7 +138,7 @@ func TestStatsStore_GetStats_Scoped(t *testing.T) {
 	assert.Equal(t, 1, stats.ProductCount, "scoped: exactly 1 accessible product")
 	assert.Equal(t, 2, stats.EnvironmentCount, "scoped: 2 environments for product A")
 	assert.Equal(t, 2, stats.ComponentCount, "scoped: 2 distinct components (api, worker)")
-	assert.Equal(t, 2, stats.DeploymentsToday, "scoped: 2 recent deployments within 24h for product A")
+	assert.Equal(t, 2, stats.Deployments24h, "scoped: 2 recent deployments within 24h for product A")
 }
 
 func TestStatsStore_GetStats_Empty(t *testing.T) {
@@ -151,7 +151,19 @@ func TestStatsStore_GetStats_Empty(t *testing.T) {
 	assert.Equal(t, domain.Stats{}, stats, "unknown slug should return all-zero stats")
 }
 
-func TestStatsStore_GetStats_DeploymentsTodayBoundary(t *testing.T) {
+func TestStatsStore_GetStats_EmptySlugList_ReturnsZero(t *testing.T) {
+	pool := newStatsTestPool(t)
+
+	s := store.NewStatsStore(pool)
+	// A non-admin caller with no accessible products (empty slug list) should get all-zero stats,
+	// not an error. This is the "new user, no products yet" case.
+	stats, err := s.GetStats(context.Background(), []string{}, false)
+	require.NoError(t, err)
+
+	assert.Equal(t, domain.Stats{}, stats, "empty slug list should return all-zero stats")
+}
+
+func TestStatsStore_GetStats_Deployments24hBoundary(t *testing.T) {
 	pool := newStatsTestPool(t)
 	ctx := context.Background()
 
@@ -197,5 +209,5 @@ func TestStatsStore_GetStats_DeploymentsTodayBoundary(t *testing.T) {
 	stats, err := s.GetStats(ctx, []string{"stats-boundary"}, false)
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, stats.DeploymentsToday, "only the deployment inside 24h counts")
+	assert.Equal(t, 1, stats.Deployments24h, "only the deployment inside 24h counts")
 }
