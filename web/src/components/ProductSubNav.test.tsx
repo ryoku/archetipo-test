@@ -16,6 +16,8 @@ const product: Product = {
   slug: 'platform-api',
   description: '',
   created_at: '2025-01-01T00:00:00Z',
+  last_deployed_at: null,
+  has_production_env: false,
 }
 
 function renderNav(activeTab: 'workloads' | 'environments' | 'status' | 'history' | 'settings') {

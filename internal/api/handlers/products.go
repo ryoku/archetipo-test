@@ -41,26 +41,33 @@ type updateProductRequest struct {
 
 // productResponse is the API representation of a product.
 type productResponse struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Slug        string  `json:"slug"`
-	Description string  `json:"description"`
-	ArchivedAt  *string `json:"archived_at,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	MyRole      string  `json:"my_role,omitempty"` // caller's effective role on this product
+	ID               string  `json:"id"`
+	Name             string  `json:"name"`
+	Slug             string  `json:"slug"`
+	Description      string  `json:"description"`
+	ArchivedAt       *string `json:"archived_at,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	MyRole           string  `json:"my_role,omitempty"` // caller's effective role on this product
+	LastDeployedAt   *string `json:"last_deployed_at"`
+	HasProductionEnv bool    `json:"has_production_env"`
 }
 
 func toProductResponse(p *domain.Product) productResponse {
 	r := productResponse{
-		ID:          p.ID,
-		Name:        p.Name,
-		Slug:        p.Slug,
-		Description: p.Description,
-		CreatedAt:   p.CreatedAt.Format(time.RFC3339),
+		ID:               p.ID,
+		Name:             p.Name,
+		Slug:             p.Slug,
+		Description:      p.Description,
+		CreatedAt:        p.CreatedAt.Format(time.RFC3339),
+		HasProductionEnv: p.HasProductionEnv,
 	}
 	if p.ArchivedAt != nil {
 		s := p.ArchivedAt.Format(time.RFC3339)
 		r.ArchivedAt = &s
+	}
+	if p.LastDeployedAt != nil {
+		s := p.LastDeployedAt.Format(time.RFC3339)
+		r.LastDeployedAt = &s
 	}
 	return r
 }

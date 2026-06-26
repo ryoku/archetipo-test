@@ -180,6 +180,8 @@ describe('createProduct', () => {
       slug: 'platform',
       description: 'A platform product',
       created_at: '2025-01-01T00:00:00Z',
+      last_deployed_at: null,
+      has_production_env: false,
     }
     vi.stubGlobal('fetch', makeFetchStub(201, created))
 
@@ -194,6 +196,8 @@ describe('createProduct', () => {
       slug: 'platform',
       description: 'A platform product',
       created_at: '2025-01-01T00:00:00Z',
+      last_deployed_at: null,
+      has_production_env: false,
     }
     const fetchStub = makeFetchStub(201, created)
     vi.stubGlobal('fetch', fetchStub)

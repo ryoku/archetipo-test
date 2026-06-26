@@ -285,6 +285,239 @@
   overflow: hidden;
 }
 
+/* ─── Search + filter bar (US-038) ──────────────────────────── */
+
+.home-search-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.home-search-wrap {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 360px;
+}
+
+.home-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #374e64;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.home-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  background: #0e1422;
+  border: 1px solid #1d2f4a;
+  border-radius: 8px;
+  padding: 8px 34px 8px 34px;
+  font-size: 13px;
+  color: #dde6f2;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+  font-family: inherit;
+}
+
+.home-search-input::placeholder {
+  color: #374e64;
+}
+
+.home-search-input:focus {
+  border-color: #00c3aa;
+  box-shadow: 0 0 0 3px rgba(0, 195, 170, 0.08);
+}
+
+.home-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #374e64;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 140ms ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-search-clear.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.home-search-clear:hover {
+  color: #dde6f2;
+}
+
+.home-chip-divider {
+  width: 1px;
+  height: 20px;
+  background: #1d2f4a;
+  flex-shrink: 0;
+}
+
+.home-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #1d2f4a;
+  color: #6b859e;
+  background: transparent;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.home-chip:hover {
+  border-color: #263d5e;
+  color: #dde6f2;
+  background: #101626;
+}
+
+.home-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #374e64;
+}
+
+/* All chip — active = teal */
+.home-chip--all.active {
+  background: #06191e;
+  border-color: rgba(0, 195, 170, 0.35);
+  color: #00c3aa;
+}
+
+.home-chip--all.active .home-chip-dot {
+  background: #00c3aa;
+}
+
+/* Production chip — active = orange */
+.home-chip--production.active {
+  background: #1c1616;
+  border-color: rgba(245, 147, 58, 0.28);
+  color: #f5933a;
+}
+
+.home-chip--production.active .home-chip-dot {
+  background: #f5933a;
+}
+
+/* Recently deployed chip — active = green */
+.home-chip--recently-deployed.active {
+  background: #061b1b;
+  border-color: rgba(0, 201, 122, 0.28);
+  color: #00c97a;
+}
+
+.home-chip--recently-deployed.active .home-chip-dot {
+  background: #00c97a;
+}
+
+.home-result-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: #374e64;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.home-result-meta strong {
+  color: #6b859e;
+}
+
+/* Clear filters link in filter empty state */
+.home-empty-clear-link {
+  font-size: 12px;
+  color: #00c3aa;
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 140ms ease;
+  font-family: inherit;
+}
+
+.home-empty-clear-link:hover {
+  color: #00ddc0;
+}
+
+/* Product card badges */
+.home-p-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+}
+
+.home-p-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.home-p-badge--prod {
+  color: #f5933a;
+  background: #181415;
+  border-color: rgba(245, 147, 58, 0.22);
+}
+
+.home-p-badge--recent {
+  color: #00c97a;
+  background: #071719;
+  border-color: rgba(0, 201, 122, 0.22);
+}
+
+.home-p-badge-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+
+.home-p-badge--prod .home-p-badge-dot {
+  background: #f5933a;
+}
+
+.home-p-badge--recent .home-p-badge-dot {
+  background: #00c97a;
+}
+
 /* Add Product button */
 .home-btn-add-product {
   display: inline-flex;

@@ -41,13 +41,13 @@ func TestGetAdminProducts_ReturnsStats(t *testing.T) {
 	stats := []domain.ProductStats{
 		{
 			Product: domain.Product{
-				ID:        "id-alpha",
-				Name:      "Alpha",
-				Slug:      "alpha",
-				CreatedAt: now(),
+				ID:             "id-alpha",
+				Name:           "Alpha",
+				Slug:           "alpha",
+				CreatedAt:      now(),
+				LastDeployedAt: &deployedAt,
 			},
 			EnvironmentCount: 3,
-			LastDeployedAt:   &deployedAt,
 		},
 		{
 			Product: domain.Product{
@@ -57,7 +57,6 @@ func TestGetAdminProducts_ReturnsStats(t *testing.T) {
 				CreatedAt: now(),
 			},
 			EnvironmentCount: 0,
-			LastDeployedAt:   nil,
 		},
 	}
 
