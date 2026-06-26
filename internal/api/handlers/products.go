@@ -47,7 +47,7 @@ type productResponse struct {
 	Description      string  `json:"description"`
 	ArchivedAt       *string `json:"archived_at,omitempty"`
 	CreatedAt        string  `json:"created_at"`
-	MyRole           string  `json:"my_role,omitempty"`
+	MyRole           string  `json:"my_role,omitempty"` // caller's effective role on this product
 	LastDeployedAt   *string `json:"last_deployed_at"`
 	HasProductionEnv bool    `json:"has_production_env"`
 }

@@ -239,6 +239,52 @@ func TestToProductResponse_IncludesArchivedAt(t *testing.T) {
 	}
 }
 
+func TestToProductResponse_DeploymentFields(t *testing.T) {
+	deployedAt := time.Date(2026, 6, 2, 15, 30, 0, 0, time.UTC)
+
+	deployed := makeProduct("deployed-slug")
+	deployed.LastDeployedAt = &deployedAt
+	deployed.HasProductionEnv = true
+
+	fresh := makeProduct("fresh-slug")
+
+	s := &mockProductStore{
+		listFn: func(_ context.Context, _ store.ListOptions) ([]domain.Product, error) {
+			return []domain.Product{deployed, fresh}, nil
+		},
+	}
+	w := doPlain(newRouter(s, adminIdentity()), http.MethodGet, "/api/v1/products")
+	assertStatus(t, w, http.StatusOK)
+
+	var resp []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(resp) != 2 {
+		t.Fatalf("expected 2 products, got %d", len(resp))
+	}
+
+	// Deployed product: RFC3339 string and has_production_env true.
+	if got := resp[0]["last_deployed_at"]; got != deployedAt.Format(time.RFC3339) {
+		t.Errorf("last_deployed_at = %v, want %s", got, deployedAt.Format(time.RFC3339))
+	}
+	if resp[0]["has_production_env"] != true {
+		t.Errorf("has_production_env = %v, want true", resp[0]["has_production_env"])
+	}
+
+	// Fresh product: last_deployed_at key must be present and null (no omitempty).
+	v, ok := resp[1]["last_deployed_at"]
+	if !ok {
+		t.Error("expected last_deployed_at key to be present even when nil")
+	}
+	if v != nil {
+		t.Errorf("last_deployed_at = %v, want null", v)
+	}
+	if resp[1]["has_production_env"] != false {
+		t.Errorf("has_production_env = %v, want false", resp[1]["has_production_env"])
+	}
+}
+
 // --- ListProducts tests ---
 
 func TestListProducts_AdminReceivesAll(t *testing.T) {

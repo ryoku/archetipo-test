@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { render, screen, waitFor, act, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, act, cleanup, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Product } from '../api/products'
 import type { Stats } from '../api/stats'
@@ -62,6 +62,12 @@ function renderPage() {
       <HomePage />
     </MemoryRouter>,
   )
+}
+
+function cardFor(name: string): HTMLElement {
+  const card = screen.getByText(name).closest('button')
+  if (!card) throw new Error(`card for "${name}" not found`)
+  return card
 }
 
 // ─── Setup ────────────────────────────────────────────────────
@@ -443,7 +449,6 @@ describe('Stats strip', () => {
 })
 
 describe('Search and filter', () => {
-  const now = new Date().toISOString()
   const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString() // 1 hour ago
   const old = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() // 48 hours ago
 
@@ -615,8 +620,45 @@ describe('Search and filter', () => {
     })
   })
 
-  it('shows now as now', () => {
-    // Ensure the `now` variable is within 24h range (sanity check for test helpers)
-    expect(Date.now() - new Date(now).getTime()).toBeLessThan(5000)
+})
+
+describe('Product card badges', () => {
+  const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString() // 1 hour ago
+  const old = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() // 48 hours ago
+
+  it('renders Production and Recent deploy badges for a recently deployed production product', async () => {
+    mockListProducts.mockResolvedValue([
+      makeProduct({ id: '1', name: 'Platform API', slug: 'platform-api', has_production_env: true, last_deployed_at: recent }),
+    ])
+    renderPage()
+    await waitFor(() => screen.getByText('Platform API'))
+
+    const card = cardFor('Platform API')
+    expect(within(card).getByText('Production')).toBeTruthy()
+    expect(within(card).getByText('Recent deploy')).toBeTruthy()
+  })
+
+  it('renders no badges for a product without production env and with a stale deployment', async () => {
+    mockListProducts.mockResolvedValue([
+      makeProduct({ id: '2', name: 'Customer App', slug: 'customer-app', has_production_env: false, last_deployed_at: old }),
+    ])
+    renderPage()
+    await waitFor(() => screen.getByText('Customer App'))
+
+    const card = cardFor('Customer App')
+    expect(within(card).queryByText('Production')).toBeNull()
+    expect(within(card).queryByText('Recent deploy')).toBeNull()
+  })
+
+  it('renders only the Recent deploy badge when deployed recently without a production env', async () => {
+    mockListProducts.mockResolvedValue([
+      makeProduct({ id: '3', name: 'Worker Service', slug: 'worker-svc', has_production_env: false, last_deployed_at: recent }),
+    ])
+    renderPage()
+    await waitFor(() => screen.getByText('Worker Service'))
+
+    const card = cardFor('Worker Service')
+    expect(within(card).queryByText('Production')).toBeNull()
+    expect(within(card).getByText('Recent deploy')).toBeTruthy()
   })
 })

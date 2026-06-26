@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ryoku/kubegate/internal/domain"
@@ -704,5 +705,97 @@ func TestProductStore_List_HasProductionEnv_True_WithProductionEnv(t *testing.T)
 	}
 	if !products[0].HasProductionEnv {
 		t.Error("expected HasProductionEnv=true for product with a production environment")
+	}
+}
+
+func TestProductStore_List_LastDeployedAt_ReturnsMaxAndCollapsesRows(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	p := &domain.Product{Name: "Multi Deploy", Slug: "multi-deploy-list"}
+	if err := s.Create(ctx, p); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	var envID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, 'prod', 'prod', 'dev') RETURNING id`,
+		p.ID,
+	).Scan(&envID); err != nil {
+		t.Fatalf("insert environment: %v", err)
+	}
+
+	// Insert three deployments with distinct timestamps; the latest must win.
+	latest := time.Date(2026, 6, 10, 12, 0, 0, 0, time.UTC)
+	times := []time.Time{
+		time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		latest,
+		time.Date(2026, 6, 5, 18, 0, 0, 0, time.UTC),
+	}
+	for _, ts := range times {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO deployments (product_id, environment_id, actor_display_name, component_name, environment_name, tag, outcome, deployed_at)
+			 VALUES ($1, $2, 'ci', 'api', 'prod', 'v1.0.0', 'success', $3)`,
+			p.ID, envID, ts,
+		); err != nil {
+			t.Fatalf("insert deployment: %v", err)
+		}
+	}
+
+	products, err := s.List(ctx, store.ListOptions{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	// GROUP BY p.id must collapse the LEFT JOIN to a single row despite 3 deployments.
+	if len(products) != 1 {
+		t.Fatalf("expected 1 product row (GROUP BY collapse), got %d", len(products))
+	}
+	if products[0].LastDeployedAt == nil {
+		t.Fatal("expected LastDeployedAt to be non-nil")
+	}
+	if !products[0].LastDeployedAt.Equal(latest) {
+		t.Errorf("LastDeployedAt = %v, want max %v", products[0].LastDeployedAt, latest)
+	}
+}
+
+func TestProductStore_List_HasProductionEnv_IsScopedPerProduct(t *testing.T) {
+	ctx := context.Background()
+	pool := newProductTestPool(t)
+	cleanEnvsAndProducts(t, pool)
+	s := store.NewProductStore(pool)
+
+	withProd := &domain.Product{Name: "Has Prod", Slug: "scoped-with-prod"}
+	if err := s.Create(ctx, withProd); err != nil {
+		t.Fatalf("Create withProd: %v", err)
+	}
+	without := &domain.Product{Name: "No Prod", Slug: "scoped-without-prod"}
+	if err := s.Create(ctx, without); err != nil {
+		t.Fatalf("Create without: %v", err)
+	}
+
+	// Only the first product gets a production environment.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO environments (product_id, name, slug, type) VALUES ($1, 'production', 'production', 'production')`,
+		withProd.ID,
+	); err != nil {
+		t.Fatalf("insert environment: %v", err)
+	}
+
+	products, err := s.List(ctx, store.ListOptions{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+
+	bySlug := make(map[string]domain.Product, len(products))
+	for _, p := range products {
+		bySlug[p.Slug] = p
+	}
+	if !bySlug["scoped-with-prod"].HasProductionEnv {
+		t.Error("expected HasProductionEnv=true for the product owning a production env")
+	}
+	if bySlug["scoped-without-prod"].HasProductionEnv {
+		t.Error("expected HasProductionEnv=false for the product without a production env (correlation leaked)")
 	}
 }

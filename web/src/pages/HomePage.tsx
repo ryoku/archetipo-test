@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { listProducts, createProduct, type Product } from '../api/products'
@@ -16,6 +16,16 @@ const CHIP_LABELS: Record<FilterChip, string> = {
   all: 'All',
   production: 'Production',
   'recently-deployed': 'Recently deployed',
+}
+
+// A product counts as "recently deployed" if its last deployment is within
+// RECENT_DEPLOY_MS of `now`. Shared by the filter chip and the card badge so
+// the two cannot drift; a missing or unparseable timestamp is treated as not recent.
+function isRecentlyDeployed(product: Product, now: number): boolean {
+  if (!product.last_deployed_at) return false
+  const deployedAt = new Date(product.last_deployed_at).getTime()
+  if (Number.isNaN(deployedAt)) return false
+  return now - deployedAt <= RECENT_DEPLOY_MS
 }
 
 function filterEmptyMessage(searchQuery: string, activeChip: FilterChip): string {
@@ -55,7 +65,8 @@ export default function HomePage() {
 
   const [searchQuery, setSearchQuery] = useState('')
   const [activeChip, setActiveChip] = useState<FilterChip>('all')
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  // Snapshot the current time once at mount so the "recent" cutoff stays stable
+  // across re-renders and memo recomputations.
   const [now] = useState(() => Date.now())
 
   const filteredProducts = useMemo(() => {
@@ -65,10 +76,7 @@ export default function HomePage() {
         if (!p.name.toLowerCase().includes(q) && !p.slug.toLowerCase().includes(q)) return false
       }
       if (activeChip === 'production') return p.has_production_env
-      if (activeChip === 'recently-deployed') {
-        if (!p.last_deployed_at) return false
-        return now - new Date(p.last_deployed_at).getTime() <= RECENT_DEPLOY_MS
-      }
+      if (activeChip === 'recently-deployed') return isRecentlyDeployed(p, now)
       return true
     })
   }, [products, searchQuery, activeChip, now])
@@ -339,7 +347,6 @@ export default function HomePage() {
                 </svg>
               </span>
               <input
-                ref={searchInputRef}
                 type="text"
                 className="home-search-input"
                 placeholder="Search products…"
@@ -434,7 +441,7 @@ export default function HomePage() {
                 {product.description && (
                   <p className="home-p-desc">{product.description}</p>
                 )}
-                {(product.has_production_env || product.last_deployed_at) && (
+                {(product.has_production_env || isRecentlyDeployed(product, now)) && (
                   <div className="home-p-badges">
                     {product.has_production_env && (
                       <span className="home-p-badge home-p-badge--prod">
@@ -442,13 +449,12 @@ export default function HomePage() {
                         */}Production
                       </span>
                     )}
-                    {product.last_deployed_at &&
-                      now - new Date(product.last_deployed_at).getTime() <= RECENT_DEPLOY_MS && (
-                        <span className="home-p-badge home-p-badge--recent">
-                          <span className="home-p-badge-dot" />{/*
-                          */}Recent deploy
-                        </span>
-                      )}
+                    {isRecentlyDeployed(product, now) && (
+                      <span className="home-p-badge home-p-badge--recent">
+                        <span className="home-p-badge-dot" />{/*
+                        */}Recent deploy
+                      </span>
+                    )}
                   </div>
                 )}
               </button>
