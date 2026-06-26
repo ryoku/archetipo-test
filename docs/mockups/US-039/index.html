@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-039 · Attività live cross-prodotto (Admin)</title>
+<meta name="description" content="Mockup del pannello Attività live nell'Admin Dashboard — US-039 EP-006">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+/* ─── DESIGN TOKENS (sistema esistente US-035/036/038) ──────── */
+:root {
+  --bg-base:        #070a12;
+  --bg-surface:     #0b0f1c;
+  --bg-elevated:    #101626;
+  --bg-overlay:     #151d30;
+  --bg-hover:       #1a2438;
+  --bg-input:       #0e1422;
+
+  --border-faint:   #111928;
+  --border-subtle:  #16233a;
+  --border-default: #1d2f4a;
+  --border-strong:  #263d5e;
+  --border-accent:  rgba(0, 195, 170, 0.35);
+
+  --text-primary:   #dde6f2;
+  --text-secondary: #6b859e;
+  --text-muted:     #374e64;
+  --text-code:      #90d0c8;
+
+  --accent:         #00c3aa;
+  --accent-hover:   #00ddc0;
+  --accent-glow:    rgba(0, 195, 170, 0.18);
+  --accent-dim:     rgba(0, 195, 170, 0.08);
+
+  --ok:             #00c97a;
+  --warn:           #f0a030;
+  --danger:         #e05555;
+  --info:           #4488dd;
+
+  --env-prod:       #f5933a;
+  --env-prod-brd:   rgba(245, 147, 58, 0.35);
+  --env-intg:       #8860f0;
+  --env-intg-brd:   rgba(136, 96, 240, 0.3);
+  --env-dev:        #4488dd;
+  --env-dev-brd:    rgba(68, 136, 221, 0.3);
+
+  --font-ui:        'Space Grotesk', system-ui, sans-serif;
+  --font-mono:      'JetBrains Mono', 'Courier New', monospace;
+
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+
+  --shadow-sm:  0 1px 4px rgba(0,0,0,.5);
+  --shadow-md:  0 4px 20px rgba(0,0,0,.6);
+  --shadow-lg:  0 8px 48px rgba(0,0,0,.7);
+
+  --sidebar-w:  220px;
+  --t:          140ms ease;
+}
+
+/* ─── RESET ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+input  { font-family: inherit; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ─── APP SHELL ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+/* ─── SIDEBAR ───────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.logo-mark {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent) 0%, #0080f0 100%);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-name    { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; }
+.logo-version { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+
+.sidebar-nav { padding: 10px 8px; flex: 1; }
+.nav-label {
+  font-size: 9.5px; font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 6px 8px 4px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--r-md);
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--t);
+  cursor: pointer; position: relative;
+  background: none; border: none; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.nav-item.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 2px;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 10px;
+  background: var(--bg-overlay); border: 1px solid var(--border-default);
+  border-radius: 8px; padding: 1px 6px; color: var(--text-muted);
+}
+.sidebar-footer { padding: 12px 10px; border-top: 1px solid var(--border-faint); }
+.user-cell { display: flex; align-items: center; gap: 8px; }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--bg-base);
+  flex-shrink: 0; letter-spacing: -0.5px;
+}
+.user-name  { font-size: 12px; font-weight: 600; }
+.user-role  { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
+
+/* ─── MAIN AREA ─────────────────────────────────────────────── */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.page-top { padding: 28px 32px 0; }
+.page-title {
+  font-size: 20px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 3px;
+}
+.spec-tag {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  padding: 2px 7px;
+  background: var(--accent-dim); border: 1px solid var(--border-accent);
+  border-radius: var(--r-sm); color: var(--accent);
+  margin-left: 10px; vertical-align: middle; position: relative; top: -2px;
+}
+.page-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.page-body { padding: 24px 32px 40px; flex: 1; }
+
+/* ─── STAT CARDS ─────────────────────────────────────────────── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+}
+.stat-card.accent-left::before { background: var(--accent); }
+.stat-card.ok-left::before     { background: var(--ok); }
+.stat-card.info-left::before   { background: var(--info); }
+.stat-card.prod-left::before   { background: var(--env-prod); }
+.stat-card.accent-left { border-color: var(--border-accent); }
+.stat-card.ok-left     { border-color: rgba(0,201,122,.3); }
+.stat-card.info-left   { border-color: rgba(68,136,221,.3); }
+.stat-card.prod-left   { border-color: var(--env-prod-brd); }
+.stat-val {
+  font-size: 26px; font-weight: 700; letter-spacing: -1px;
+  line-height: 1.1; margin-bottom: 3px;
+}
+.stat-card.accent-left .stat-val { color: var(--accent); }
+.stat-card.ok-left     .stat-val { color: var(--ok); }
+.stat-card.info-left   .stat-val { color: var(--info); }
+.stat-card.prod-left   .stat-val { color: var(--env-prod); }
+.stat-key { font-size: 11.5px; color: var(--text-secondary); font-weight: 500; }
+
+/* ─── TABLE SECTION (prodotti) ──────────────────────────────── */
+.table-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.table-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.table-header-title { font-size: 13px; font-weight: 600; }
+.table-count {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text-muted); background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px; padding: 1px 7px;
+}
+.table-search-wrap { flex: 1; max-width: 260px; margin-left: auto; position: relative; }
+.table-search-icon {
+  position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
+.table-search-input {
+  width: 100%; background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md); padding: 6px 10px 6px 30px;
+  font-size: 12.5px; color: var(--text-primary); outline: none;
+  transition: border-color var(--t);
+}
+.table-search-input::placeholder { color: var(--text-muted); }
+.table-search-input:focus { border-color: var(--border-accent); }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table thead tr { border-bottom: 1px solid var(--border-faint); }
+.data-table th {
+  padding: 9px 18px;
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  text-align: left; white-space: nowrap;
+}
+.data-table th.sort-active { color: var(--accent); }
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border-faint);
+  transition: background var(--t); cursor: pointer;
+}
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--bg-elevated); }
+.data-table td { padding: 11px 18px; vertical-align: middle; }
+
+.product-name-cell { display: flex; align-items: center; gap: 10px; }
+.p-icon {
+  width: 30px; height: 30px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  color: var(--bg-base); flex-shrink: 0;
+}
+.p-icon-a { background: linear-gradient(135deg, #00c3aa, #0077cc); }
+.p-icon-b { background: linear-gradient(135deg, #7b6cf0, #c060f0); }
+.p-icon-c { background: linear-gradient(135deg, #f09030, #e04060); }
+.p-icon-d { background: linear-gradient(135deg, #40c060, #0080a0); }
+.p-name-text { font-size: 13px; font-weight: 500; }
+.p-slug-text { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+.env-count-cell { display: flex; align-items: center; gap: 6px; }
+.env-dots { display: flex; gap: 3px; }
+.env-dot { width: 6px; height: 6px; border-radius: 50%; }
+.env-dot-prod { background: var(--env-prod); }
+.env-dot-intg { background: var(--env-intg); }
+.env-dot-dev  { background: var(--env-dev); }
+.env-num { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+
+.deploy-cell  { display: flex; align-items: center; gap: 6px; }
+.deploy-dot   { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.deploy-dot-ok   { background: var(--ok);   box-shadow: 0 0 5px rgba(0,201,122,.5); }
+.deploy-dot-warn { background: var(--warn); box-shadow: 0 0 5px rgba(240,160,48,.4); }
+.deploy-dot-muted { background: var(--text-muted); }
+.deploy-date  { font-size: 12.5px; color: var(--text-secondary); }
+.deploy-tag {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-code);
+  background: rgba(144,208,200,.08); border: 1px solid rgba(144,208,200,.15);
+  border-radius: var(--r-sm); padding: 1px 6px;
+}
+.never-text { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+
+.btn-manage {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: var(--r-md);
+  border: 1px solid var(--border-default); background: transparent;
+  color: var(--text-secondary); font-size: 11.5px; font-weight: 500;
+  transition: all var(--t); white-space: nowrap;
+}
+.btn-manage:hover { border-color: var(--border-accent); color: var(--accent); background: var(--accent-dim); }
+
+/* ═══════════════════════════════════════════════════════════════
+   PANNELLO ATTIVITÀ LIVE — US-039
+   Nuovo componente: si aggiunge sotto .table-section in AdminPage
+═══════════════════════════════════════════════════════════════ */
+
+/* Contenitore principale */
+.activity-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+/* Header del pannello */
+.activity-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.activity-header-title { font-size: 13px; font-weight: 600; }
+.activity-live-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  color: var(--ok);
+  background: rgba(0,201,122,.08);
+  border: 1px solid rgba(0,201,122,.25);
+  border-radius: 20px; padding: 2px 8px;
+}
+.activity-live-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ok);
+  animation: live-blink 1.6s ease-in-out infinite;
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.activity-count {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text-muted); background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px; padding: 1px 7px;
+}
+
+/* Lista eventi */
+.activity-list { list-style: none; }
+
+/* Singola riga evento */
+.activity-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-faint);
+  transition: background var(--t);
+  cursor: default;
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-row:hover { background: var(--bg-elevated); }
+
+/* Pallino di stato */
+.status-dot-wrap {
+  display: flex; align-items: center; justify-content: center;
+  padding-top: 3px;
+  flex-shrink: 0;
+}
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* in_progress: verde + pulse + ring */
+.status-dot.dot-in-progress {
+  background: var(--ok);
+  box-shadow: 0 0 0 0 rgba(0,201,122,.5);
+  animation: dot-pulse 1.8s ease-out infinite;
+}
+@keyframes dot-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,201,122,.55); }
+  60%  { box-shadow: 0 0 0 6px rgba(0,201,122,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,201,122,0); }
+}
+
+/* success: verde solido */
+.status-dot.dot-success {
+  background: var(--ok);
+  box-shadow: 0 0 5px rgba(0,201,122,.45);
+}
+
+/* failure: rosso solido */
+.status-dot.dot-failure {
+  background: var(--danger);
+  box-shadow: 0 0 5px rgba(224,85,85,.45);
+}
+
+/* Avatar attore */
+.actor-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: var(--bg-base);
+  flex-shrink: 0; letter-spacing: -0.5px;
+  margin-top: 1px;
+}
+
+/* Corpo della riga */
+.activity-body { flex: 1; min-width: 0; }
+
+/* Riga descrizione evento */
+.activity-desc {
+  display: flex; align-items: baseline; gap: 5px;
+  flex-wrap: wrap;
+  font-size: 13px; line-height: 1.45;
+}
+.activity-actor { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.activity-verb  { color: var(--text-secondary); }
+.activity-tag {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-code);
+  background: rgba(144,208,200,.08); border: 1px solid rgba(144,208,200,.15);
+  border-radius: var(--r-sm); padding: 1px 6px; white-space: nowrap;
+}
+.activity-arrow { color: var(--text-muted); font-size: 12px; }
+.activity-target {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
+  white-space: nowrap;
+}
+.activity-target-sep { color: var(--text-muted); margin: 0 2px; }
+
+/* Riga meta (prodotto + timestamp) */
+.activity-meta {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 4px;
+}
+.activity-product {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-sm); padding: 1px 6px;
+  transition: all var(--t);
+}
+.activity-row:hover .activity-product {
+  color: var(--accent); border-color: var(--border-accent);
+  background: var(--accent-dim);
+}
+.activity-time { font-size: 11px; color: var(--text-muted); }
+
+/* Messaggio di errore (failure) */
+.activity-error {
+  margin-top: 6px;
+  background: rgba(224,85,85,.06);
+  border: 1px solid rgba(224,85,85,.18);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(224,85,85,.85);
+  line-height: 1.5;
+}
+
+/* Stato in_progress: sfondo riga tenuemente tinto */
+.activity-row.is-in-progress {
+  background: linear-gradient(90deg, rgba(0,201,122,.025) 0%, transparent 60%);
+}
+.activity-row.is-in-progress:hover {
+  background: linear-gradient(90deg, rgba(0,201,122,.045) 0%, var(--bg-elevated) 60%);
+}
+
+/* Stato failure: sfondo riga tenuemente tinto */
+.activity-row.is-failure {
+  background: linear-gradient(90deg, rgba(224,85,85,.022) 0%, transparent 60%);
+}
+.activity-row.is-failure:hover {
+  background: linear-gradient(90deg, rgba(224,85,85,.04) 0%, var(--bg-elevated) 60%);
+}
+
+/* Footer del pannello */
+.activity-footer {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 18px;
+  border-top: 1px solid var(--border-faint);
+  background: var(--bg-elevated);
+}
+.activity-footer-note {
+  font-size: 10.5px; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.activity-footer-note strong { color: var(--text-secondary); font-weight: 600; }
+
+/* Stato vuoto pannello */
+.activity-empty {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 48px 24px; gap: 8px; text-align: center;
+}
+.activity-empty-icon {
+  width: 40px; height: 40px; border-radius: var(--r-lg);
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); margin-bottom: 4px;
+}
+.activity-empty-title { font-size: 13px; font-weight: 500; }
+.activity-empty-sub   { font-size: 12px; color: var(--text-muted); }
+
+/* Skeleton */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+.skeleton {
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg,
+    var(--bg-elevated) 25%, var(--bg-overlay) 50%, var(--bg-elevated) 75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* ─── DEMO SWITCHER ─────────────────────────────────────────── */
+.demo-switcher {
+  position: fixed; bottom: 20px; right: 20px; z-index: 300;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 200px;
+}
+.demo-switcher-label {
+  font-size: 9.5px; font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 0 2px 2px;
+}
+.demo-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.demo-pill {
+  padding: 4px 10px; border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: transparent; color: var(--text-muted);
+  font-size: 11px; font-weight: 500; cursor: pointer;
+  transition: all var(--t);
+}
+.demo-pill:hover { color: var(--text-secondary); border-color: var(--border-strong); }
+.demo-pill.active {
+  background: var(--accent-dim);
+  border-color: var(--border-accent);
+  color: var(--accent);
+}
+.demo-pill.p-loading.active {
+  background: rgba(240,160,48,.08);
+  border-color: rgba(240,160,48,.3);
+  color: var(--warn);
+}
+.demo-pill.p-empty.active {
+  background: rgba(68,136,221,.08);
+  border-color: rgba(68,136,221,.3);
+  color: var(--info);
+}
+
+/* ─── UTILS ─────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══════════════ SIDEBAR ═══════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z"
+                stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Products
+        <span class="nav-badge">4</span>
+      </button>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployments
+      </button>
+      <div class="nav-label" style="margin-top:8px;">Platform</div>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Users &amp; RBAC
+      </button>
+      <button class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/>
+          <path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin Dashboard
+      </button>
+      <button class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="2"/>
+          <path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.5 3.5l.7.7M11.8 11.8l.7.7M3.5 12.5l.7-.7M11.8 4.2l.7-.7"/>
+        </svg>
+        Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar" style="background:linear-gradient(135deg,#f09030,#e04060);">SB</div>
+        <div>
+          <div class="user-name">Sara Bianchi</div>
+          <div class="user-role">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <path d="M4 .5L7 2v3C7 6.5 5.5 7.5 4 8 2.5 7.5 1 6.5 1 5V2L4 .5Z" fill="#f0c042"/>
+            </svg>
+            DevOps Admin
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <div class="main">
+
+    <div class="page-top">
+      <div class="page-title">
+        All Products — Admin
+        <span class="spec-tag">US-039</span>
+      </div>
+      <div class="page-desc">
+        Inventario prodotti e attività live di deployment. Monitoraggio real-time su tutta la piattaforma.
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- ── STAT CARDS ──────────────────────────────────────── -->
+      <div class="stats-bar">
+        <div class="stat-card accent-left">
+          <div class="stat-val">4</div>
+          <div class="stat-key">Prodotti totali</div>
+        </div>
+        <div class="stat-card info-left">
+          <div class="stat-val">11</div>
+          <div class="stat-key">Ambienti totali</div>
+        </div>
+        <div class="stat-card ok-left">
+          <div class="stat-val">3</div>
+          <div class="stat-key">Con deployment</div>
+        </div>
+        <div class="stat-card prod-left">
+          <div class="stat-val">3</div>
+          <div class="stat-key">Env. produzione</div>
+        </div>
+      </div>
+
+      <!-- ── TABELLA PRODOTTI (compatta, solo riferimento) ───── -->
+      <div class="table-section">
+        <div class="table-header">
+          <span class="table-header-title">Prodotti</span>
+          <span class="table-count">4 prodotti</span>
+          <div class="table-search-wrap">
+            <svg class="table-search-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l2.5 2.5"/>
+            </svg>
+            <input type="text" class="table-search-input" placeholder="Cerca prodotti…">
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="sort-active" style="width:38%;">Nome</th>
+              <th style="width:20%;">Ambienti</th>
+              <th style="width:32%;">Ultimo Deployment</th>
+              <th style="width:10%;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="product-name-cell"><div class="p-icon p-icon-a">PA</div><div><div class="p-name-text">Platform API</div><div class="p-slug-text">platform-api</div></div></div></td>
+              <td><div class="env-count-cell"><div class="env-dots"><div class="env-dot env-dot-prod"></div><div class="env-dot env-dot-intg"></div><div class="env-dot env-dot-dev"></div></div><span class="env-num">3</span></div></td>
+              <td><div class="deploy-cell"><div class="deploy-dot deploy-dot-ok"></div><span class="deploy-date">14 Giu 2026</span><span class="deploy-tag">v1.14.1</span></div></td>
+              <td><button class="btn-manage"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="8.5" cy="5" r="1"/></svg> Gestisci</button></td>
+            </tr>
+            <tr>
+              <td><div class="product-name-cell"><div class="p-icon p-icon-b">CA</div><div><div class="p-name-text">Customer App</div><div class="p-slug-text">customer-app</div></div></div></td>
+              <td><div class="env-count-cell"><div class="env-dots"><div class="env-dot env-dot-prod"></div><div class="env-dot env-dot-intg"></div><div class="env-dot env-dot-dev"></div></div><span class="env-num">3</span></div></td>
+              <td><div class="deploy-cell"><div class="deploy-dot deploy-dot-ok"></div><span class="deploy-date">10 Giu 2026</span><span class="deploy-tag">v3.2.0</span></div></td>
+              <td><button class="btn-manage"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="8.5" cy="5" r="1"/></svg> Gestisci</button></td>
+            </tr>
+            <tr>
+              <td><div class="product-name-cell"><div class="p-icon p-icon-c">DS</div><div><div class="p-name-text">Data Sync</div><div class="p-slug-text">data-sync</div></div></div></td>
+              <td><div class="env-count-cell"><div class="env-dots"><div class="env-dot env-dot-prod"></div><div class="env-dot env-dot-intg"></div><div class="env-dot env-dot-dev"></div><div class="env-dot env-dot-dev"></div></div><span class="env-num">4</span></div></td>
+              <td><div class="deploy-cell"><div class="deploy-dot deploy-dot-warn"></div><span class="deploy-date">28 Mag 2026</span><span class="deploy-tag">v0.9.3</span></div></td>
+              <td><button class="btn-manage"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="8.5" cy="5" r="1"/></svg> Gestisci</button></td>
+            </tr>
+            <tr>
+              <td><div class="product-name-cell"><div class="p-icon p-icon-d">NG</div><div><div class="p-name-text">Nexus Gateway</div><div class="p-slug-text">nexus-gateway</div></div></div></td>
+              <td><div class="env-count-cell"><div class="env-dots"><div class="env-dot env-dot-dev"></div></div><span class="env-num">1</span></div></td>
+              <td><span class="never-text">Mai</span></td>
+              <td><button class="btn-manage"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5" cy="5" r="1"/><circle cx="1.5" cy="5" r="1"/><circle cx="8.5" cy="5" r="1"/></svg> Gestisci</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div><!-- /table-section -->
+
+      <!-- ═══════════════════════════════════════════════════════
+           PANNELLO ATTIVITÀ LIVE — US-039
+           GET /api/v1/admin/activity → 10 deployment recenti
+      ═══════════════════════════════════════════════════════ -->
+      <div class="activity-panel">
+
+        <!-- Header -->
+        <div class="activity-header">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" style="color:var(--text-secondary); flex-shrink:0;">
+            <path d="M7 1.5v4l2.5 2M7 1.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z"/>
+          </svg>
+          <span class="activity-header-title">Attività live</span>
+          <span class="activity-live-badge" id="liveBadge">
+            <span class="activity-live-dot"></span>
+            LIVE
+          </span>
+          <span class="activity-count" id="activityCount">10 eventi</span>
+        </div>
+
+        <!-- ── STATO CARICAMENTO (skeleton) ───────────────────── -->
+        <ul class="activity-list hidden" id="activityLoading">
+          <li class="activity-row" style="gap:10px;">
+            <div style="padding-top:3px;"><div class="skeleton" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"></div></div>
+            <div class="skeleton" style="width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:1px;"></div>
+            <div style="flex:1;">
+              <div class="skeleton" style="height:12px;width:65%;margin-bottom:7px;"></div>
+              <div class="skeleton" style="height:9px;width:35%;"></div>
+            </div>
+          </li>
+          <li class="activity-row" style="gap:10px;">
+            <div style="padding-top:3px;"><div class="skeleton" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"></div></div>
+            <div class="skeleton" style="width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:1px;"></div>
+            <div style="flex:1;">
+              <div class="skeleton" style="height:12px;width:55%;margin-bottom:7px;"></div>
+              <div class="skeleton" style="height:9px;width:28%;"></div>
+            </div>
+          </li>
+          <li class="activity-row" style="gap:10px;">
+            <div style="padding-top:3px;"><div class="skeleton" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"></div></div>
+            <div class="skeleton" style="width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:1px;"></div>
+            <div style="flex:1;">
+              <div class="skeleton" style="height:12px;width:70%;margin-bottom:7px;"></div>
+              <div class="skeleton" style="height:9px;width:40%;"></div>
+            </div>
+          </li>
+        </ul>
+
+        <!-- ── STATO VUOTO ────────────────────────────────────── -->
+        <div class="activity-empty hidden" id="activityEmpty">
+          <div class="activity-empty-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M10 2v6l3 2"/><circle cx="10" cy="10" r="8"/>
+              <path d="M4 4l12 12" stroke-width="1.2" opacity=".4"/>
+            </svg>
+          </div>
+          <div class="activity-empty-title">Nessun evento recente</div>
+          <div class="activity-empty-sub">I deployment compariranno qui appena avviati</div>
+        </div>
+
+        <!-- ── LISTA EVENTI (stato normale) ──────────────────── -->
+        <ul class="activity-list" id="activityList">
+          <!-- rendered by JS -->
+        </ul>
+
+        <!-- Footer -->
+        <div class="activity-footer" id="activityFooter">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" style="color:var(--text-muted); flex-shrink:0;">
+            <circle cx="6" cy="6" r="4.5"/>
+            <path d="M6 3v3l1.5 1.5"/>
+          </svg>
+          <span class="activity-footer-note">
+            Aggiornato ogni 30 s &nbsp;·&nbsp; Solo <strong>DevOps Admin</strong> &nbsp;·&nbsp;
+            <code style="font-family:var(--font-mono);font-size:9.5px;">GET /api/v1/admin/activity</code>
+          </span>
+        </div>
+
+      </div><!-- /activity-panel -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+
+</div><!-- /app-shell -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     DEMO SWITCHER
+═══════════════════════════════════════════════════════════ -->
+<div class="demo-switcher">
+  <div class="demo-switcher-label">Stato mockup</div>
+  <div class="demo-pills">
+    <button class="demo-pill active"     id="pill-data"    onclick="setPanelState('data')">10 eventi</button>
+    <button class="demo-pill p-loading"  id="pill-loading" onclick="setPanelState('loading')">Caricamento</button>
+    <button class="demo-pill p-empty"    id="pill-empty"   onclick="setPanelState('empty')">Vuoto</button>
+  </div>
+</div>
+
+<script>
+/* ─── COLORI AVATAR ──────────────────────────────────────── */
+const AVATAR_COLORS = [
+  'linear-gradient(135deg,#f09030,#e04060)',
+  'linear-gradient(135deg,#00c3aa,#0077cc)',
+  'linear-gradient(135deg,#7b6cf0,#c060f0)',
+  'linear-gradient(135deg,#40c060,#0080a0)',
+  'linear-gradient(135deg,#4488dd,#8860f0)',
+  'linear-gradient(135deg,#f5933a,#e04060)',
+];
+
+/* ─── DATI MOCK ──────────────────────────────────────────── */
+const EVENTS = [
+  {
+    actor: 'Sara Bianchi',     initials: 'SB', avatarIdx: 0,
+    tag: 'v1.15.0',
+    component: 'api-gateway',  env: 'production',
+    product: 'platform-api',
+    deployed_at: new Date(Date.now() - 40*1000),
+    outcome: 'in_progress',
+    error_message: null,
+  },
+  {
+    actor: 'Marco Rossi',      initials: 'MR', avatarIdx: 1,
+    tag: 'v3.2.1',
+    component: 'frontend',     env: 'production',
+    product: 'customer-app',
+    deployed_at: new Date(Date.now() - 2*60*1000),
+    outcome: 'success',
+    error_message: null,
+  },
+  {
+    actor: 'Andrea Ricci',     initials: 'AR', avatarIdx: 4,
+    tag: 'v2.0.0',
+    component: 'worker',       env: 'integration',
+    product: 'data-sync',
+    deployed_at: new Date(Date.now() - 5*60*1000),
+    outcome: 'success',
+    error_message: null,
+  },
+  {
+    actor: 'Laura Conti',      initials: 'LC', avatarIdx: 2,
+    tag: 'v0.9.4',
+    component: 'worker',       env: 'staging',
+    product: 'data-sync',
+    deployed_at: new Date(Date.now() - 18*60*1000),
+    outcome: 'failure',
+    error_message: 'ErrImagePull: manifest for registry.example.com/worker:v0.9.4 not found in repository',
+  },
+  {
+    actor: 'Sara Bianchi',     initials: 'SB', avatarIdx: 0,
+    tag: 'v1.14.9',
+    component: 'api-gateway',  env: 'production',
+    product: 'platform-api',
+    deployed_at: new Date(Date.now() - 62*60*1000),
+    outcome: 'success',
+    error_message: null,
+  },
+  {
+    actor: 'Giorgio Torino',   initials: 'GT', avatarIdx: 3,
+    tag: 'v0.3.1',
+    component: 'scheduler',    env: 'development',
+    product: 'nexus-gateway',
+    deployed_at: new Date(Date.now() - 3*60*60*1000),
+    outcome: 'success',
+    error_message: null,
+  },
+  {
+    actor: 'Marco Rossi',      initials: 'MR', avatarIdx: 1,
+    tag: 'v3.2.0',
+    component: 'backend',      env: 'integration',
+    product: 'customer-app',
+    deployed_at: new Date(Date.now() - 4*60*60*1000),
+    outcome: 'success',
+    error_message: null,
+  },
+  {
+    actor: 'Laura Conti',      initials: 'LC', avatarIdx: 2,
+    tag: 'v0.9.3',
+    component: 'ingestor',     env: 'production',
+    product: 'data-sync',
+    deployed_at: new Date(Date.now() - 6*60*60*1000),
+    outcome: 'failure',
+    error_message: 'CrashLoopBackOff: container exited with code 1 — OOM killed',
+  },
+  {
+    actor: 'Andrea Ricci',     initials: 'AR', avatarIdx: 4,
+    tag: 'v1.14.8',
+    component: 'api-gateway',  env: 'development',
+    product: 'platform-api',
+    deployed_at: new Date(Date.now() - 22*60*60*1000),
+    outcome: 'success',
+    error_message: null,
+  },
+  {
+    actor: 'Giorgio Torino',   initials: 'GT', avatarIdx: 3,
+    tag: 'v3.1.9',
+    component: 'frontend',     env: 'development',
+    product: 'customer-app',
+    deployed_at: new Date(Date.now() - 25*60*60*1000),
+    outcome: 'success',
+    error_message: null,
+  },
+];
+
+/* ─── TIMESTAMP RELATIVO ─────────────────────────────────── */
+function relTime(date) {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60)           return 'adesso';
+  if (diff < 3600)         return Math.floor(diff/60) + 'm fa';
+  if (diff < 86400)        return Math.floor(diff/3600) + 'h fa';
+  return Math.floor(diff/86400) + 'g fa';
+}
+
+/* ─── RENDER ─────────────────────────────────────────────── */
+function renderActivity() {
+  const list = document.getElementById('activityList');
+  list.innerHTML = EVENTS.map(ev => {
+    const dotClass =
+      ev.outcome === 'in_progress' ? 'dot-in-progress' :
+      ev.outcome === 'success'     ? 'dot-success'     :
+                                     'dot-failure';
+    const rowClass =
+      ev.outcome === 'in_progress' ? 'is-in-progress' :
+      ev.outcome === 'failure'     ? 'is-failure'      : '';
+
+    const errorBlock = ev.error_message
+      ? `<div class="activity-error">${ev.error_message}</div>`
+      : '';
+
+    return `
+      <li class="activity-row ${rowClass}">
+        <div class="status-dot-wrap">
+          <div class="status-dot ${dotClass}"></div>
+        </div>
+        <div class="actor-avatar" style="background:${AVATAR_COLORS[ev.avatarIdx]}">
+          ${ev.initials}
+        </div>
+        <div class="activity-body">
+          <div class="activity-desc">
+            <span class="activity-actor">${ev.actor}</span>
+            <span class="activity-verb">ha rilasciato</span>
+            <span class="activity-tag">${ev.tag}</span>
+            <span class="activity-arrow">→</span>
+            <span class="activity-target">
+              ${ev.component}<span class="activity-target-sep">/</span>${ev.env}
+            </span>
+          </div>
+          <div class="activity-meta">
+            <span class="activity-product">${ev.product}</span>
+            <span class="activity-time">${relTime(ev.deployed_at)}</span>
+          </div>
+          ${errorBlock}
+        </div>
+      </li>`;
+  }).join('');
+}
+
+/* ─── SWITCHER STATI DEMO ────────────────────────────────── */
+function setPanelState(state) {
+  ['data','loading','empty'].forEach(s => {
+    document.getElementById('pill-' + s).classList.remove('active');
+  });
+  document.getElementById('pill-' + state).classList.add('active');
+
+  const list     = document.getElementById('activityList');
+  const loading  = document.getElementById('activityLoading');
+  const empty    = document.getElementById('activityEmpty');
+  const footer   = document.getElementById('activityFooter');
+  const count    = document.getElementById('activityCount');
+  const badge    = document.getElementById('liveBadge');
+
+  list.classList.add('hidden');
+  loading.classList.add('hidden');
+  empty.classList.add('hidden');
+  footer.classList.remove('hidden');
+
+  if (state === 'data') {
+    renderActivity();
+    list.classList.remove('hidden');
+    count.textContent = '10 eventi';
+    badge.classList.remove('hidden');
+  } else if (state === 'loading') {
+    loading.classList.remove('hidden');
+    count.textContent = '— eventi';
+    badge.classList.add('hidden');
+    footer.classList.add('hidden');
+  } else if (state === 'empty') {
+    empty.classList.remove('hidden');
+    count.textContent = '0 eventi';
+    badge.classList.add('hidden');
+  }
+}
+
+/* ─── INIT ───────────────────────────────────────────────── */
+renderActivity();
+
+/* Aggiorna i timestamp relativi ogni 30s (simula il polling) */
+setInterval(() => {
+  const rows = document.querySelectorAll('.activity-time');
+  EVENTS.forEach((ev, i) => {
+    if (rows[i]) rows[i].textContent = relTime(ev.deployed_at);
+  });
+}, 30000);
+</script>
+</body>
+</html>

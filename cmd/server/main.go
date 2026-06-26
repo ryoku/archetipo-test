@@ -77,7 +77,7 @@ func main() {
 		router.RegisterDeploymentRoutes(productStore, environmentStore, lockStore, deploymentStore, gitopsApplier, tagConventionDefault),
 		router.RegisterStatusRoutes(productStore, environmentStore, statusReader),
 		router.RegisterHistoryRoutes(productStore, deploymentStore),
-		router.RegisterAdminRoutes(productStore),
+		router.RegisterAdminRoutes(productStore, deploymentStore),
 		router.RegisterStatsRoutes(statsStore),
 	)
 	registerSPA(r)

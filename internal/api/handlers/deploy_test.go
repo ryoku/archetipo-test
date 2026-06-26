@@ -59,10 +59,14 @@ var _ handlers.GitOpsApplier = (*mockGitOpsApplier)(nil)
 // mockDeploymentStore is the single shared mock for the entire handlers_test package.
 // It is defined here (deploy_test.go) and reused by history_test.go.
 type mockDeploymentStore struct {
-	createFn        func(ctx context.Context, d *domain.Deployment) error
-	getByIDFn       func(ctx context.Context, id string) (*domain.Deployment, error)
-	listByProductFn func(ctx context.Context, productID string, page, pageSize int) ([]domain.Deployment, int, error)
-	listAllFn       func(ctx context.Context, page, pageSize int) ([]domain.Deployment, int, error)
+	createFn              func(ctx context.Context, d *domain.Deployment) error
+	getByIDFn             func(ctx context.Context, id string) (*domain.Deployment, error)
+	listByProductFn       func(ctx context.Context, productID string, page, pageSize int) ([]domain.Deployment, int, error)
+	listAllFn             func(ctx context.Context, page, pageSize int) ([]domain.Deployment, int, error)
+	updateOutcomeFn       func(ctx context.Context, id, outcome string, commitSHA *string, errorMessage *string) error
+	deleteFn              func(ctx context.Context, id string) error
+	listActivityFn        func(ctx context.Context, limit int) ([]domain.Deployment, error)
+	markStaleInProgressFn func(ctx context.Context, olderThan time.Duration) error
 }
 
 func (m *mockDeploymentStore) Create(ctx context.Context, d *domain.Deployment) error {
@@ -89,6 +93,30 @@ func (m *mockDeploymentStore) ListAll(ctx context.Context, page, pageSize int) (
 		return m.listAllFn(ctx, page, pageSize)
 	}
 	return nil, 0, nil
+}
+func (m *mockDeploymentStore) UpdateOutcome(ctx context.Context, id, outcome string, commitSHA *string, errorMessage *string) error {
+	if m.updateOutcomeFn != nil {
+		return m.updateOutcomeFn(ctx, id, outcome, commitSHA, errorMessage)
+	}
+	return nil
+}
+func (m *mockDeploymentStore) Delete(ctx context.Context, id string) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, id)
+	}
+	return nil
+}
+func (m *mockDeploymentStore) ListActivity(ctx context.Context, limit int) ([]domain.Deployment, error) {
+	if m.listActivityFn != nil {
+		return m.listActivityFn(ctx, limit)
+	}
+	return nil, nil
+}
+func (m *mockDeploymentStore) MarkStaleInProgress(ctx context.Context, olderThan time.Duration) error {
+	if m.markStaleInProgressFn != nil {
+		return m.markStaleInProgressFn(ctx, olderThan)
+	}
+	return nil
 }
 
 var _ store.DeploymentStore = (*mockDeploymentStore)(nil)
@@ -245,11 +273,16 @@ func TestDeploy_Success(t *testing.T) {
 }
 
 func TestDeploy_Returns202WithDeploymentID(t *testing.T) {
-	var storedCommitSHA string
+	var updatedCommitSHA string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
-			storedCommitSHA = *d.CommitSHA
 			d.ID = "deploy-uuid-001"
+			return nil
+		},
+		updateOutcomeFn: func(_ context.Context, _, _ string, commitSHA *string, _ *string) error {
+			if commitSHA != nil {
+				updatedCommitSHA = *commitSHA
+			}
 			return nil
 		},
 	}
@@ -273,10 +306,12 @@ func TestDeploy_Returns202WithDeploymentID(t *testing.T) {
 	var resp map[string]string
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, "deploy-uuid-001", resp["deployment_id"])
-	assert.Equal(t, "deadbeef", storedCommitSHA)
+	assert.Equal(t, "deadbeef", updatedCommitSHA)
 }
 
-func TestDeploy_DeploymentStoreError_Returns500(t *testing.T) {
+func TestDeploy_InProgressCreateError_DeployContinues(t *testing.T) {
+	// Create failure for the in_progress record is best-effort: the deploy
+	// proceeds and returns 202 with an empty deployment_id.
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, _ *domain.Deployment) error {
 			return errors.New("db connection lost")
@@ -296,16 +331,24 @@ func TestDeploy_DeploymentStoreError_Returns500(t *testing.T) {
 		"tag":      "v1.2.3",
 	})
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 }
 
 func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
-	var storedOutcome, storedErrorMessage string
+	var createdOutcome string
+	var updatedOutcome string
+	var updatedErrorMessage string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
-			storedOutcome = d.Outcome
-			storedErrorMessage = *d.ErrorMessage
+			createdOutcome = d.Outcome
 			d.ID = "deploy-fail-id"
+			return nil
+		},
+		updateOutcomeFn: func(_ context.Context, _, outcome string, _ *string, errMsg *string) error {
+			updatedOutcome = outcome
+			if errMsg != nil {
+				updatedErrorMessage = *errMsg
+			}
 			return nil
 		},
 	}
@@ -326,8 +369,9 @@ func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
 	})
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Equal(t, domain.OutcomeFailure, storedOutcome)
-	assert.NotEmpty(t, storedErrorMessage)
+	assert.Equal(t, domain.OutcomeInProgress, createdOutcome)
+	assert.Equal(t, domain.OutcomeFailure, updatedOutcome)
+	assert.NotEmpty(t, updatedErrorMessage)
 }
 
 func TestDeploy_ApplyParamsUsesHelmReleasePath(t *testing.T) {
@@ -739,10 +783,20 @@ func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns202(t *testing.T
 }
 
 func TestDeploy_Success_RecordsDeployment(t *testing.T) {
-	var recorded *domain.Deployment
+	var createdOutcome string
+	var updatedOutcome string
+	var updatedCommitSHA string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
-			recorded = d
+			createdOutcome = d.Outcome
+			d.ID = "deploy-success-id"
+			return nil
+		},
+		updateOutcomeFn: func(_ context.Context, _, outcome string, commitSHA *string, _ *string) error {
+			updatedOutcome = outcome
+			if commitSHA != nil {
+				updatedCommitSHA = *commitSHA
+			}
 			return nil
 		},
 	}
@@ -763,18 +817,26 @@ func TestDeploy_Success_RecordsDeployment(t *testing.T) {
 	})
 
 	require.Equal(t, http.StatusAccepted, w.Code)
-	require.NotNil(t, recorded)
-	assert.Equal(t, "success", recorded.Outcome)
-	require.NotNil(t, recorded.CommitSHA)
-	assert.Equal(t, "abc1234567890", *recorded.CommitSHA)
-	assert.Nil(t, recorded.ErrorMessage)
+	assert.Equal(t, domain.OutcomeInProgress, createdOutcome)
+	assert.Equal(t, domain.OutcomeSuccess, updatedOutcome)
+	assert.Equal(t, "abc1234567890", updatedCommitSHA)
 }
 
 func TestDeploy_GitOpsError_RecordsFailureDeployment(t *testing.T) {
-	var recorded *domain.Deployment
+	var createdOutcome string
+	var updatedOutcome string
+	var updatedErrMsg string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
-			recorded = d
+			createdOutcome = d.Outcome
+			d.ID = "deploy-fail-id"
+			return nil
+		},
+		updateOutcomeFn: func(_ context.Context, _, outcome string, _ *string, errMsg *string) error {
+			updatedOutcome = outcome
+			if errMsg != nil {
+				updatedErrMsg = *errMsg
+			}
 			return nil
 		},
 	}
@@ -795,9 +857,96 @@ func TestDeploy_GitOpsError_RecordsFailureDeployment(t *testing.T) {
 	})
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)
-	require.NotNil(t, recorded)
-	assert.Equal(t, "failure", recorded.Outcome)
-	assert.Nil(t, recorded.CommitSHA)
-	require.NotNil(t, recorded.ErrorMessage)
-	assert.Equal(t, "gitops apply failed", *recorded.ErrorMessage)
+	assert.Equal(t, domain.OutcomeInProgress, createdOutcome)
+	assert.Equal(t, domain.OutcomeFailure, updatedOutcome)
+	assert.Equal(t, "gitops apply failed", updatedErrMsg)
+}
+
+// callLogDeploymentStore returns a mockDeploymentStore that records each create
+// and update outcome into the returned slice pointer, assigning createID on create.
+func callLogDeploymentStore(createID string) (*mockDeploymentStore, *[]string) {
+	var callLog []string
+	ds := &mockDeploymentStore{
+		createFn: func(_ context.Context, d *domain.Deployment) error {
+			callLog = append(callLog, "create:"+d.Outcome)
+			d.ID = createID
+			return nil
+		},
+		updateOutcomeFn: func(_ context.Context, _, outcome string, _ *string, _ *string) error {
+			callLog = append(callLog, "update:"+outcome)
+			return nil
+		},
+	}
+	return ds, &callLog
+}
+
+func TestDeploy_CreatesInProgressBeforeApply(t *testing.T) {
+	ds, callLog := callLogDeploymentStore("deploy-seq-id")
+	r := newDeployRouterFull(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		ds,
+		successApplier(),
+		editorIdentityForDeploy("my-service"),
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v1.0.0",
+	})
+
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.Equal(t, []string{"create:in_progress", "update:success"}, *callLog)
+}
+
+func TestDeploy_UpdatesOutcomeToFailureOnGitopsError(t *testing.T) {
+	ds, callLog := callLogDeploymentStore("deploy-fail-seq-id")
+	r := newDeployRouterFull(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		ds,
+		&mockGitOpsApplier{applyFn: func(_ context.Context, _ gitops.ApplyParams) (string, error) {
+			return "", errors.New("gitops failed")
+		}},
+		editorIdentityForDeploy("my-service"),
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v1.0.0",
+	})
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.Equal(t, []string{"create:in_progress", "update:failure"}, *callLog)
+}
+
+// TestDeploy_NonRecordableFailure_DeletesInProgressRecord verifies that for failures
+// that never actually started a deployment (e.g. HelmRelease not found → 422), the
+// in_progress record is removed rather than persisted as a spurious failure.
+func TestDeploy_NonRecordableFailure_DeletesInProgressRecord(t *testing.T) {
+	ds, callLog := callLogDeploymentStore("deploy-orphan-id")
+	ds.deleteFn = func(_ context.Context, id string) error {
+		*callLog = append(*callLog, "delete:"+id)
+		return nil
+	}
+	r := newDeployRouterFull(
+		productStoreWithProduct(deployFixtureProduct),
+		envStoreWithEnv(deployFixtureEnv),
+		acquiringLockStore(),
+		ds,
+		&mockGitOpsApplier{applyFn: func(_ context.Context, p gitops.ApplyParams) (string, error) {
+			return "", &gitops.HelmReleaseNotFoundError{Path: p.HelmReleasePath}
+		}},
+		editorIdentityForDeploy("my-service"),
+	)
+
+	w := doDeployRequest(t, r, "my-service", "env-id-1", map[string]string{
+		"workload": "main",
+		"tag":      "v1.0.0",
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	require.Equal(t, []string{"create:in_progress", "delete:deploy-orphan-id"}, *callLog)
 }

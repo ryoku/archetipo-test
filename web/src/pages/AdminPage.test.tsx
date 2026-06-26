@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, waitFor, act, cleanup, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { AdminProduct } from '../api/products'
+import type { AdminProduct, ActivityEvent } from '../api/products'
 import AdminPage from './AdminPage'
 
 // ─── Mocks ────────────────────────────────────────────────────
 
 const mockListAdminProducts = vi.hoisted(() => vi.fn<() => Promise<AdminProduct[]>>())
+const mockListAdminActivity = vi.hoisted(() => vi.fn<() => Promise<ActivityEvent[]>>())
 
 vi.mock('../api/products', () => ({
   listAdminProducts: mockListAdminProducts,
+  listAdminActivity: mockListAdminActivity,
 }))
 
 const mockUseAuth = vi.fn()
@@ -26,6 +28,20 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 // ─── Helpers ──────────────────────────────────────────────────
+
+function makeActivity(overrides: Partial<ActivityEvent> = {}): ActivityEvent {
+  return {
+    id: 'act-1',
+    actor_display_name: 'Sara Bianchi',
+    tag: 'v1.15.0',
+    component_name: 'api-gateway',
+    product_slug: 'platform-api',
+    environment_name: 'production',
+    deployed_at: new Date(Date.now() - 60000).toISOString(), // 1 min ago
+    outcome: 'success',
+    ...overrides,
+  }
+}
 
 function makeProduct(overrides: Partial<AdminProduct> = {}): AdminProduct {
   return {
@@ -60,6 +76,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   capturedNavigate = vi.fn()
   mockUseAuth.mockReturnValue(baseAuth)
+  mockListAdminActivity.mockResolvedValue([]) // default: empty activity
 })
 
 afterEach(cleanup)
@@ -69,6 +86,7 @@ afterEach(cleanup)
 describe('AdminPage', () => {
   it('shows loading skeleton initially', () => {
     mockListAdminProducts.mockReturnValue(new Promise(() => {}))
+    mockListAdminActivity.mockResolvedValue([])
 
     renderPage()
 
@@ -77,6 +95,7 @@ describe('AdminPage', () => {
 
   it('shows dash placeholders in stats bar while loading', () => {
     mockListAdminProducts.mockReturnValue(new Promise(() => {}))
+    mockListAdminActivity.mockResolvedValue([])
 
     renderPage()
 
@@ -341,5 +360,62 @@ describe('AdminPage — sorting', () => {
 
     const rows = screen.getAllByTestId('product-row')
     expect(rows[0].textContent).toContain('Alpha App')    // 1 env — ascending
+  })
+})
+
+describe('activity panel', () => {
+  it('shows loading state while activity is loading', () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockReturnValue(new Promise(() => {})) // never resolves
+    renderPage()
+    expect(screen.getByTestId('activity-loading')).toBeTruthy()
+  })
+
+  it('shows empty state when no activity', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockResolvedValue([])
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('activity-empty')).toBeTruthy())
+  })
+
+  it('renders activity rows for each event', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockResolvedValue([
+      makeActivity({ id: 'act-1', outcome: 'success' }),
+      makeActivity({ id: 'act-2', outcome: 'in_progress', actor_display_name: 'Marco Rossi' }),
+    ])
+    renderPage()
+    await waitFor(() => {
+      const rows = screen.getAllByTestId('activity-row')
+      expect(rows).toHaveLength(2)
+    })
+  })
+
+  it('shows pulsing dot for in_progress outcome', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockResolvedValue([makeActivity({ outcome: 'in_progress' })])
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId('activity-dot-in_progress')).toBeTruthy()
+    })
+  })
+
+  it('shows green dot for success outcome', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockResolvedValue([makeActivity({ outcome: 'success' })])
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId('activity-dot-success')).toBeTruthy()
+    })
+  })
+
+  it('shows red dot for failure outcome', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockResolvedValue([makeActivity({ outcome: 'failure', error_message: 'ErrImagePull' })])
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId('activity-dot-failure')).toBeTruthy()
+      expect(screen.getByTestId('activity-error-msg')).toBeTruthy()
+    })
   })
 })

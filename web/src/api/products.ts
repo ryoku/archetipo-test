@@ -303,3 +303,26 @@ export async function listAdminProducts(token: string): Promise<AdminProduct[]> 
     throw new Error(`listAdminProducts: invalid response body: ${err instanceof Error ? err.message : JSON.stringify(err)}`)
   })) as AdminProduct[]
 }
+
+export interface ActivityEvent {
+  id: string
+  actor_display_name: string
+  tag: string
+  component_name: string
+  product_slug: string
+  environment_name: string
+  deployed_at: string
+  outcome: 'in_progress' | 'success' | 'failure'
+  error_message?: string | null
+}
+
+export async function listAdminActivity(token: string): Promise<ActivityEvent[]> {
+  const res = await apiFetch('/api/v1/admin/activity', token)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(body?.error ?? `listAdminActivity: ${res.status}`)
+  }
+  return (await res.json().catch((err: unknown) => {
+    throw new Error(`listAdminActivity: invalid response body: ${err instanceof Error ? err.message : JSON.stringify(err)}`)
+  })) as ActivityEvent[]
+}

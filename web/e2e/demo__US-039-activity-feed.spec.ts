@@ -42,14 +42,41 @@ const ADMIN_PRODUCTS = [
     environment_count: 3,
     last_deployed_at: '2026-06-14T10:00:00Z',
   },
+]
+
+const ACTIVITY_EVENTS = [
   {
-    id: 'p-2',
-    name: 'Customer App',
-    slug: 'customer-app',
-    description: 'Customer-facing app',
-    created_at: '2026-02-01T00:00:00Z',
-    environment_count: 1,
-    last_deployed_at: null,
+    id: 'evt-1',
+    actor_display_name: 'Sara Bianchi',
+    tag: 'v1.15.0',
+    component_name: 'api-gateway',
+    product_slug: 'platform-api',
+    environment_name: 'production',
+    deployed_at: new Date().toISOString(),
+    outcome: 'in_progress',
+    error_message: null,
+  },
+  {
+    id: 'evt-2',
+    actor_display_name: 'Marco Rossi',
+    tag: 'v3.2.1',
+    component_name: 'frontend',
+    product_slug: 'customer-app',
+    environment_name: 'production',
+    deployed_at: new Date(Date.now() - 2 * 60000).toISOString(),
+    outcome: 'success',
+    error_message: null,
+  },
+  {
+    id: 'evt-3',
+    actor_display_name: 'Laura Conti',
+    tag: 'v0.9.4',
+    component_name: 'worker',
+    product_slug: 'data-sync',
+    environment_name: 'staging',
+    deployed_at: new Date(Date.now() - 18 * 60000).toISOString(),
+    outcome: 'failure',
+    error_message: 'ErrImagePull: manifest for registry.example.com/worker:v0.9.4 not found',
   },
 ]
 
@@ -62,8 +89,8 @@ test.use({
   launchOptions: { slowMo: 300 },
 })
 
-test('demo: Sara (DevOps Admin) views the admin dashboard, sorts by environments, and navigates to a product', async ({ page }) => {
-  // Step 1: stall OIDC discovery so login page is visible briefly
+test('demo: Sara (DevOps Admin) views the live activity feed with in-progress, success, and failure deployments', async ({ page }) => {
+  // Step 1: stall OIDC discovery so login page is briefly visible
   await page.route(`${OIDC_AUTHORITY}/.well-known/openid-configuration`, () => {})
 
   // Step 2: navigate to / unauthenticated → redirect to /login
@@ -77,7 +104,7 @@ test('demo: Sara (DevOps Admin) views the admin dashboard, sorts by environments
     { key: SESSION_KEY, value: makeAdminSession('Sara Bianchi', DEVOPS_ADMIN_TOKEN) },
   )
 
-  // Step 4: mock admin products and products API
+  // Step 4: mock backend APIs
   await page.route('**/api/v1/admin/products', async (route) => {
     await route.fulfill({
       status: 200,
@@ -93,34 +120,43 @@ test('demo: Sara (DevOps Admin) views the admin dashboard, sorts by environments
     }
   })
   await page.route('**/api/v1/admin/activity', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(ACTIVITY_EVENTS),
+    })
   })
 
-  // Step 5: navigate to /admin — table should be visible
+  // Step 5: navigate to /admin
   await page.goto('/admin')
   await expect(page.getByTestId('products-table')).toBeVisible()
   await page.waitForTimeout(700)
 
-  // Step 6: verify table columns
-  await expect(page.getByRole('columnheader', { name: /Name/i })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: /Environments/i })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: /Last Deployment/i })).toBeVisible()
+  // Step 6: scroll down to activity panel and verify it is visible
+  await page.getByTestId('activity-section').scrollIntoViewIfNeeded()
+  await expect(page.getByTestId('activity-section')).toBeVisible()
+  await page.waitForTimeout(600)
+
+  // Step 7: verify 3 activity rows are rendered
+  const activityList = page.getByTestId('activity-list')
+  await expect(page.getByTestId('activity-row')).toHaveCount(3)
   await page.waitForTimeout(500)
 
-  // Step 7: verify both product rows are present (default sort: name asc)
-  await expect(page.getByTestId('product-row')).toHaveCount(2)
-  await expect(page.getByText('Platform API')).toBeVisible()
-  await expect(page.getByText('Customer App')).toBeVisible()
-  await page.waitForTimeout(500)
+  // Step 8: verify in_progress row — pulsing dot visible
+  await expect(page.getByTestId('activity-dot-in_progress')).toBeVisible()
+  await expect(activityList.getByText('Sara Bianchi')).toBeVisible()
+  await expect(activityList.getByText('v1.15.0')).toBeVisible()
+  await page.waitForTimeout(600)
 
-  // Step 8: sort by Environments ascending — Customer App (1) comes before Platform API (3)
-  await page.getByRole('columnheader', { name: /Environments/i }).click()
-  await page.waitForTimeout(500)
-  await expect(page.getByTestId('product-row').first()).toContainText('Customer App')
-  await page.waitForTimeout(500)
+  // Step 9: verify success row — green solid dot
+  await expect(page.getByTestId('activity-dot-success')).toBeVisible()
+  await expect(activityList.getByText('Marco Rossi')).toBeVisible()
+  await expect(activityList.getByText('v3.2.1')).toBeVisible()
+  await page.waitForTimeout(600)
 
-  // Step 9: click Platform API row → navigate to its detail page
-  await page.getByTestId('product-row').nth(1).click()
-  await expect(page).toHaveURL(/\/products\/platform-api/)
+  // Step 10: verify failure row — red dot and error message
+  await expect(page.getByTestId('activity-dot-failure')).toBeVisible()
+  await expect(activityList.getByText('Laura Conti')).toBeVisible()
+  await expect(page.getByTestId('activity-error-msg')).toBeVisible()
   await page.waitForTimeout(1500)
 })

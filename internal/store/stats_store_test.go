@@ -50,8 +50,8 @@ func seedStatsFixture(t *testing.T, pool *pgxpool.Pool) (accessibleSlug string) 
 	// Two environments for Product A, one for Product B
 	var envAID string
 	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, slug, type, gitops_path)
-		 VALUES ($1, 'prod', 'prod', 'production', 'envs/prod')
+		`INSERT INTO environments (product_id, name, slug, type)
+		 VALUES ($1, 'prod', 'prod', 'production')
 		 ON CONFLICT (product_id, slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
 		productAID,
 	).Scan(&envAID)
@@ -59,8 +59,8 @@ func seedStatsFixture(t *testing.T, pool *pgxpool.Pool) (accessibleSlug string) 
 
 	var envA2ID string
 	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, slug, type, gitops_path)
-		 VALUES ($1, 'dev', 'dev', 'dev', 'envs/dev')
+		`INSERT INTO environments (product_id, name, slug, type)
+		 VALUES ($1, 'dev', 'dev', 'dev')
 		 ON CONFLICT (product_id, slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
 		productAID,
 	).Scan(&envA2ID)
@@ -68,8 +68,8 @@ func seedStatsFixture(t *testing.T, pool *pgxpool.Pool) (accessibleSlug string) 
 
 	var envBID string
 	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, slug, type, gitops_path)
-		 VALUES ($1, 'staging', 'staging', 'integration', 'envs/staging')
+		`INSERT INTO environments (product_id, name, slug, type)
+		 VALUES ($1, 'staging', 'staging', 'integration')
 		 ON CONFLICT (product_id, slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
 		productBID,
 	).Scan(&envBID)
@@ -177,8 +177,8 @@ func TestStatsStore_GetStats_Deployments24hBoundary(t *testing.T) {
 
 	var envID string
 	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (product_id, name, slug, type, gitops_path)
-		 VALUES ($1, 'prod', 'bnd-prod', 'production', 'envs/bnd')
+		`INSERT INTO environments (product_id, name, slug, type)
+		 VALUES ($1, 'prod', 'bnd-prod', 'production')
 		 ON CONFLICT (product_id, slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
 		productID,
 	).Scan(&envID)
