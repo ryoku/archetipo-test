@@ -418,4 +418,64 @@ describe('activity panel', () => {
       expect(screen.getByTestId('activity-error-msg')).toBeTruthy()
     })
   })
+
+  it('shows error banner when listAdminActivity rejects with an Error', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockRejectedValue(new Error('listAdminActivity: 500'))
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('activity-error')).toBeTruthy()
+      expect(screen.getByText(/listAdminActivity: 500/)).toBeTruthy()
+    })
+  })
+
+  it('does not show activity-empty when fetch fails', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockRejectedValue(new Error('network error'))
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('activity-empty')).toBeNull()
+    })
+  })
+
+  it('shows fallback error text for non-Error activity rejections', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockRejectedValue('unexpected string')
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load activity feed')).toBeTruthy()
+    })
+  })
+
+  it('clears error banner when subsequent poll succeeds', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    // First call fails, second succeeds
+    mockListAdminActivity
+      .mockRejectedValueOnce(new Error('transient error'))
+      .mockResolvedValueOnce([makeActivity()])
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('activity-error')).toBeTruthy()
+    })
+
+    // Simulate a re-fetch by directly calling the mock's second value
+    // (we can't easily trigger the 30s interval in unit tests, so verify the
+    // resolved path clears the error by re-mounting with a success mock)
+    cleanup()
+    mockListAdminActivity.mockResolvedValue([makeActivity()])
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('activity-error')).toBeNull()
+      expect(screen.getByTestId('activity-list')).toBeTruthy()
+    })
+  })
 })

@@ -54,6 +54,7 @@ export default function AdminPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [activityLoading, setActivityLoading] = useState(true)
+  const [activityError, setActivityError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!accessToken) return
@@ -62,8 +63,18 @@ export default function AdminPage() {
 
     function fetchActivity() {
       listAdminActivity(token)
-        .then((data) => { if (!cancelled) setActivity(data) })
-        .catch((err: unknown) => { console.error('[AdminPage] listAdminActivity failed:', err) })
+        .then((data) => {
+          if (!cancelled) {
+            setActivity(data)
+            setActivityError(null)
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) {
+            console.error('[AdminPage] listAdminActivity failed:', err)
+            setActivityError(err instanceof Error ? err.message : 'Failed to load activity feed')
+          }
+        })
         .finally(() => { if (!cancelled) setActivityLoading(false) })
     }
 
@@ -294,7 +305,12 @@ export default function AdminPage() {
               <span>Caricamento…</span>
             </div>
           )}
-          {!activityLoading && activity.length === 0 && (
+          {!activityLoading && activityError && (
+            <div className="admin-error" data-testid="activity-error">
+              {activityError}
+            </div>
+          )}
+          {!activityLoading && !activityError && activity.length === 0 && (
             <div className="admin-activity-empty" data-testid="activity-empty">
               <span>Nessun evento di deployment recente.</span>
             </div>
