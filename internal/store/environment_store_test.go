@@ -26,8 +26,11 @@ func newEnvironmentTestPool(t *testing.T) *pgxpool.Pool {
 
 func cleanEnvironments(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	_, err := pool.Exec(context.Background(), "DELETE FROM environments")
-	if err != nil {
+	// deployments reference environments without ON DELETE CASCADE, so clear them first.
+	if _, err := pool.Exec(context.Background(), "DELETE FROM deployments"); err != nil {
+		t.Fatalf("cleanEnvironments (deployments): %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM environments"); err != nil {
 		t.Fatalf("cleanEnvironments: %v", err)
 	}
 }

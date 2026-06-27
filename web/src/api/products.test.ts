@@ -11,6 +11,7 @@ import {
   clearTagConvention,
   listTags,
   listAdminProducts,
+  listAdminActivity,
 } from './products'
 
 // Helper to create a fetch stub that returns a given status + body
@@ -438,5 +439,45 @@ describe('listAdminProducts', () => {
     vi.stubGlobal('fetch', makeFetchStub(500))
 
     await expect(listAdminProducts('my-token')).rejects.toThrow('listAdminProducts: 500')
+  })
+})
+
+// ─── listAdminActivity ─────────────────────────────────────────
+describe('listAdminActivity', () => {
+  it('returns an array on 200', async () => {
+    const event: import('./products').ActivityEvent = {
+      id: 'ev-1',
+      actor_display_name: 'Sara',
+      tag: 'v1.0.0',
+      component_name: 'api',
+      product_slug: 'platform',
+      environment_name: 'production',
+      deployed_at: '2026-06-27T10:00:00Z',
+      outcome: 'success',
+    }
+    vi.stubGlobal('fetch', makeFetchStub(200, [event]))
+
+    const result = await listAdminActivity('my-token')
+    expect(result).toEqual([event])
+  })
+
+  it('throws the server error message on non-200', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(500, { error: 'internal server error' }))
+
+    await expect(listAdminActivity('my-token')).rejects.toThrow('internal server error')
+  })
+
+  it('throws a fallback message on non-200 with no body', async () => {
+    vi.stubGlobal('fetch', makeFetchStub(503))
+
+    await expect(listAdminActivity('my-token')).rejects.toThrow('listAdminActivity: 503')
+  })
+
+  it('throws on invalid response body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response('not-json', { status: 200 }),
+    ))
+
+    await expect(listAdminActivity('my-token')).rejects.toThrow('listAdminActivity: invalid response body:')
   })
 })

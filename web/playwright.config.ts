@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  outputDir: '../docs/test-results/US-038',
+  outputDir: '../docs/test-results/US-039',
   use: {
     baseURL: 'http://localhost:4173',
     video: 'off',

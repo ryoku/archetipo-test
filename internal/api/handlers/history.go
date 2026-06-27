@@ -106,7 +106,7 @@ func toDeploymentResponse(d domain.Deployment) deploymentResponse {
 		Tag:              d.Tag,
 		DeployedAt:       d.DeployedAt.UTC().Format(time.RFC3339),
 		CommitSHA:        d.CommitSHA,
-		Outcome:          d.Outcome,
+		Outcome:          string(d.Outcome),
 		ErrorMessage:     d.ErrorMessage,
 	}
 }

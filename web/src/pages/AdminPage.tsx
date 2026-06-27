@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { listAdminProducts, type AdminProduct } from '../api/products'
+import { listAdminProducts, type AdminProduct, listAdminActivity, type ActivityEvent } from '../api/products'
+import { formatRelativeTime } from '../utils/formatRelativeTime'
 import './AdminPage.css'
 
 type SortCol = 'name' | 'environment_count' | 'last_deployed_at'
@@ -10,6 +11,7 @@ type SortDir = 'asc' | 'desc'
 function getInitials(name: string): string {
   return name.split(/\s+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2)
 }
+
 
 function formatDate(iso: string | null): string {
   if (!iso) return 'Never'
@@ -42,6 +44,40 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null)
   const [sortCol, setSortCol] = useState<SortCol>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [activity, setActivity] = useState<ActivityEvent[]>([])
+  const [activityLoading, setActivityLoading] = useState(true)
+  const [activityError, setActivityError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!accessToken) return
+    const token = accessToken
+    let cancelled = false
+
+    function fetchActivity() {
+      listAdminActivity(token)
+        .then((data) => {
+          if (!cancelled) {
+            setActivity(data)
+            setActivityError(null)
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) {
+            console.error('[AdminPage] listAdminActivity failed:', err)
+            setActivityError(err instanceof Error ? err.message : 'Failed to load activity feed')
+          }
+        })
+        .finally(() => { if (!cancelled) setActivityLoading(false) })
+    }
+
+    fetchActivity()
+    // Poll every 30s for the "live" effect, but skip while the tab is hidden
+    // to avoid pointless requests in a backgrounded tab.
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchActivity()
+    }, 30000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [accessToken])
 
   useEffect(() => {
     if (!accessToken) return
@@ -248,6 +284,69 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+
+        <div className="admin-activity-section" data-testid="activity-section">
+          <div className="admin-table-header">
+            <span className="admin-table-title">◈ Attività live</span>
+            <span className="admin-table-count">Ultimi 10 eventi</span>
+          </div>
+          {activityLoading && (
+            <div className="admin-activity-empty" data-testid="activity-loading">
+              <span>Caricamento…</span>
+            </div>
+          )}
+          {!activityLoading && activityError && (
+            <div className="admin-error" data-testid="activity-error">
+              {activityError}
+            </div>
+          )}
+          {!activityLoading && !activityError && activity.length === 0 && (
+            <div className="admin-activity-empty" data-testid="activity-empty">
+              <span>Nessun evento di deployment recente.</span>
+            </div>
+          )}
+          {!activityLoading && !activityError && activity.length > 0 && (
+            <div className="admin-activity-list" data-testid="activity-list">
+              {activity.map((event) => {
+                let dotClass: string
+                if (event.outcome === 'in_progress') dotClass = 'dot-pulse'
+                else if (event.outcome === 'success') dotClass = 'dot-ok'
+                else dotClass = 'dot-err'
+                return (
+                <div key={event.id} className="admin-activity-row" data-testid="activity-row">
+                  <span
+                    className={`admin-activity-dot ${dotClass}`}
+                    data-testid={`activity-dot-${event.outcome}`}
+                  />
+                  <div className="admin-activity-avatar">
+                    {getInitials(event.actor_display_name)}
+                  </div>
+                  <div className="admin-activity-body">
+                    <div className="admin-activity-desc">
+                      <span className="admin-activity-actor">{event.actor_display_name}</span>
+                      {' ha rilasciato '}
+                      <span className="admin-activity-tag">{event.tag}</span>
+                      {' → '}
+                      <span className="admin-activity-comp">{event.component_name}</span>
+                      {' / '}
+                      <span>{event.environment_name}</span>
+                    </div>
+                    {event.outcome === 'failure' && event.error_message && (
+                      <div className="admin-activity-error" data-testid="activity-error-msg">
+                        {event.error_message}
+                      </div>
+                    )}
+                  </div>
+                  <div className="admin-activity-meta">
+                    <span className="admin-activity-slug">{event.product_slug}</span>
+                    <span className="admin-activity-when">{formatRelativeTime(event.deployed_at)}</span>
+                  </div>
+                </div>
+                )
+              })}
+            </div>
           )}
         </div>
       </main>

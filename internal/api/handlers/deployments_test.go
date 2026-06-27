@@ -89,7 +89,7 @@ func TestGetDeployment_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, fixtureDeployment.ID, resp["id"])
 	assert.Equal(t, *fixtureDeployment.CommitSHA, resp["commit_sha"])
-	assert.Equal(t, domain.OutcomeSuccess, resp["outcome"])
+	assert.Equal(t, string(domain.OutcomeSuccess), resp["outcome"])
 	assert.Equal(t, fixtureDeployment.Tag, resp["tag"])
 	assert.Equal(t, fixtureDeployment.ComponentName, resp["component_name"])
 	assert.Equal(t, "2026-06-15T10:00:00Z", resp["deployed_at"])

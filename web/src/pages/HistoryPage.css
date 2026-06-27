@@ -22,6 +22,14 @@
   background: rgba(224, 85, 85, 0.05);
 }
 
+/* In-progress row tint */
+.hist-row--in-progress td {
+  background: rgba(130, 160, 230, 0.04);
+}
+.hist-row--in-progress:hover td {
+  background: rgba(130, 160, 230, 0.08);
+}
+
 /* Actor cell */
 .hist-actor-cell {
   display: flex;
@@ -124,6 +132,11 @@
   color: #e05555;
   background: #1a0c0c;
   border-color: rgba(224, 85, 85, 0.25);
+}
+.hist-outcome--in-progress {
+  color: #7fa8f0;
+  background: #0b1222;
+  border-color: rgba(91, 130, 212, 0.25);
 }
 
 /* Pagination */

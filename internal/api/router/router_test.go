@@ -223,6 +223,16 @@ func (noopDeploymentStore) ListByProduct(_ context.Context, _ string, _, _ int) 
 func (noopDeploymentStore) ListAll(_ context.Context, _, _ int) ([]domain.Deployment, int, error) {
 	return nil, 0, nil
 }
+func (noopDeploymentStore) UpdateOutcome(_ context.Context, _ string, _ domain.DeploymentOutcome, _ *string, _ *string) error {
+	return nil
+}
+func (noopDeploymentStore) Delete(_ context.Context, _ string) error { return nil }
+func (noopDeploymentStore) ListActivity(_ context.Context, _ int) ([]domain.Deployment, error) {
+	return nil, nil
+}
+func (noopDeploymentStore) MarkStaleInProgress(_ context.Context, _ time.Duration) error {
+	return nil
+}
 
 var _ store.DeploymentStore = noopDeploymentStore{}
 
@@ -280,15 +290,16 @@ func TestRegisterHistoryRoutes_RoutesRegistered(t *testing.T) {
 // present, confirming the route exists (a missing route returns 404 instead).
 func TestRegisterAdminRoutes_RoutesRegistered(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := router.New(alwaysDenyVerifier{}, router.RegisterAdminRoutes(noopProductStore{}))
+	r := router.New(alwaysDenyVerifier{}, router.RegisterAdminRoutes(noopProductStore{}, noopDeploymentStore{}))
 	assertRoutesReturn401(t, r, [][2]string{
 		{http.MethodGet, "/api/v1/admin/products"},
+		{http.MethodGet, "/api/v1/admin/activity"},
 	})
 }
 
 func TestRegisterAdminRoutes_NonAdminReturns403(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := router.New(nonAdminVerifier{}, router.RegisterAdminRoutes(noopProductStore{}))
+	r := router.New(nonAdminVerifier{}, router.RegisterAdminRoutes(noopProductStore{}, noopDeploymentStore{}))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/products", nil)

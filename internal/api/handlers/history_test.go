@@ -53,7 +53,7 @@ func fixedDeployments(n int) []domain.Deployment {
 			Tag:              "v1.0." + string(rune('0'+i)),
 			DeployedAt:       base.Add(time.Duration(i) * time.Hour),
 			CommitSHA:        &sha,
-			Outcome:          "success",
+			Outcome:          domain.OutcomeSuccess,
 		}
 	}
 	return result

@@ -117,24 +117,43 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 		}
 	}()
 
+	inProgressRecord := &domain.Deployment{
+		ActorDisplayName: actor,
+		ProductID:        product.ID,
+		EnvironmentID:    env.ID,
+		ComponentName:    req.Workload,
+		EnvironmentName:  env.Name,
+		Tag:              req.Tag,
+		Outcome:          domain.OutcomeInProgress,
+	}
+	var inProgressID string
+	if err := h.deploymentStore.Create(c.Request.Context(), inProgressRecord); err != nil {
+		log.Printf("deploy: create in_progress record product=%s env=%s: %v", productSlug, environmentID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return
+	}
+	inProgressID = inProgressRecord.ID
+
 	commitSHA, applyErrMsg, ok := h.applyGitOps(c, product, env, req.Workload, req.Tag, actor)
 
 	if applyErrMsg != "" {
-		// Internal gitops failure: persist a failure record best-effort and return.
+		// Internal gitops failure: update in_progress record to failure and return.
 		// applyGitOps has already written the HTTP 500 response.
-		h.persistDeploymentRecord(c.Request.Context(), product, env, actor, req.Workload, req.Tag, gitopsResult{errorMessage: applyErrMsg})
+		h.updateOutcome(c.Request.Context(), inProgressID, domain.OutcomeFailure, nil, &applyErrMsg)
 		return
 	}
 	if !ok {
+		// Non-recordable failure (server not configured, HelmRelease/workload not found,
+		// invalid patch input): the deploy never actually started, so remove the
+		// in_progress record rather than persisting a spurious failure that would
+		// pollute the activity feed and deployment history.
+		h.deleteInProgress(c.Request.Context(), inProgressID)
 		return
 	}
 
-	deploymentID, err := h.createDeploymentRecord(c, product, env, actor, req.Workload, req.Tag, gitopsResult{commitSHA: commitSHA})
-	if err != nil {
-		return
-	}
+	h.updateOutcome(c.Request.Context(), inProgressID, domain.OutcomeSuccess, &commitSHA, nil)
 
-	c.JSON(http.StatusAccepted, gin.H{"deployment_id": deploymentID})
+	c.JSON(http.StatusAccepted, gin.H{"deployment_id": inProgressID})
 }
 
 func bindDeployRequest(c *gin.Context) (deployRequest, bool) {
@@ -257,85 +276,29 @@ func actorName(identity *domain.UserIdentity) string {
 	return identity.Email
 }
 
-type gitopsResult struct {
-	commitSHA    string
-	errorMessage string
+// updateOutcome updates the outcome of an existing deployment record best-effort.
+// If id is empty (record was never created) the call is a no-op.
+func (h *DeploymentHandlers) updateOutcome(ctx context.Context, id string, outcome domain.DeploymentOutcome, commitSHA *string, errorMessage *string) {
+	if id == "" {
+		return
+	}
+	if err := h.deploymentStore.UpdateOutcome(ctx, id, outcome, commitSHA, errorMessage); err != nil {
+		if outcome == domain.OutcomeSuccess {
+			log.Printf("updateOutcome: gitops succeeded but outcome record stuck as in_progress id=%s (will be swept by stale cleaner): %v", id, err)
+		} else {
+			log.Printf("updateOutcome id=%s outcome=%s: %v", id, outcome, err)
+		}
+	}
 }
 
-// createDeploymentRecord persists a deployment record and returns the new deployment ID.
-// On error it writes the HTTP 500 response and returns ("", non-nil error).
-func (h *DeploymentHandlers) createDeploymentRecord(
-	c *gin.Context,
-	product *domain.Product,
-	env *domain.Environment,
-	actor, workload, tag string,
-	result gitopsResult,
-) (string, error) {
-	outcome := domain.OutcomeSuccess
-	if result.errorMessage != "" {
-		outcome = domain.OutcomeFailure
+// deleteInProgress removes a previously created in_progress record best-effort.
+// If id is empty (record was never created) the call is a no-op.
+func (h *DeploymentHandlers) deleteInProgress(ctx context.Context, id string) {
+	if id == "" {
+		return
 	}
-	var commitSHA *string
-	if result.commitSHA != "" {
-		commitSHA = &result.commitSHA
-	}
-	var errMsg *string
-	if result.errorMessage != "" {
-		errMsg = &result.errorMessage
-	}
-	d := &domain.Deployment{
-		ActorDisplayName: actor,
-		ProductID:        product.ID,
-		EnvironmentID:    env.ID,
-		ComponentName:    workload,
-		EnvironmentName:  env.Name,
-		Tag:              tag,
-		CommitSHA:        commitSHA,
-		Outcome:          outcome,
-		ErrorMessage:     errMsg,
-	}
-	if err := h.deploymentStore.Create(c.Request.Context(), d); err != nil {
-		log.Printf("createDeploymentRecord product=%s env=%s: %v", product.Slug, env.Name, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
-		return "", err
-	}
-	return d.ID, nil
-}
-
-// persistDeploymentRecord inserts a deployment record without writing an HTTP response.
-// Use on code paths where the HTTP response has already been committed. Logs on store failure.
-func (h *DeploymentHandlers) persistDeploymentRecord(
-	ctx context.Context,
-	product *domain.Product,
-	env *domain.Environment,
-	actor, workload, tag string,
-	result gitopsResult,
-) {
-	outcome := domain.OutcomeSuccess
-	if result.errorMessage != "" {
-		outcome = domain.OutcomeFailure
-	}
-	var commitSHA *string
-	if result.commitSHA != "" {
-		commitSHA = &result.commitSHA
-	}
-	var errMsg *string
-	if result.errorMessage != "" {
-		errMsg = &result.errorMessage
-	}
-	d := &domain.Deployment{
-		ActorDisplayName: actor,
-		ProductID:        product.ID,
-		EnvironmentID:    env.ID,
-		ComponentName:    workload,
-		EnvironmentName:  env.Name,
-		Tag:              tag,
-		CommitSHA:        commitSHA,
-		Outcome:          outcome,
-		ErrorMessage:     errMsg,
-	}
-	if err := h.deploymentStore.Create(ctx, d); err != nil {
-		log.Printf("persistDeploymentRecord product=%s env=%s: %v", product.Slug, env.Name, err)
+	if err := h.deploymentStore.Delete(ctx, id); err != nil {
+		log.Printf("deleteInProgress id=%s: %v", id, err)
 	}
 }
 

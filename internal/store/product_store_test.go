@@ -34,8 +34,12 @@ func newProductTestPool(t *testing.T) *pgxpool.Pool {
 
 func cleanProducts(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	_, err := pool.Exec(context.Background(), "DELETE FROM products")
-	if err != nil {
+	// deployments reference products without ON DELETE CASCADE, so they must be
+	// removed first; environments (and their locks) cascade when products are deleted.
+	if _, err := pool.Exec(context.Background(), "DELETE FROM deployments"); err != nil {
+		t.Fatalf("cleanProducts (deployments): %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), "DELETE FROM products"); err != nil {
 		t.Fatalf("cleanProducts: %v", err)
 	}
 }
