@@ -15,12 +15,11 @@ import (
 type AdminHandlers struct {
 	store           store.ProductStore
 	deploymentStore store.DeploymentStore
-	staleDuration   time.Duration
 }
 
 // NewAdminHandlers returns an AdminHandlers wired to the given stores.
-func NewAdminHandlers(s store.ProductStore, ds store.DeploymentStore, staleDuration time.Duration) *AdminHandlers {
-	return &AdminHandlers{store: s, deploymentStore: ds, staleDuration: staleDuration}
+func NewAdminHandlers(s store.ProductStore, ds store.DeploymentStore) *AdminHandlers {
+	return &AdminHandlers{store: s, deploymentStore: ds}
 }
 
 // StaleDeploymentTimeout reads STALE_DEPLOYMENT_TIMEOUT_MINUTES from the environment.
@@ -62,10 +61,6 @@ type activityResponse struct {
 // Requires DevOps Admin role (enforced by router middleware).
 func (h *AdminHandlers) GetActivity(c *gin.Context) {
 	ctx := c.Request.Context()
-	if err := h.deploymentStore.MarkStaleInProgress(ctx, h.staleDuration); err != nil {
-		log.Printf("GetActivity: mark stale: %v", err)
-		// non-fatal: proceed
-	}
 	deployments, err := h.deploymentStore.ListActivity(ctx, 10)
 	if err != nil {
 		log.Printf("GetActivity: list activity: %v", err)

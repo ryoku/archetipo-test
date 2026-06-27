@@ -9,7 +9,7 @@ import (
 
 // RegisterAdminRoutes returns a route registration function for /admin endpoints.
 func RegisterAdminRoutes(ps store.ProductStore, ds store.DeploymentStore) func(*gin.RouterGroup) {
-	h := handlers.NewAdminHandlers(ps, ds, handlers.StaleDeploymentTimeout())
+	h := handlers.NewAdminHandlers(ps, ds)
 	return func(api *gin.RouterGroup) {
 		admin := api.Group("/admin", middleware.RequireAdmin())
 		{

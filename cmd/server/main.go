@@ -82,6 +82,18 @@ func main() {
 	)
 	registerSPA(r)
 
+	// Sweep in_progress deployments older than the stale timeout once per minute.
+	staleDur := handlers.StaleDeploymentTimeout()
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := deploymentStore.MarkStaleInProgress(context.Background(), staleDur); err != nil {
+				log.Printf("stale sweep: mark stale in_progress: %v", err)
+			}
+		}
+	}()
+
 	addr := ":" + port
 	log.Printf("Server listening on %s", addr)
 	if err := r.Run(addr); err != nil {

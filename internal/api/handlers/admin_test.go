@@ -59,7 +59,7 @@ var _ store.DeploymentStore = (*mockActivityStore)(nil)
 func setupAdminRouter(ms *mockAdminStore, ds store.DeploymentStore) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := handlers.NewAdminHandlers(ms, ds, 5*time.Minute)
+	h := handlers.NewAdminHandlers(ms, ds)
 	r.GET("/api/v1/admin/products", h.GetAdminProducts)
 	r.GET("/api/v1/admin/activity", h.GetActivity)
 	return r
@@ -228,4 +228,34 @@ func TestGetActivity_StoreError(t *testing.T) {
 	ds := &mockActivityStore{listActivityErr: errors.New("db error")}
 	w := doPlain(setupAdminRouter(&mockAdminStore{}, ds), http.MethodGet, "/api/v1/admin/activity")
 	assertStatus(t, w, http.StatusInternalServerError)
+}
+
+func TestGetActivity_MarkStaleError_StillReturnsActivity(t *testing.T) {
+	// The stale sweep was removed from GetActivity; this test documents the contract
+	// that a MarkStaleInProgress error (now handled in the background sweep) would
+	// not affect the activity response. We simulate it by injecting a store that
+	// returns an error from MarkStaleInProgress and verifying that GetActivity
+	// still returns the activity list with 200.
+	deployedAt := time.Date(2026, 6, 20, 10, 0, 0, 0, time.UTC)
+	ds := &mockActivityStore{
+		listActivityResult: []domain.Deployment{
+			{
+				ID:          "dep-id-1",
+				ProductSlug: "my-service",
+				Outcome:     domain.OutcomeSuccess,
+				DeployedAt:  deployedAt,
+			},
+		},
+		markStaleErr: errors.New("db timeout"), // non-fatal, not called by GetActivity
+	}
+	w := doPlain(setupAdminRouter(&mockAdminStore{}, ds), http.MethodGet, "/api/v1/admin/activity")
+	assertStatus(t, w, http.StatusOK)
+
+	var resp []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(resp) != 1 {
+		t.Errorf("expected 1 item, got %d", len(resp))
+	}
 }
