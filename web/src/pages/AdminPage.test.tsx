@@ -478,4 +478,28 @@ describe('activity panel', () => {
       expect(screen.getByTestId('activity-list')).toBeTruthy()
     })
   })
+
+  it('hides activity list when fetch fails after a successful load', async () => {
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity
+      .mockResolvedValueOnce([makeActivity()])
+      .mockRejectedValueOnce(new Error('poll error'))
+
+    renderPage()
+
+    // After first successful load, list is visible
+    await waitFor(() => {
+      expect(screen.getByTestId('activity-list')).toBeTruthy()
+    })
+
+    // Re-render to trigger re-fetch with the failing mock
+    cleanup()
+    mockListAdminActivity.mockRejectedValue(new Error('poll error'))
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('activity-error')).toBeTruthy()
+      expect(screen.queryByTestId('activity-list')).toBeNull()
+    })
+  })
 })

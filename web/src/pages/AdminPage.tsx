@@ -315,7 +315,7 @@ export default function AdminPage() {
               <span>Nessun evento di deployment recente.</span>
             </div>
           )}
-          {!activityLoading && activity.length > 0 && (
+          {!activityLoading && !activityError && activity.length > 0 && (
             <div className="admin-activity-list" data-testid="activity-list">
               {activity.map((event) => {
                 let dotClass: string
