@@ -27,7 +27,7 @@ type DeploymentStore interface {
 	// ListAll returns all deployment records across all products, ordered by deployed_at DESC.
 	ListAll(ctx context.Context, page, pageSize int) ([]domain.Deployment, int, error)
 	// UpdateOutcome updates outcome, commit_sha and error_message for an existing deployment.
-	UpdateOutcome(ctx context.Context, id, outcome string, commitSHA *string, errorMessage *string) error
+	UpdateOutcome(ctx context.Context, id string, outcome domain.DeploymentOutcome, commitSHA *string, errorMessage *string) error
 	// Delete removes the deployment record with the given ID, or returns ErrDeploymentNotFound.
 	Delete(ctx context.Context, id string) error
 	// ListActivity returns the N most recent deployments across all products, ordered by deployed_at DESC.
@@ -149,7 +149,7 @@ func (s *pgxDeploymentStore) ListAll(ctx context.Context, page, pageSize int) ([
 	return deployments, total, nil
 }
 
-func (s *pgxDeploymentStore) UpdateOutcome(ctx context.Context, id, outcome string, commitSHA *string, errorMessage *string) error {
+func (s *pgxDeploymentStore) UpdateOutcome(ctx context.Context, id string, outcome domain.DeploymentOutcome, commitSHA *string, errorMessage *string) error {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE deployments SET outcome = $2, commit_sha = $3, error_message = $4 WHERE id = $1`,
 		id, outcome, commitSHA, errorMessage,

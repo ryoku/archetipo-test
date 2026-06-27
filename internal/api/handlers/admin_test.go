@@ -49,7 +49,7 @@ func (m *mockActivityStore) ListByProduct(_ context.Context, _ string, _, _ int)
 func (m *mockActivityStore) ListAll(_ context.Context, _, _ int) ([]domain.Deployment, int, error) {
 	return nil, 0, nil
 }
-func (m *mockActivityStore) UpdateOutcome(_ context.Context, _, _ string, _ *string, _ *string) error {
+func (m *mockActivityStore) UpdateOutcome(_ context.Context, _ string, _ domain.DeploymentOutcome, _ *string, _ *string) error {
 	return nil
 }
 func (m *mockActivityStore) Delete(_ context.Context, _ string) error { return nil }
@@ -199,10 +199,10 @@ func TestGetActivity_ReturnsActivityList(t *testing.T) {
 	if resp[0]["product_slug"] != "my-service" {
 		t.Errorf("expected product_slug my-service, got %v", resp[0]["product_slug"])
 	}
-	if resp[0]["outcome"] != domain.OutcomeSuccess {
+	if resp[0]["outcome"] != string(domain.OutcomeSuccess) {
 		t.Errorf("expected outcome success, got %v", resp[0]["outcome"])
 	}
-	if resp[1]["outcome"] != domain.OutcomeInProgress {
+	if resp[1]["outcome"] != string(domain.OutcomeInProgress) {
 		t.Errorf("expected outcome in_progress, got %v", resp[1]["outcome"])
 	}
 	if resp[0]["deployed_at"] != "2026-06-20T10:00:00Z" {

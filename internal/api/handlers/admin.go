@@ -77,7 +77,7 @@ func (h *AdminHandlers) GetActivity(c *gin.Context) {
 			ProductSlug:      d.ProductSlug,
 			EnvironmentName:  d.EnvironmentName,
 			DeployedAt:       d.DeployedAt.UTC().Format(time.RFC3339),
-			Outcome:          d.Outcome,
+			Outcome:          string(d.Outcome),
 			ErrorMessage:     d.ErrorMessage,
 		}
 		resp[i] = r

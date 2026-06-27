@@ -223,7 +223,7 @@ func (noopDeploymentStore) ListByProduct(_ context.Context, _ string, _, _ int) 
 func (noopDeploymentStore) ListAll(_ context.Context, _, _ int) ([]domain.Deployment, int, error) {
 	return nil, 0, nil
 }
-func (noopDeploymentStore) UpdateOutcome(_ context.Context, _, _ string, _ *string, _ *string) error {
+func (noopDeploymentStore) UpdateOutcome(_ context.Context, _ string, _ domain.DeploymentOutcome, _ *string, _ *string) error {
 	return nil
 }
 func (noopDeploymentStore) Delete(_ context.Context, _ string) error { return nil }

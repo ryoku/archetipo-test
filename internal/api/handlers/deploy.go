@@ -278,7 +278,7 @@ func actorName(identity *domain.UserIdentity) string {
 
 // updateOutcome updates the outcome of an existing deployment record best-effort.
 // If id is empty (record was never created) the call is a no-op.
-func (h *DeploymentHandlers) updateOutcome(ctx context.Context, id, outcome string, commitSHA *string, errorMessage *string) {
+func (h *DeploymentHandlers) updateOutcome(ctx context.Context, id string, outcome domain.DeploymentOutcome, commitSHA *string, errorMessage *string) {
 	if id == "" {
 		return
 	}

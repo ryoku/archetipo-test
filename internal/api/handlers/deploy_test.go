@@ -63,7 +63,7 @@ type mockDeploymentStore struct {
 	getByIDFn             func(ctx context.Context, id string) (*domain.Deployment, error)
 	listByProductFn       func(ctx context.Context, productID string, page, pageSize int) ([]domain.Deployment, int, error)
 	listAllFn             func(ctx context.Context, page, pageSize int) ([]domain.Deployment, int, error)
-	updateOutcomeFn       func(ctx context.Context, id, outcome string, commitSHA *string, errorMessage *string) error
+	updateOutcomeFn       func(ctx context.Context, id string, outcome domain.DeploymentOutcome, commitSHA *string, errorMessage *string) error
 	deleteFn              func(ctx context.Context, id string) error
 	listActivityFn        func(ctx context.Context, limit int) ([]domain.Deployment, error)
 	markStaleInProgressFn func(ctx context.Context, olderThan time.Duration) error
@@ -94,7 +94,7 @@ func (m *mockDeploymentStore) ListAll(ctx context.Context, page, pageSize int) (
 	}
 	return nil, 0, nil
 }
-func (m *mockDeploymentStore) UpdateOutcome(ctx context.Context, id, outcome string, commitSHA *string, errorMessage *string) error {
+func (m *mockDeploymentStore) UpdateOutcome(ctx context.Context, id string, outcome domain.DeploymentOutcome, commitSHA *string, errorMessage *string) error {
 	if m.updateOutcomeFn != nil {
 		return m.updateOutcomeFn(ctx, id, outcome, commitSHA, errorMessage)
 	}
@@ -279,7 +279,7 @@ func TestDeploy_Returns202WithDeploymentID(t *testing.T) {
 			d.ID = "deploy-uuid-001"
 			return nil
 		},
-		updateOutcomeFn: func(_ context.Context, _, _ string, commitSHA *string, _ *string) error {
+		updateOutcomeFn: func(_ context.Context, _ string, _ domain.DeploymentOutcome, commitSHA *string, _ *string) error {
 			if commitSHA != nil {
 				updatedCommitSHA = *commitSHA
 			}
@@ -335,8 +335,8 @@ func TestDeploy_InProgressCreateError_Returns500(t *testing.T) {
 }
 
 func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
-	var createdOutcome string
-	var updatedOutcome string
+	var createdOutcome domain.DeploymentOutcome
+	var updatedOutcome domain.DeploymentOutcome
 	var updatedErrorMessage string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
@@ -344,7 +344,7 @@ func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
 			d.ID = "deploy-fail-id"
 			return nil
 		},
-		updateOutcomeFn: func(_ context.Context, _, outcome string, _ *string, errMsg *string) error {
+		updateOutcomeFn: func(_ context.Context, _ string, outcome domain.DeploymentOutcome, _ *string, errMsg *string) error {
 			updatedOutcome = outcome
 			if errMsg != nil {
 				updatedErrorMessage = *errMsg
@@ -783,8 +783,8 @@ func TestDeploy_ProductionEnv_ProductRegex_ConformingTag_Returns202(t *testing.T
 }
 
 func TestDeploy_Success_RecordsDeployment(t *testing.T) {
-	var createdOutcome string
-	var updatedOutcome string
+	var createdOutcome domain.DeploymentOutcome
+	var updatedOutcome domain.DeploymentOutcome
 	var updatedCommitSHA string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
@@ -792,7 +792,7 @@ func TestDeploy_Success_RecordsDeployment(t *testing.T) {
 			d.ID = "deploy-success-id"
 			return nil
 		},
-		updateOutcomeFn: func(_ context.Context, _, outcome string, commitSHA *string, _ *string) error {
+		updateOutcomeFn: func(_ context.Context, _ string, outcome domain.DeploymentOutcome, commitSHA *string, _ *string) error {
 			updatedOutcome = outcome
 			if commitSHA != nil {
 				updatedCommitSHA = *commitSHA
@@ -823,8 +823,8 @@ func TestDeploy_Success_RecordsDeployment(t *testing.T) {
 }
 
 func TestDeploy_GitOpsError_RecordsFailureDeployment(t *testing.T) {
-	var createdOutcome string
-	var updatedOutcome string
+	var createdOutcome domain.DeploymentOutcome
+	var updatedOutcome domain.DeploymentOutcome
 	var updatedErrMsg string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
@@ -832,7 +832,7 @@ func TestDeploy_GitOpsError_RecordsFailureDeployment(t *testing.T) {
 			d.ID = "deploy-fail-id"
 			return nil
 		},
-		updateOutcomeFn: func(_ context.Context, _, outcome string, _ *string, errMsg *string) error {
+		updateOutcomeFn: func(_ context.Context, _ string, outcome domain.DeploymentOutcome, _ *string, errMsg *string) error {
 			updatedOutcome = outcome
 			if errMsg != nil {
 				updatedErrMsg = *errMsg
@@ -868,12 +868,12 @@ func callLogDeploymentStore(createID string) (*mockDeploymentStore, *[]string) {
 	var callLog []string
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, d *domain.Deployment) error {
-			callLog = append(callLog, "create:"+d.Outcome)
+			callLog = append(callLog, "create:"+string(d.Outcome))
 			d.ID = createID
 			return nil
 		},
-		updateOutcomeFn: func(_ context.Context, _, outcome string, _ *string, _ *string) error {
-			callLog = append(callLog, "update:"+outcome)
+		updateOutcomeFn: func(_ context.Context, _ string, outcome domain.DeploymentOutcome, _ *string, _ *string) error {
+			callLog = append(callLog, "update:"+string(outcome))
 			return nil
 		},
 	}

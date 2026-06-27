@@ -2,10 +2,13 @@ package domain
 
 import "time"
 
+// DeploymentOutcome is the result of a deployment operation.
+type DeploymentOutcome string
+
 const (
-	OutcomeSuccess    = "success"
-	OutcomeFailure    = "failure"
-	OutcomeInProgress = "in_progress"
+	OutcomeSuccess    DeploymentOutcome = "success"
+	OutcomeFailure    DeploymentOutcome = "failure"
+	OutcomeInProgress DeploymentOutcome = "in_progress"
 )
 
 // Deployment records a single gitops apply operation.
@@ -19,7 +22,7 @@ type Deployment struct {
 	EnvironmentName  string
 	Tag              string
 	DeployedAt       time.Time
-	CommitSHA        *string // nil when the deploy failed before a commit was created
-	Outcome          string  // "success" | "failure" | "in_progress"
-	ErrorMessage     *string // non-nil only when Outcome is "failure"
+	CommitSHA        *string           // nil when the deploy failed before a commit was created
+	Outcome          DeploymentOutcome // "success" | "failure" | "in_progress"
+	ErrorMessage     *string           // non-nil only when Outcome is "failure"
 }
