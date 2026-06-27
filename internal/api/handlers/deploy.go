@@ -129,9 +129,10 @@ func (h *DeploymentHandlers) Deploy(c *gin.Context) {
 	var inProgressID string
 	if err := h.deploymentStore.Create(c.Request.Context(), inProgressRecord); err != nil {
 		log.Printf("deploy: create in_progress record product=%s env=%s: %v", productSlug, environmentID, err)
-	} else {
-		inProgressID = inProgressRecord.ID
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsgInternal})
+		return
 	}
+	inProgressID = inProgressRecord.ID
 
 	commitSHA, applyErrMsg, ok := h.applyGitOps(c, product, env, req.Workload, req.Tag, actor)
 
@@ -282,7 +283,11 @@ func (h *DeploymentHandlers) updateOutcome(ctx context.Context, id, outcome stri
 		return
 	}
 	if err := h.deploymentStore.UpdateOutcome(ctx, id, outcome, commitSHA, errorMessage); err != nil {
-		log.Printf("updateOutcome id=%s: %v", id, err)
+		if outcome == domain.OutcomeSuccess {
+			log.Printf("updateOutcome: gitops succeeded but outcome record stuck as in_progress id=%s (will be swept by stale cleaner): %v", id, err)
+		} else {
+			log.Printf("updateOutcome id=%s outcome=%s: %v", id, outcome, err)
+		}
 	}
 }
 

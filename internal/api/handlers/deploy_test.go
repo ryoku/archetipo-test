@@ -309,9 +309,9 @@ func TestDeploy_Returns202WithDeploymentID(t *testing.T) {
 	assert.Equal(t, "deadbeef", updatedCommitSHA)
 }
 
-func TestDeploy_InProgressCreateError_DeployContinues(t *testing.T) {
-	// Create failure for the in_progress record is best-effort: the deploy
-	// proceeds and returns 202 with an empty deployment_id.
+func TestDeploy_InProgressCreateError_Returns500(t *testing.T) {
+	// Create failure is fatal: gitops must not run without an audit record.
+	// mockGitOpsApplier.Apply panics when applyFn is nil, so if gitops ran this test would panic.
 	ds := &mockDeploymentStore{
 		createFn: func(_ context.Context, _ *domain.Deployment) error {
 			return errors.New("db connection lost")
@@ -322,7 +322,7 @@ func TestDeploy_InProgressCreateError_DeployContinues(t *testing.T) {
 		envStoreWithEnv(deployFixtureEnv),
 		acquiringLockStore(),
 		ds,
-		successApplier(),
+		&mockGitOpsApplier{}, // no applyFn → panics if called
 		editorIdentityForDeploy("my-service"),
 	)
 
@@ -331,7 +331,7 @@ func TestDeploy_InProgressCreateError_DeployContinues(t *testing.T) {
 		"tag":      "v1.2.3",
 	})
 
-	assert.Equal(t, http.StatusAccepted, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestDeploy_GitOpsError_StoresFailureRecord(t *testing.T) {
