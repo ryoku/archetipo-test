@@ -66,7 +66,7 @@ func TestDeploymentStore_Create(t *testing.T) {
 		Tag:              "v1.2.3",
 		DeployedAt:       time.Now().UTC().Truncate(time.Microsecond),
 		CommitSHA:        strPtr("abc123"),
-		Outcome:          "success",
+		Outcome:          domain.OutcomeSuccess,
 	}
 
 	err := s.Create(context.Background(), d)
@@ -87,7 +87,7 @@ func seedNDeployments(t *testing.T, s store.DeploymentStore, productID, envID st
 			Tag:              "v1.0." + string(rune('0'+i)),
 			DeployedAt:       base.Add(time.Duration(i) * time.Minute),
 			CommitSHA:        strPtr("sha" + string(rune('0'+i))),
-			Outcome:          "success",
+			Outcome:          domain.OutcomeSuccess,
 		})
 		require.NoError(t, err)
 	}
@@ -208,7 +208,7 @@ func TestDeploymentStore_Create_FailureOutcome(t *testing.T) {
 		Tag:              "v1.2.3",
 		DeployedAt:       time.Now().UTC().Truncate(time.Microsecond),
 		CommitSHA:        nil,
-		Outcome:          "failure",
+		Outcome:          domain.OutcomeFailure,
 		ErrorMessage:     &errMsg,
 	}
 
@@ -218,7 +218,7 @@ func TestDeploymentStore_Create_FailureOutcome(t *testing.T) {
 	deployments, total, err := s.ListByProduct(context.Background(), productID, 1, 20)
 	require.NoError(t, err)
 	require.Equal(t, 1, total)
-	assert.Equal(t, "failure", deployments[0].Outcome)
+	assert.Equal(t, domain.OutcomeFailure, deployments[0].Outcome)
 	assert.Nil(t, deployments[0].CommitSHA)
 	require.NotNil(t, deployments[0].ErrorMessage)
 	assert.Equal(t, errMsg, *deployments[0].ErrorMessage)
