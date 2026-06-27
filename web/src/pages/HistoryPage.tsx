@@ -19,6 +19,13 @@ function OutcomeBadge({ outcome }: { readonly outcome: string }) {
       </span>
     )
   }
+  if (outcome === 'in_progress') {
+    return (
+      <span className="hist-outcome hist-outcome--in-progress">
+        in progress
+      </span>
+    )
+  }
   return (
     <span className="hist-outcome hist-outcome--failure">
       <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2">
@@ -47,6 +54,12 @@ function ActorAvatar({ name }: { readonly name: string }) {
   return <span className="hist-actor-avatar">{initials}</span>
 }
 
+function rowClass(outcome: Deployment['outcome']): string | undefined {
+  if (outcome === 'failure') return 'hist-row--failure'
+  if (outcome === 'in_progress') return 'hist-row--in-progress'
+  return undefined
+}
+
 function HistoryTable({ deployments }: { readonly deployments: Deployment[] }) {
   if (deployments.length === 0) {
     return (
@@ -71,7 +84,7 @@ function HistoryTable({ deployments }: { readonly deployments: Deployment[] }) {
         </thead>
         <tbody>
           {deployments.map((d) => (
-            <tr key={d.id} className={d.outcome === 'failure' ? 'hist-row--failure' : undefined}>
+            <tr key={d.id} className={rowClass(d.outcome)}>
               <td>
                 <div className="hist-actor-cell">
                   <ActorAvatar name={d.actor_display_name} />

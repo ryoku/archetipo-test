@@ -239,7 +239,7 @@ export interface Deployment {
   tag: string
   deployed_at: string
   commit_sha: string | null
-  outcome: 'success' | 'failure'
+  outcome: 'success' | 'failure' | 'in_progress'
   error_message?: string
 }
 
@@ -313,7 +313,7 @@ export interface ActivityEvent {
   environment_name: string
   deployed_at: string
   outcome: 'in_progress' | 'success' | 'failure'
-  error_message?: string | null
+  error_message?: string
 }
 
 export async function listAdminActivity(token: string): Promise<ActivityEvent[]> {

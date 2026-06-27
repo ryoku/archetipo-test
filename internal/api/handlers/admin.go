@@ -54,7 +54,7 @@ type activityResponse struct {
 	EnvironmentName  string  `json:"environment_name"`
 	DeployedAt       string  `json:"deployed_at"`
 	Outcome          string  `json:"outcome"`
-	ErrorMessage     *string `json:"error_message"`
+	ErrorMessage     *string `json:"error_message,omitempty"`
 }
 
 // GetActivity handles GET /admin/activity.
