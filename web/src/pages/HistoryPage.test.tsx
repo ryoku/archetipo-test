@@ -204,6 +204,17 @@ describe('HistoryPage — data', () => {
     })
   })
 
+  it('renders in-progress outcome badge', async () => {
+    mockListDeployments.mockResolvedValue({
+      ...makeHistoryResponse(1),
+      deployments: [{ ...makeHistoryResponse(1).deployments[0], outcome: 'in_progress' }],
+    })
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByText('in progress')).toBeTruthy()
+    })
+  })
+
   it('renders env badge for production env', async () => {
     mockListDeployments.mockResolvedValue({
       ...makeHistoryResponse(1),

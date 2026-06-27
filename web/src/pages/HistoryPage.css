@@ -135,7 +135,7 @@
 }
 .hist-outcome--in-progress {
   color: #7fa8f0;
-  background: rgba(91, 130, 212, 0.1);
+  background: #0b1222;
   border-color: rgba(91, 130, 212, 0.25);
 }
 

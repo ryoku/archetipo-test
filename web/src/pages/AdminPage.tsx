@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { listAdminProducts, type AdminProduct, listAdminActivity, type ActivityEvent } from '../api/products'
+import { formatRelativeTime } from '../utils/formatRelativeTime'
 import './AdminPage.css'
 
 type SortCol = 'name' | 'environment_count' | 'last_deployed_at'
@@ -11,15 +12,6 @@ function getInitials(name: string): string {
   return name.split(/\s+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-function formatRelativeTime(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diffMs / 60000)
-  if (minutes < 1) return 'adesso'
-  if (minutes < 60) return `${minutes}m fa`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h fa`
-  return `${Math.floor(hours / 24)}g fa`
-}
 
 function formatDate(iso: string | null): string {
   if (!iso) return 'Never'

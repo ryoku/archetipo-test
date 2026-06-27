@@ -33,7 +33,7 @@ type DeploymentStore interface {
 	// ListActivity returns the N most recent deployments across all products, ordered by deployed_at DESC.
 	// ProductSlug is populated via JOIN with products.
 	ListActivity(ctx context.Context, limit int) ([]domain.Deployment, error)
-	// MarkStaleInProgress marks in_progress deployments older than olderThan as failure with error_message = "timeout".
+	// MarkStaleInProgress marks in_progress deployments older than olderThan (measured from deployed_at) as failure with error_message = "deployment status never finalized".
 	MarkStaleInProgress(ctx context.Context, olderThan time.Duration) error
 }
 
@@ -200,7 +200,7 @@ func (s *pgxDeploymentStore) ListActivity(ctx context.Context, limit int) ([]dom
 func (s *pgxDeploymentStore) MarkStaleInProgress(ctx context.Context, olderThan time.Duration) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE deployments
-		 SET outcome = 'failure', error_message = 'timeout'
+		 SET outcome = 'failure', error_message = 'deployment status never finalized'
 		 WHERE outcome = 'in_progress' AND deployed_at < NOW() - make_interval(secs => $1)`,
 		olderThan.Seconds(),
 	)

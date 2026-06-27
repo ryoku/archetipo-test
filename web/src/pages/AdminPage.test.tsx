@@ -502,4 +502,14 @@ describe('activity panel', () => {
       expect(screen.queryByTestId('activity-list')).toBeNull()
     })
   })
+
+  it('renders a relative timestamp in each activity row', async () => {
+    // makeActivity sets deployed_at to 1 minute ago, so the relative time is "1m fa"
+    mockListAdminProducts.mockResolvedValue([])
+    mockListAdminActivity.mockResolvedValue([makeActivity()])
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByText('1m fa')).toBeTruthy()
+    })
+  })
 })

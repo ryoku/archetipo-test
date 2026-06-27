@@ -230,32 +230,26 @@ func TestGetActivity_StoreError(t *testing.T) {
 	assertStatus(t, w, http.StatusInternalServerError)
 }
 
-func TestGetActivity_MarkStaleError_StillReturnsActivity(t *testing.T) {
-	// The stale sweep was removed from GetActivity; this test documents the contract
-	// that a MarkStaleInProgress error (now handled in the background sweep) would
-	// not affect the activity response. We simulate it by injecting a store that
-	// returns an error from MarkStaleInProgress and verifying that GetActivity
-	// still returns the activity list with 200.
-	deployedAt := time.Date(2026, 6, 20, 10, 0, 0, 0, time.UTC)
-	ds := &mockActivityStore{
-		listActivityResult: []domain.Deployment{
-			{
-				ID:          "dep-id-1",
-				ProductSlug: "my-service",
-				Outcome:     domain.OutcomeSuccess,
-				DeployedAt:  deployedAt,
-			},
-		},
-		markStaleErr: errors.New("db timeout"), // non-fatal, not called by GetActivity
+func TestStaleDeploymentTimeout(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     time.Duration
+	}{
+		{"default when unset", "", 5 * time.Minute},
+		{"default when invalid", "notanumber", 5 * time.Minute},
+		{"default when zero", "0", 5 * time.Minute},
+		{"default when negative", "-1", 5 * time.Minute},
+		{"uses env value when valid", "10", 10 * time.Minute},
+		{"uses env value of 1", "1", 1 * time.Minute},
 	}
-	w := doPlain(setupAdminRouter(&mockAdminStore{}, ds), http.MethodGet, "/api/v1/admin/activity")
-	assertStatus(t, w, http.StatusOK)
-
-	var resp []map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if len(resp) != 1 {
-		t.Errorf("expected 1 item, got %d", len(resp))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("STALE_DEPLOYMENT_TIMEOUT_MINUTES", tc.envValue)
+			got := handlers.StaleDeploymentTimeout()
+			if got != tc.want {
+				t.Errorf("StaleDeploymentTimeout() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

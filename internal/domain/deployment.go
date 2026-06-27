@@ -22,7 +22,7 @@ type Deployment struct {
 	EnvironmentName  string
 	Tag              string
 	DeployedAt       time.Time
-	CommitSHA        *string           // nil when the deploy failed before a commit was created
+	CommitSHA        *string           // nil until a commit is created — i.e. while in_progress, or if the deploy failed before committing
 	Outcome          DeploymentOutcome // "success" | "failure" | "in_progress"
-	ErrorMessage     *string           // non-nil only when Outcome is "failure"
+	ErrorMessage     *string           // non-nil only for failure outcomes; nil for success and in_progress
 }

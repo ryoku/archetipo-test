@@ -85,6 +85,11 @@ func main() {
 	// Sweep in_progress deployments older than the stale timeout once per minute.
 	staleDur := handlers.StaleDeploymentTimeout()
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("stale sweep: recovered from panic: %v", r)
+			}
+		}()
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
