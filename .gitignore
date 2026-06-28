@@ -3,6 +3,7 @@ vendor/
 tmp/
 .env
 *.env.*
+!.env.example
 *.test
 .DS_Store
 .idea/
