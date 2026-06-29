@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-051 · Platform API (token-driven shell)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ── Product hero layout ─────────────────────────────────────── */
+.product-hero { display: flex; align-items: flex-start; gap: 16px; }
+.hero-icon {
+  width: 52px; height: 52px;
+  background: var(--brand-black);
+  border-radius: var(--r-lg);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 17px;
+  color: #fff; flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(10,10,10,.24);
+}
+.hero-name { font-size: 26px; font-weight: 800; letter-spacing: -0.8px; color: var(--text-strong); }
+.hero-meta { display: flex; align-items: center; gap: 9px; margin-top: 8px; flex-wrap: wrap; }
+.conv-note {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10.5px;
+  padding: 3px 9px; border-radius: var(--r-sm);
+  background: var(--primary-tint); border: 1px solid var(--primary-line);
+  color: var(--primary);
+}
+
+/* ── Two-column layout ───────────────────────────────────────── */
+.grid-2 { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+@media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+
+/* ── Component list ──────────────────────────────────────────── */
+.comp-row {
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--muted);
+  transition: background var(--t);
+}
+.comp-row:last-child { border-bottom: none; }
+.comp-row:hover { background: var(--surface-raised); }
+.comp-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--r-md);
+  background: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  color: var(--text-body); flex-shrink: 0;
+}
+.comp-detail { flex: 1; min-width: 0; }
+.comp-row .comp-name { font-size: 13px; font-weight: 600; color: var(--text-strong); }
+.comp-row .comp-path {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-faint); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.comp-envs { display: flex; gap: 5px; }
+
+/* ── Team members ────────────────────────────────────────────── */
+.team-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--muted);
+  transition: background var(--t);
+}
+.team-row:last-child { border-bottom: none; }
+.team-row:hover { background: var(--surface-raised); }
+.team-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.team-name { font-size: 13px; font-weight: 600; color: var(--text-strong); }
+.team-sub { font-size: 10.5px; color: var(--text-faint); margin-top: 1px; }
+.team-role { margin-left: auto; }
+
+/* ── Sidebar annotation pill ─────────────────────────────────── */
+.token-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 9.5px;
+  padding: 2px 7px; border-radius: var(--r-sm);
+  background: rgba(204,0,0,.06); border: 1px solid var(--primary-line);
+  color: var(--primary); white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- BRAND RAIL -->
+  <div class="brand-rail"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">5</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployment
+      </a>
+      <div class="nav-label">Piattaforma</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Utenti &amp; RBAC
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/>
+          <path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="2"/>
+          <path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.5 3.5l.7.7M11.8 11.8l.7.7M3.5 12.5l.7-.7M11.8 4.2l.7-.7"/>
+        </svg>
+        Impostazioni
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar">RI</div>
+        <div>
+          <div class="user-name">Riccardo Ianniello</div>
+          <div class="user-role">Admin — platform</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- Token annotation strip -->
+    <div class="token-strip">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="6" cy="6" r="5"/><path d="M6 5v4M6 3.5v.5"/>
+      </svg>
+      <strong>US-051</strong> · Shell token-driven · brand-rail: <strong>var(--primary)</strong> · top-bar breadcrumb · btn-primary: <strong>var(--primary)</strong> · environment badges: <strong>var(--env-*)</strong>
+    </div>
+
+    <!-- Page header with breadcrumb -->
+    <div class="page-top">
+      <div style="flex:1;">
+        <div class="breadcrumb" style="margin-bottom:14px;">
+          <a href="index.html" class="bc-link">Prodotti</a>
+          <span class="bc-sep">/</span>
+          <span style="color:var(--text-strong);font-weight:600;">Platform API</span>
+        </div>
+        <div class="product-hero">
+          <div class="hero-icon">PL</div>
+          <div>
+            <div class="hero-name">Platform API</div>
+            <div class="hero-meta">
+              <span class="tag-chip">platform-api</span>
+              <span class="badge badge-brand">DevOps</span>
+              <span class="badge badge-success">
+                <span class="dot dot-pulse" style="width:5px;height:5px;"></span>
+                In sync
+              </span>
+              <span class="conv-note">tag: vMAJOR.MINOR.PATCH</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 items-center">
+        <button class="btn btn-outline btn-sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="6" cy="3" r="1.5"/><circle cx="6" cy="9" r="1.5"/>
+            <path d="M6 4.5v3"/>
+          </svg>
+          Modifica
+        </button>
+        <button class="btn btn-danger btn-sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 3h8M5 3V2h2v1M10 3l-.6 7.4A1 1 0 019.4 11H2.6a1 1 0 01-1-.6L1 3"/>
+          </svg>
+          Elimina
+        </button>
+        <button class="btn btn-primary" onclick="document.getElementById('deployModal').classList.remove('hidden')">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6.5 1.5v8M3 6l3.5 3.5L10 6M1.5 11.5h10"/>
+          </svg>
+          Deploy
+        </button>
+      </div>
+    </div>
+
+    <!-- Page body -->
+    <div class="page-body">
+
+      <!-- Tab navigation -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this,'deployment')">Deployment</button>
+        <button class="tab-btn" onclick="switchTab(this,'componenti')">Componenti</button>
+        <button class="tab-btn" onclick="switchTab(this,'team')">Team</button>
+        <button class="tab-btn" onclick="switchTab(this,'cronologia')">Cronologia</button>
+      </div>
+
+      <!-- ── TAB: Deployment ── -->
+      <div class="tab-panel active" id="tab-deployment">
+        <div class="grid-2">
+
+          <!-- LEFT: deployment matrix -->
+          <div>
+            <div class="section-title">Matrice di deployment</div>
+            <div class="card" style="padding:6px;">
+              <div class="matrix-wrap">
+                <table class="matrix">
+                  <thead>
+                    <tr>
+                      <th class="component-th">Componente</th>
+                      <th>
+                        <div class="env-header">
+                          <span class="env-dot dev"></span>DEV
+                        </div>
+                      </th>
+                      <th>
+                        <div class="env-header">
+                          <span class="env-dot qa"></span>QA
+                        </div>
+                      </th>
+                      <th>
+                        <div class="env-header">
+                          <span class="env-dot prod"></span>PROD
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="component-td">
+                        <div class="comp-name">api</div>
+                        <div class="comp-path">apps/platform/api</div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-dev">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.5</div>
+                          <div class="dc-time">10 min fa · RI</div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-qa">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.4</div>
+                          <div class="dc-time">2 ore fa · LR</div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-prod">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.5</div>
+                          <div class="dc-time">2 min fa · RI</div>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="component-td">
+                        <div class="comp-name">worker</div>
+                        <div class="comp-path">apps/platform/worker</div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-dev">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.5</div>
+                          <div class="dc-time">10 min fa · RI</div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-qa">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.3</div>
+                          <div class="dc-time">1 giorno fa · LR</div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell">
+                          <span class="dc-empty">— non deployato</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="component-td">
+                        <div class="comp-name">migrator</div>
+                        <div class="comp-path">apps/platform/migrator</div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-dev">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.5</div>
+                          <div class="dc-time">10 min fa · RI</div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-qa">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.4</div>
+                          <div class="dc-time">2 ore fa · LR</div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="deploy-cell env-prod">
+                          <span class="dc-arrow">→</span>
+                          <div class="dc-tag">v2.1.4</div>
+                          <div class="dc-time">ieri · RI</div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Token legend below matrix -->
+            <div class="flex gap-2 mt-4" style="flex-wrap:wrap;">
+              <span class="token-pill">--env-dev: #6B7280</span>
+              <span class="token-pill">--env-qa: #1D4ED8</span>
+              <span class="token-pill">--env-prod: #0A0A0A</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: activity + quick stats -->
+          <div style="display:flex;flex-direction:column;gap:18px;">
+
+            <!-- Quick stats -->
+            <div class="card" style="padding:16px 18px;">
+              <div class="card-header" style="margin-bottom:12px;">
+                <div class="card-label">Overview</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div>
+                  <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--text-strong);letter-spacing:-1px;">3</div>
+                  <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-top:4px;">Componenti</div>
+                </div>
+                <div>
+                  <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--status-success);letter-spacing:-1px;">100%</div>
+                  <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-top:4px;">Flux sync</div>
+                </div>
+                <div>
+                  <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--text-strong);letter-spacing:-1px;">7</div>
+                  <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-top:4px;">Deploy (30gg)</div>
+                </div>
+                <div>
+                  <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--text-strong);letter-spacing:-1px;">4</div>
+                  <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-top:4px;">Membri team</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent activity -->
+            <div>
+              <div class="section-title">Attività recente</div>
+              <div class="card">
+                <div class="hist-row">
+                  <div class="hist-avatar">RI</div>
+                  <div class="hist-detail">
+                    <div class="hist-line"><strong>Riccardo</strong> ha deployato <strong>api</strong> su <span class="badge badge-prod" style="font-size:9.5px;padding:1px 6px;">prod</span></div>
+                    <div class="hist-meta">v2.1.5 · 2 min fa</div>
+                  </div>
+                </div>
+                <div class="hist-row">
+                  <div class="hist-avatar">RI</div>
+                  <div class="hist-detail">
+                    <div class="hist-line"><strong>Riccardo</strong> ha deployato <strong>worker</strong> su <span class="badge badge-dev" style="font-size:9.5px;padding:1px 6px;">dev</span></div>
+                    <div class="hist-meta">v2.1.5 · 10 min fa</div>
+                  </div>
+                </div>
+                <div class="hist-row">
+                  <div class="hist-avatar" style="background:var(--env-qa);">LR</div>
+                  <div class="hist-detail">
+                    <div class="hist-line"><strong>Laura</strong> ha deployato <strong>api</strong> su <span class="badge badge-qa" style="font-size:9.5px;padding:1px 6px;">qa</span></div>
+                    <div class="hist-meta">v2.1.4 · 2 ore fa</div>
+                  </div>
+                </div>
+                <div class="hist-row">
+                  <div class="hist-avatar" style="background:#4B5563;">GM</div>
+                  <div class="hist-detail">
+                    <div class="hist-line"><strong>Giulio</strong> ha modificato <strong>migrator</strong></div>
+                    <div class="hist-meta">Aggiornato path GitOps · ieri</div>
+                  </div>
+                </div>
+                <hr class="divider">
+                <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;">
+                  Vedi cronologia completa
+                </button>
+              </div>
+            </div>
+
+          </div><!-- /right column -->
+        </div>
+      </div><!-- /tab-deployment -->
+
+      <!-- ── TAB: Componenti ── -->
+      <div class="tab-panel" id="tab-componenti">
+        <div class="flex items-center gap-2 mb-4" style="justify-content:space-between;">
+          <div style="font-size:13px;color:var(--text-soft);">3 componenti registrati</div>
+          <button class="btn btn-primary btn-sm">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5.5 1v9M1 5.5h9"/>
+            </svg>
+            Aggiungi componente
+          </button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="comp-row">
+            <div class="comp-icon">AP</div>
+            <div class="comp-detail">
+              <div class="comp-name">api</div>
+              <div class="comp-path">apps/platform/api</div>
+            </div>
+            <div class="comp-envs">
+              <span class="badge badge-dev">dev</span>
+              <span class="badge badge-qa">qa</span>
+              <span class="badge badge-prod">prod</span>
+            </div>
+            <button class="btn btn-ghost btn-sm ml-auto">Dettagli</button>
+          </div>
+          <div class="comp-row">
+            <div class="comp-icon">WK</div>
+            <div class="comp-detail">
+              <div class="comp-name">worker</div>
+              <div class="comp-path">apps/platform/worker</div>
+            </div>
+            <div class="comp-envs">
+              <span class="badge badge-dev">dev</span>
+              <span class="badge badge-qa">qa</span>
+              <span class="badge badge-default">—</span>
+            </div>
+            <button class="btn btn-ghost btn-sm ml-auto">Dettagli</button>
+          </div>
+          <div class="comp-row">
+            <div class="comp-icon">MG</div>
+            <div class="comp-detail">
+              <div class="comp-name">migrator</div>
+              <div class="comp-path">apps/platform/migrator</div>
+            </div>
+            <div class="comp-envs">
+              <span class="badge badge-dev">dev</span>
+              <span class="badge badge-qa">qa</span>
+              <span class="badge badge-prod">prod</span>
+            </div>
+            <button class="btn btn-ghost btn-sm ml-auto">Dettagli</button>
+          </div>
+        </div>
+      </div><!-- /tab-componenti -->
+
+      <!-- ── TAB: Team ── -->
+      <div class="tab-panel" id="tab-team">
+        <div class="flex items-center gap-2 mb-4" style="justify-content:space-between;">
+          <div style="font-size:13px;color:var(--text-soft);">4 membri con accesso a platform-api</div>
+          <button class="btn btn-outline btn-sm">Gestisci accessi</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="team-row">
+            <div class="team-avatar" style="background:var(--primary);">RI</div>
+            <div>
+              <div class="team-name">Riccardo Ianniello</div>
+              <div class="team-sub">riccardo@example.com</div>
+            </div>
+            <div class="team-role">
+              <span class="badge badge-error">Admin</span>
+            </div>
+          </div>
+          <div class="team-row">
+            <div class="team-avatar" style="background:var(--env-qa);">LR</div>
+            <div>
+              <div class="team-name">Laura Russo</div>
+              <div class="team-sub">laura@example.com</div>
+            </div>
+            <div class="team-role">
+              <span class="badge badge-brand">Editor</span>
+            </div>
+          </div>
+          <div class="team-row">
+            <div class="team-avatar" style="background:#4B5563;">GM</div>
+            <div>
+              <div class="team-name">Giulio Marchetti</div>
+              <div class="team-sub">giulio@example.com</div>
+            </div>
+            <div class="team-role">
+              <span class="badge badge-brand">Editor</span>
+            </div>
+          </div>
+          <div class="team-row">
+            <div class="team-avatar" style="background:var(--status-success);">FC</div>
+            <div>
+              <div class="team-name">Federica Conti</div>
+              <div class="team-sub">federica@example.com</div>
+            </div>
+            <div class="team-role">
+              <span class="badge badge-default">Viewer</span>
+            </div>
+          </div>
+        </div>
+      </div><!-- /tab-team -->
+
+      <!-- ── TAB: Cronologia ── -->
+      <div class="tab-panel" id="tab-cronologia">
+        <div class="card">
+          <div class="hist-row">
+            <div class="hist-avatar">RI</div>
+            <div class="hist-detail">
+              <div class="hist-line"><strong>Riccardo</strong> ha deployato <strong>api</strong> → <span class="badge badge-prod" style="font-size:9.5px;padding:1px 6px;">prod</span></div>
+              <div class="hist-meta">v2.1.5 · oggi 14:32</div>
+            </div>
+            <div class="hist-time">2 min fa</div>
+          </div>
+          <div class="hist-row">
+            <div class="hist-avatar">RI</div>
+            <div class="hist-detail">
+              <div class="hist-line"><strong>Riccardo</strong> ha deployato <strong>worker</strong> → <span class="badge badge-dev" style="font-size:9.5px;padding:1px 6px;">dev</span></div>
+              <div class="hist-meta">v2.1.5 · oggi 14:22</div>
+            </div>
+            <div class="hist-time">10 min fa</div>
+          </div>
+          <div class="hist-row">
+            <div class="hist-avatar" style="background:var(--env-qa);">LR</div>
+            <div class="hist-detail">
+              <div class="hist-line"><strong>Laura</strong> ha deployato <strong>api</strong> → <span class="badge badge-qa" style="font-size:9.5px;padding:1px 6px;">qa</span></div>
+              <div class="hist-meta">v2.1.4 · oggi 12:15</div>
+            </div>
+            <div class="hist-time">2 ore fa</div>
+          </div>
+          <div class="hist-row">
+            <div class="hist-avatar" style="background:#4B5563;">GM</div>
+            <div class="hist-detail">
+              <div class="hist-line"><strong>Giulio</strong> ha modificato la configurazione di <strong>migrator</strong></div>
+              <div class="hist-meta">Aggiornato path kustomize · ieri 09:04</div>
+            </div>
+            <div class="hist-time">ieri</div>
+          </div>
+          <div class="hist-row">
+            <div class="hist-avatar">RI</div>
+            <div class="hist-detail">
+              <div class="hist-line"><strong>Riccardo</strong> ha deployato <strong>migrator</strong> → <span class="badge badge-prod" style="font-size:9.5px;padding:1px 6px;">prod</span></div>
+              <div class="hist-meta">v2.1.4 · ieri 11:50</div>
+            </div>
+            <div class="hist-time">ieri</div>
+          </div>
+          <div class="hist-row">
+            <div class="hist-avatar" style="background:var(--env-qa);">LR</div>
+            <div class="hist-detail">
+              <div class="hist-line"><strong>Laura</strong> ha deployato <strong>worker</strong> → <span class="badge badge-qa" style="font-size:9.5px;padding:1px 6px;">qa</span></div>
+              <div class="hist-meta">v2.1.3 · 2 giorni fa</div>
+            </div>
+            <div class="hist-time">2gg fa</div>
+          </div>
+          <hr class="divider">
+          <div class="flex items-center gap-2" style="justify-content:space-between;">
+            <span class="text-xs text-faint">Ultimi 30 giorni · 7 eventi</span>
+            <button class="btn btn-ghost btn-sm">Esporta CSV</button>
+          </div>
+        </div>
+      </div><!-- /tab-cronologia -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- DEPLOY MODAL -->
+<div class="backdrop hidden" id="deployModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Deploy · Platform API</div>
+      <button class="modal-close" onclick="document.getElementById('deployModal').classList.add('hidden')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-warn">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" style="flex-shrink:0;margin-top:1px;">
+          <path d="M7 1l6 11H1L7 1zM7 5.5v3M7 10.2v.3"/>
+        </svg>
+        Stai deployando in <strong>&nbsp;produzione</strong>. L'operazione richiede conferma esplicita.
+      </div>
+      <div class="field">
+        <label class="field-label">Componente</label>
+        <div class="flex gap-2" style="flex-wrap:wrap;">
+          <button class="filter-chip on">api</button>
+          <button class="filter-chip">worker</button>
+          <button class="filter-chip">migrator</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Ambiente di destinazione</label>
+        <div class="flex gap-2">
+          <button class="filter-chip">
+            <span class="env-dot dev" style="width:7px;height:7px;border-radius:50%;background:var(--env-dev);display:inline-block;margin-right:4px;"></span>
+            dev
+          </button>
+          <button class="filter-chip">
+            <span class="env-dot qa" style="width:7px;height:7px;border-radius:50%;background:var(--env-qa);display:inline-block;margin-right:4px;"></span>
+            qa
+          </button>
+          <button class="filter-chip on">
+            <span class="env-dot prod" style="width:7px;height:7px;border-radius:50%;background:#fff;display:inline-block;margin-right:4px;"></span>
+            prod
+          </button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Tag immagine</label>
+        <div class="input-wrap">
+          <input type="text" class="input" value="v2.1.5" readonly>
+        </div>
+        <div class="text-xs text-faint mt-2">Ultimo tag su Artifact Registry · pushato 8 min fa da RI</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="flex items-center gap-2">
+        <div class="dot dot-ok"></div>
+        <span class="text-xs text-soft">Nessun lock attivo su prod</span>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-ghost" onclick="document.getElementById('deployModal').classList.add('hidden')">Annulla</button>
+        <button class="btn btn-primary" onclick="document.getElementById('deployModal').classList.add('hidden');showSuccessToast()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6.5 1.5v8M3 6l3.5 3.5L10 6"/>
+          </svg>
+          Conferma deploy in prod
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+function switchTab(btn, id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+function showSuccessToast() {
+  const stack = document.getElementById('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast toast-ok';
+  t.innerHTML = `
+    <div class="dot dot-ok"></div>
+    <div>
+      <div class="toast-msg">Deploy avviato con successo</div>
+      <div class="toast-mono">platform-api/api → prod · v2.1.5</div>
+    </div>
+  `;
+  stack.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// Filter chip toggle
+document.querySelectorAll('.filter-chip').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const group = this.closest('.flex');
+    group.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('on'));
+    this.classList.add('on');
+  });
+});
+</script>
+</body>
+</html>

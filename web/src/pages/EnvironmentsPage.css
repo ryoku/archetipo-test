@@ -7,19 +7,19 @@
   font-size: 11px;
   font-weight: 500;
   border: 1px solid transparent;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Variant classes */
-.env-type-dev        { color: #ffffff; background: #1a6b40; border-color: #2a9a5c; }
-.env-type-integration{ color: #ffffff; background: #1e4b9e; border-color: #2d6acc; }
-.env-type-production { color: #ffffff; background: #a03010; border-color: #cc4422; }
+.env-type-dev        { color: var(--env-dev); background: var(--dev-tint); border-color: rgba(107, 114, 128, 0.25); }
+.env-type-integration{ color: var(--env-qa); background: var(--qa-tint); border-color: rgba(29, 78, 216, 0.25); }
+.env-type-production { color: #fff; background: var(--env-prod); }
 
-/* Overlay path cell — monospace, teal, truncated */
+/* Overlay path cell — monospace, truncated */
 .env-path-str {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
-  color: #90d0c8;
+  color: var(--text-soft);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

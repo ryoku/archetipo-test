@@ -252,7 +252,7 @@ Runs against the built `web/dist/` served by `pnpm serve` (sirv on `:4173`). Bui
 cd web && pnpm build && pnpm e2e
 ```
 
-E2e test files live in `web/e2e/`. Demo scenario tests are named `demo__*.spec.ts`. Video recording is currently disabled globally (`video: 'off'` in `web/playwright.config.ts`); the demo test file opts in per-test with `test.use({ video: 'on' })`. Test output is written to `docs/test-results/US-004/` (the `outputDir` in `playwright.config.ts` is per-suite — update it when adding a new spec's e2e suite).
+E2e test files live in `web/e2e/`. Demo scenario tests are named `demo__*.spec.ts`. Video recording is currently disabled globally (`video: 'off'` in `web/playwright.config.ts`); the demo test file opts in per-test with `test.use({ video: 'on' })`. Test output is written to `docs/test-results/` (the `outputDir` in `playwright.config.ts` is a single global key pointing to the current US folder — update it to the active US when working on a new suite).
 
 ### Static handler unit tests
 

@@ -12,36 +12,36 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  background: #2a1a05;
-  color: #f59e0b;
-  border: 1px solid #78350f;
+  background: var(--warning-tint);
+  color: var(--status-warning);
+  border: 1px solid rgba(217, 119, 6, 0.3);
 }
 
 .ps-fetched-at {
   font-size: 12px;
-  color: #4a6a88;
+  color: var(--text-soft);
 }
 
 .ps-btn-refresh {
   margin-left: auto;
   padding: 5px 12px;
-  border-radius: 6px;
-  border: 1px solid #1e3a5f;
-  background: #0d1f35;
-  color: #7eb8f7;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-soft);
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
+  transition: background var(--t), border-color var(--t);
 }
 
 .ps-btn-refresh:hover {
-  background: #112540;
-  border-color: #2d5a8f;
+  background: var(--muted);
+  border-color: var(--brand-black);
 }
 
 .ps-status-table th:not(:first-child),
@@ -52,17 +52,17 @@
 .ps-tag-chip {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   font-size: 11px;
-  font-family: 'Space Mono', monospace;
-  background: #0d1f35;
-  color: #7eb8f7;
-  border: 1px solid #1e3a5f;
+  font-family: var(--font-mono);
+  background: var(--qa-tint);
+  color: var(--env-qa);
+  border: 1px solid rgba(29, 78, 216, 0.25);
   white-space: nowrap;
 }
 
 .ps-tag-chip--na {
-  background: #0f1520;
-  color: #6b90b0;
-  border-color: #1a2a3a;
+  background: var(--muted);
+  color: var(--text-faint);
+  border-color: var(--border-subtle);
 }
