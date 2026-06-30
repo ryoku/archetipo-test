@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — US-051 · Lista Prodotti (token-driven shell)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ── Token annotation overlay (US-051 reference layer) ──────── */
+.annotation-overlay {
+  position: fixed;
+  bottom: 80px;
+  right: 22px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  width: 240px;
+  box-shadow: var(--shadow-md);
+  z-index: 400;
+  font-size: 11px;
+  transition: opacity var(--t);
+}
+.annotation-overlay.collapsed { width: auto; padding: 10px 14px; }
+.annotation-overlay.collapsed .ann-body { display: none; }
+.ann-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; gap: 8px;
+}
+.ann-head.collapsed-head { margin-bottom: 0; }
+.ann-title {
+  font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--primary);
+}
+.ann-toggle {
+  font-size: 11px; color: var(--text-faint);
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-mono);
+}
+.ann-item {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px; color: var(--text-body);
+}
+.ann-item:last-child { margin-bottom: 0; }
+.ann-swatch {
+  width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+.ann-var { font-family: var(--font-mono); font-size: 10px; color: var(--primary); }
+.ann-desc { color: var(--text-faint); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- BRAND RAIL — var(--primary) #CC0000, var(--rail-w) 6px -->
+  <div class="brand-rail"></div>
+
+  <!-- SIDEBAR — var(--brand-black) #0A0A0A -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/>
+          <rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/>
+          <rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">5</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployment
+      </a>
+
+      <div class="nav-label">Piattaforma</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/>
+          <path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Utenti &amp; RBAC
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/>
+          <path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="2"/>
+          <path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.5 3.5l.7.7M11.8 11.8l.7.7M3.5 12.5l.7-.7M11.8 4.2l.7-.7"/>
+        </svg>
+        Impostazioni
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar">RI</div>
+        <div>
+          <div class="user-name">Riccardo Ianniello</div>
+          <div class="user-role">Admin — platform</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- Token annotation strip — US-051 reference -->
+    <div class="token-strip">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="6" cy="6" r="5"/><path d="M6 5v4M6 3.5v.5"/>
+      </svg>
+      <strong>US-051</strong> · Shell token-driven · brand-rail: <strong>var(--primary)</strong> · sidebar: <strong>var(--brand-black)</strong> · pulsante primario: <strong>var(--primary)</strong>
+    </div>
+
+    <!-- Page header -->
+    <div class="page-top">
+      <div>
+        <div class="page-eyebrow">Workspace</div>
+        <div class="page-title">Prodotti</div>
+        <div class="page-desc">I prodotti a cui hai accesso e il loro stato di deployment corrente.</div>
+      </div>
+      <div class="flex gap-2 items-center">
+        <button class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="5.5" cy="5.5" r="4"/><path d="M9.5 9.5l2 2"/>
+          </svg>
+          Cerca
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M6.5 1v11M1 6.5h11"/>
+          </svg>
+          Nuovo prodotto
+        </button>
+      </div>
+    </div>
+
+    <!-- Page body -->
+    <div class="page-body">
+
+      <!-- Token palette reference (US-051 callout) -->
+      <div class="token-panel">
+        <div class="token-panel-title">Token palette · US-051 — fonte unica di verità</div>
+        <div class="token-row">
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#CC0000;border-color:#CC0000;"></div>
+            <div class="swatch-label">--primary</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#AA0000;border-color:#AA0000;"></div>
+            <div class="swatch-label">--primary-hover</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#8B0000;border-color:#8B0000;"></div>
+            <div class="swatch-label">--danger</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#0A0A0A;border-color:#333;"></div>
+            <div class="swatch-label">--brand-black</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#F5F5F5;"></div>
+            <div class="swatch-label">--surface-raised</div>
+          </div>
+          <div class="token-swatch" style="margin-left:16px;">
+            <div class="swatch-block" style="background:#16A34A;border-color:#16A34A;"></div>
+            <div class="swatch-label">--status-success</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#D97706;border-color:#D97706;"></div>
+            <div class="swatch-label">--status-warning</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#CC0000;border-color:#CC0000;"></div>
+            <div class="swatch-label">--status-error</div>
+          </div>
+          <div class="token-swatch" style="margin-left:16px;">
+            <div class="swatch-block" style="background:#0A0A0A;border-color:#333;"></div>
+            <div class="swatch-label">--env-prod</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#1D4ED8;border-color:#1D4ED8;"></div>
+            <div class="swatch-label">--env-qa</div>
+          </div>
+          <div class="token-swatch">
+            <div class="swatch-block" style="background:#6B7280;border-color:#6B7280;"></div>
+            <div class="swatch-label">--env-dev</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="stats-row">
+        <div class="stat-tile accent">
+          <div class="stat-val">5</div>
+          <div class="stat-key">Prodotti</div>
+          <div class="stat-delta">+1 questo mese</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">15</div>
+          <div class="stat-key">Ambienti attivi</div>
+        </div>
+        <div class="stat-tile warn">
+          <div class="stat-val">9</div>
+          <div class="stat-key">Deploy oggi</div>
+        </div>
+        <div class="stat-tile ok">
+          <div class="stat-val" style="color:var(--status-success)">100%</div>
+          <div class="stat-key">Sync con Flux</div>
+        </div>
+      </div>
+
+      <!-- Search + filter bar -->
+      <div class="topbar">
+        <div class="input-wrap" style="max-width:340px;flex:1;">
+          <svg class="input-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="6" cy="6" r="4"/><path d="M10 10l2.5 2.5"/>
+          </svg>
+          <input type="text" class="input has-icon" placeholder="Cerca per nome o slug…" value="platform">
+        </div>
+        <button class="filter-chip on">Tutti</button>
+        <button class="filter-chip">In produzione</button>
+        <button class="filter-chip">Deploy recenti</button>
+        <button class="filter-chip">In warning</button>
+      </div>
+
+      <!-- Product grid -->
+      <div class="product-grid">
+
+        <!-- Card 1 — Platform API (active search result) -->
+        <a href="product.html" class="p-card" style="border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-tint),var(--shadow-md);">
+          <div class="p-card-top">
+            <div class="p-icon">PL</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Platform API</div>
+              <div class="p-slug">platform-api</div>
+            </div>
+            <span class="badge badge-brand">DevOps</span>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev"><span class="dot dot-ok" style="width:5px;height:5px;"></span>dev</span>
+            <span class="badge badge-qa"><span class="dot dot-ok" style="width:5px;height:5px;"></span>qa</span>
+            <span class="badge badge-prod"><span class="dot dot-pulse" style="width:5px;height:5px;"></span>prod</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/>
+                </svg>
+                3 componenti
+              </div>
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="5.5" cy="4" r="2"/><path d="M2 10c0-1.9 1.6-3.5 3.5-3.5S9 8.1 9 10"/>
+                </svg>
+                4 membri
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">2 min fa</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Card 2 — Customer App -->
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon" style="background:var(--env-qa);">CA</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Customer App</div>
+              <div class="p-slug">customer-app</div>
+            </div>
+            <span class="badge badge-success">Stabile</span>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-qa">qa</span>
+            <span class="badge badge-prod">prod</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/>
+                </svg>
+                2 componenti
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">1 ora fa</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Card 3 — Data Sync (warning) -->
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon" style="background:#4B5563;">DS</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Data Sync</div>
+              <div class="p-slug">data-sync</div>
+            </div>
+            <span class="badge badge-warning">Stale</span>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-qa">qa</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/>
+                </svg>
+                2 componenti
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-warn"></div>
+              <span class="p-last">3 giorni fa</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Card 4 — Nexus Gateway -->
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon">NX</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Nexus Gateway</div>
+              <div class="p-slug">nexus-gateway</div>
+            </div>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-qa">qa</span>
+            <span class="badge badge-prod">prod</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/>
+                </svg>
+                4 componenti
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">45 min fa</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Card 5 — Observability Stack (new) -->
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon" style="background:var(--primary);">OB</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Observability</div>
+              <div class="p-slug">observability-stack</div>
+            </div>
+            <span class="badge badge-brand">Nuovo</span>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/>
+                </svg>
+                1 componente
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-idle"></div>
+              <span class="p-last">creato oggi</span>
+            </div>
+          </div>
+        </a>
+
+      </div><!-- /product-grid -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- Token annotation panel (floats over page, collapsible) -->
+<div class="annotation-overlay" id="ann">
+  <div class="ann-head">
+    <span class="ann-title">Shell tokens attivi</span>
+    <button class="ann-toggle" onclick="toggleAnn()">—</button>
+  </div>
+  <div class="ann-body">
+    <div class="ann-item">
+      <div class="ann-swatch" style="background:#CC0000;border-color:#CC0000;"></div>
+      <div>
+        <div class="ann-var">--primary</div>
+        <div class="ann-desc">brand-rail · logo · btn-primary</div>
+      </div>
+    </div>
+    <div class="ann-item">
+      <div class="ann-swatch" style="background:#0A0A0A;border-color:#333;"></div>
+      <div>
+        <div class="ann-var">--brand-black</div>
+        <div class="ann-desc">sidebar · p-icon</div>
+      </div>
+    </div>
+    <div class="ann-item">
+      <div class="ann-swatch" style="background:#1D4ED8;border-color:#1D4ED8;"></div>
+      <div>
+        <div class="ann-var">--env-qa</div>
+        <div class="ann-desc">badge-qa · deploy-cell.qa</div>
+      </div>
+    </div>
+    <div class="ann-item">
+      <div class="ann-swatch" style="background:#16A34A;border-color:#16A34A;"></div>
+      <div>
+        <div class="ann-var">--status-success</div>
+        <div class="ann-desc">dot-ok · badge-success</div>
+      </div>
+    </div>
+    <div class="ann-item">
+      <div class="ann-swatch" style="background:#D97706;border-color:#D97706;"></div>
+      <div>
+        <div class="ann-var">--status-warning</div>
+        <div class="ann-desc">dot-warn · badge-warning</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast demo -->
+<div class="toast-stack">
+  <div class="toast toast-ok">
+    <div class="dot dot-ok"></div>
+    <div>
+      <div class="toast-msg">Deploy completato</div>
+      <div class="toast-mono">platform-api/api → prod · v2.1.5</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleAnn() {
+  const el = document.getElementById('ann');
+  el.classList.toggle('collapsed');
+  const btn = el.querySelector('.ann-toggle');
+  btn.textContent = el.classList.contains('collapsed') ? '+' : '—';
+  const head = el.querySelector('.ann-head');
+  head.classList.toggle('collapsed-head', el.classList.contains('collapsed'));
+}
+
+// Filter chips
+document.querySelectorAll('.filter-chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  });
+});
+</script>
+</body>
+</html>

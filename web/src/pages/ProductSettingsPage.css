@@ -1,10 +1,11 @@
 /* Settings card — wraps a settings section */
 .pd-settings-card {
-  background: #0b0f1c;
-  border: 1px solid #16233a;
-  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
   overflow: hidden;
   margin-bottom: 16px;
+  box-shadow: var(--shadow-xs);
 }
 
 .pd-settings-card-head {
@@ -12,20 +13,20 @@
   align-items: flex-start;
   gap: 12px;
   padding: 18px 20px 14px;
-  border-bottom: 1px solid #16233a;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .pd-settings-card-icon {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  background: #071410;
-  border: 1px solid rgba(0, 195, 170, 0.2);
-  border-radius: 8px;
+  background: var(--primary-tint);
+  border: 1px solid var(--primary-line);
+  border-radius: var(--r-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #00c3aa;
+  color: var(--primary);
 }
 
 .pd-settings-card-title-group {
@@ -40,12 +41,12 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #dde6f2;
+  color: var(--text-strong);
 }
 
 .pd-settings-card-sub {
   font-size: 12px;
-  color: #6b859e;
+  color: var(--text-soft);
   line-height: 1.5;
 }
 
@@ -65,19 +66,19 @@
   padding: 2px 7px;
   border-radius: 20px;
   border: 1px solid transparent;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .pd-source-badge--product {
-  color: #00c3aa;
-  background: #071410;
-  border-color: rgba(0, 195, 170, 0.3);
+  color: var(--primary);
+  background: var(--primary-tint);
+  border-color: var(--primary-line);
 }
 
 .pd-source-badge--default {
-  color: #6b859e;
-  background: #0c1520;
-  border-color: rgba(107, 133, 158, 0.25);
+  color: var(--text-soft);
+  background: var(--muted);
+  border-color: var(--border-subtle);
 }
 
 /* Regex display row */
@@ -89,12 +90,12 @@
 }
 
 .pd-regex-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
-  color: #90d0c8;
-  background: #101626;
-  border: 1px solid #1d2f4a;
-  border-radius: 6px;
+  color: var(--text-strong);
+  background: var(--muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
   padding: 6px 12px;
   word-break: break-all;
   flex: 1;

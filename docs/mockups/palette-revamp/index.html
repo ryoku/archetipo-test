@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KubeGate — Prodotti</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- BRAND RAIL (signature element) -->
+  <div class="brand-rail"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1L13 4V8C13 11 10.5 13.5 8 15C5.5 13.5 3 11 3 8V4L8 1Z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M6 8L7.5 9.5L10 7" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">KubeGate</div>
+        <div class="logo-version">v1.0 — internal</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Workspace</div>
+      <a href="index.html" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/>
+          <rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>
+        </svg>
+        Prodotti
+        <span class="nav-badge">4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2v4l3 2"/><circle cx="8" cy="8" r="6"/>
+        </svg>
+        Deployment
+      </a>
+
+      <div class="nav-label">Piattaforma</div>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="5" r="2.5"/><path d="M3 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/>
+        </svg>
+        Utenti &amp; RBAC
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5.5h4M5 10.5h3"/>
+        </svg>
+        Admin
+      </a>
+      <a href="#" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="2"/><path d="M8 2v1M8 13v1M2 8h1M13 8h1M3.5 3.5l.7.7M11.8 11.8l.7.7M3.5 12.5l.7-.7M11.8 4.2l.7-.7"/>
+        </svg>
+        Impostazioni
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-cell">
+        <div class="avatar">MA</div>
+        <div>
+          <div class="user-name">Marco Andreoli</div>
+          <div class="user-role">Editor — platform-api</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="page-top">
+      <div>
+        <div class="page-eyebrow">Workspace</div>
+        <div class="page-title">Prodotti</div>
+        <div class="page-desc">I prodotti a cui hai accesso e il loro stato di deployment corrente.</div>
+      </div>
+      <button class="btn btn-primary btn-lg">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6.5 1v11M1 6.5h11"/></svg>
+        Nuovo prodotto
+      </button>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-tile accent">
+          <div class="stat-val">4</div>
+          <div class="stat-key">Prodotti</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">12</div>
+          <div class="stat-key">Ambienti</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-val">7</div>
+          <div class="stat-key">Deploy oggi</div>
+        </div>
+        <div class="stat-tile ok">
+          <div class="stat-val" style="color:var(--status-success)">100%</div>
+          <div class="stat-key">In sync con Flux</div>
+        </div>
+      </div>
+
+      <!-- Topbar -->
+      <div class="topbar">
+        <div class="input-wrap" style="max-width:320px;flex:1;">
+          <svg class="input-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="4"/><path d="M10 10l2.5 2.5"/></svg>
+          <input type="text" class="input has-icon" placeholder="Cerca prodotti…">
+        </div>
+        <button class="filter-chip on">Tutti</button>
+        <button class="filter-chip">Produzione</button>
+        <button class="filter-chip">Deploy recenti</button>
+      </div>
+
+      <!-- Product grid -->
+      <div class="product-grid">
+
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon">PL</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Platform API</div>
+              <div class="p-slug">platform-api</div>
+            </div>
+            <span class="badge badge-brand">DevOps</span>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-qa">qa</span>
+            <span class="badge badge-prod">prod</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/></svg>
+                3 componenti
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">2 min fa</span>
+            </div>
+          </div>
+        </a>
+
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon">CA</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Customer App</div>
+              <div class="p-slug">customer-app</div>
+            </div>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-qa">qa</span>
+            <span class="badge badge-prod">prod</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/></svg>
+                2 componenti
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">1 ora fa</span>
+            </div>
+          </div>
+        </a>
+
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon">DS</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Data Sync</div>
+              <div class="p-slug">data-sync</div>
+            </div>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-qa">qa</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/></svg>
+                2 componenti
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-warn"></div>
+              <span class="p-last">3 giorni fa</span>
+            </div>
+          </div>
+        </a>
+
+        <a href="product.html" class="p-card">
+          <div class="p-card-top">
+            <div class="p-icon">NX</div>
+            <div style="flex:1;min-width:0;">
+              <div class="p-name">Nexus Gateway</div>
+              <div class="p-slug">nexus-gateway</div>
+            </div>
+          </div>
+          <div class="p-env-row">
+            <span class="badge badge-dev">dev</span>
+            <span class="badge badge-qa">qa</span>
+            <span class="badge badge-prod">prod</span>
+          </div>
+          <div class="p-footer">
+            <div class="p-meta">
+              <div class="p-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="9" height="9" rx="1.5"/><path d="M1 4h9M4 1v3M7 1v3"/></svg>
+                4 componenti
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="dot dot-ok"></div>
+              <span class="p-last">45 min fa</span>
+            </div>
+          </div>
+        </a>
+
+      </div><!-- /product-grid -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app-shell -->
+
+<!-- Toast demo -->
+<div class="toast-stack">
+  <div class="toast toast-ok">
+    <div class="dot dot-ok"></div>
+    <div>
+      <div class="toast-msg">Deploy completato</div>
+      <div class="toast-mono">platform-api/api → prod · v2.1.4</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
